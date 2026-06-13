@@ -1,0 +1,154 @@
+/* ═══════════════════════════════════════════════════════════════
+   ClipBoard Pro — Theme Variables (Obsidian Dark & High Contrast Light)
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Obsidian Dark Theme (Default) ────────────────────────── */
+
+  /* Backgrounds */
+  --bg-primary: #161616;      /* Obsidian deep dark grey */
+  --bg-secondary: #1e1e1e;    /* Secondary panels & headers */
+  --bg-tertiary: #2a2a2a;     /* Hover states & toolbar backdrops */
+  --bg-card: #202020;         /* Solid dark grey card */
+  --bg-card-hover: #262626;   /* Slightly lighter card on hover */
+  --bg-glass: rgba(30, 30, 30, 0.75);
+  --bg-input: #262626;        /* Solid inputs */
+  --bg-input-focus: #303030;
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-tooltip: #111111;
+
+  /* Borders */
+  --border-primary: #2d2d2d;  /* Crisp dark grey borders */
+  --border-hover: #404040;
+  --border-active: #6366f1;
+  --border-input: #333333;
+
+  /* Text */
+  --text-primary: #e3e3e3;    /* Premium soft white text */
+  --text-secondary: #a3a3a3;  /* Medium grey text */
+  --text-muted: #6e6e6e;      /* Muted dark grey text */
+  --text-inverse: #161616;
+
+  /* Accent */
+  --accent-primary: #2563eb;
+  --accent-secondary: #1d4ed8;
+  --accent-tertiary: #60a5fa;
+  --accent-gradient: linear-gradient(135deg, #2563eb, #1d4ed8);
+  --accent-gradient-hover: linear-gradient(135deg, #3b82f6, #2563eb);
+  --accent-glow: 0 0 20px rgba(37, 99, 235, 0.25);
+  --accent-glow-strong: 0 0 30px rgba(37, 99, 235, 0.45);
+  --accent-subtle: rgba(37, 99, 235, 0.12);
+  --accent-subtle-hover: rgba(37, 99, 235, 0.2);
+
+  /* Semantic Colors */
+  --success: #10b981;
+  --success-bg: rgba(16, 185, 129, 0.08);
+  --success-border: rgba(16, 185, 129, 0.2);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.08);
+  --warning-border: rgba(245, 158, 11, 0.2);
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.08);
+  --danger-border: rgba(239, 68, 68, 0.2);
+  --info: #3b82f6;
+  --info-bg: rgba(59, 130, 246, 0.08);
+  --info-border: rgba(59, 130, 246, 0.2);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.12);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.22);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-inner: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  /* Note Colors */
+  --note-blue: #3b82f6;
+  --note-purple: #0ea5e9;
+  --note-green: #10b981;
+  --note-orange: #f59e0b;
+  --note-red: #ef4444;
+  --note-pink: #ec4899;
+  --note-teal: #14b8a6;
+  --note-gray: #6b7280;
+
+  /* Content Type Colors */
+  --type-text: #9ca3af;
+  --type-url: #6b7280;
+  --type-email: #4b5563;
+  --type-code: #52525b;
+  --type-image: #d4d4d8;
+
+  /* Misc */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+  --blur-glass: blur(12px);
+  --blur-modal: blur(20px);
+  --titlebar-height: 48px;
+  --statusbar-height: 32px;
+  --filter-bar-height: 44px;
+}
+
+/* ── High Contrast Light Theme ──────────────────────────────── */
+[data-theme="light"] {
+  /* Backgrounds */
+  --bg-primary: #ebedf0;       /* Cool light grey panel backdrop */
+  --bg-secondary: #ffffff;     /* Solid pure white for main panels */
+  --bg-tertiary: #f4f5f6;      /* Off-white toolbar sections */
+  --bg-card: #ffffff;          /* Solid white cards for stark contrast */
+  --bg-card-hover: #f7f8f9;    /* Clean card hover */
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-input: #f4f5f6;         /* Solid light grey input backgrounds */
+  --bg-input-focus: #ebedf0;
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-tooltip: #212529;       /* Dark tooltips look premium in light theme */
+
+  /* Borders */
+  --border-primary: #dcdfe6;   /* Visible, high contrast solid borders */
+  --border-hover: #b0b4bc;     /* Darker grey hover borders */
+  --border-active: #2563eb;
+  --border-input: #dcdfe6;
+
+  /* Text */
+  --text-primary: #1f2937;     /* High contrast charcoal black */
+  --text-secondary: #4b5563;   /* Slate grey subtext */
+  --text-muted: #8892a0;       /* Muted grey */
+  --text-inverse: #ffffff;
+
+  /* Accent */
+  --accent-subtle: rgba(37, 99, 235, 0.08);
+  --accent-subtle-hover: rgba(37, 99, 235, 0.14);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
+  --shadow-inner: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 2px 5px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 6px 16px rgba(0, 0, 0, 0.09);
+
+  /* Content Type Colors - Light Mode Contrast */
+  --type-text: #4b5563;
+  --type-url: #374151;
+  --type-email: #1f2937;
+  --type-code: #6b7280;
+  --type-image: #9ca3af;
+}

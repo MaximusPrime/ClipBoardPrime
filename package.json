@@ -1,0 +1,21 @@
+{
+  "name": "clipboard-pro-app",
+  "version": "1.0.0",
+  "description": "Profesyonel Clipboard Manager + Not Paneli",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "rebuild": "electron-rebuild"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "electron-store": "^10.0.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "@electron/rebuild": "^3.0.0"
+  },
+  "author": "ClipBoardPro",
+  "license": "MIT"
+}
