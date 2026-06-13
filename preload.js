@@ -30,6 +30,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'get-stats',
   'paste-to-active-window',
   'reorder-notes',
+  'open-external',
 ];
 
 const ALLOWED_ON_CHANNELS = [
@@ -102,4 +103,7 @@ contextBridge.exposeInMainWorld('api', {
   onClipboardChanged: (callback) => safeOn('clipboard-changed', callback),
   onSettingsChanged: (callback) => safeOn('settings-changed', callback),
   onNavigate: (callback) => safeOn('navigate', callback),
+
+  // ── Utilities ──────────────────────────────────────────────
+  openExternal: (url) => safeInvoke('open-external', url),
 });

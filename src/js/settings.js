@@ -73,6 +73,17 @@ const SettingsPanel = (() => {
     elements.importBtn.addEventListener('click', () => importData());
     elements.clearAllBtn.addEventListener('click', () => clearAllHistory());
 
+    // ─── Hakkında Bağlantıları Dinleyicileri ───
+    document.querySelectorAll('.about-link').forEach((link) => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = link.dataset.url;
+        if (url) {
+          window.api.openExternal(url);
+        }
+      });
+    });
+
     // Main process'ten ayar değişimi olaylarını dinle (örn. arka planda güncellenirse)
     window.api.onSettingsChanged(({ key, value }) => {
       currentSettings[key] = value;

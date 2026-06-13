@@ -974,6 +974,18 @@ function registerIPCHandlers() {
       return { success: false, error: err.message };
     }
   });
+
+  // ── open-external ────────────────────────────────────────────
+
+  ipcMain.handle('open-external', async (_event, url) => {
+    try {
+      await shell.openExternal(url);
+      return { success: true };
+    } catch (err) {
+      console.error('open-external hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════

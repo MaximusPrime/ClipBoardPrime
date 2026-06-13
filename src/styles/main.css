@@ -1885,3 +1885,173 @@ img { max-width: 100%; display: block; }
   background: var(--accent-subtle);
 }
 
+/* ── Settings About Tab Premium Styles ─────────────────────── */
+.about-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 0;
+  max-width: 440px;
+  margin: 0 auto;
+  animation: fadeIn 0.4s ease;
+}
+
+.about-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #1d4ed8 100%);
+  color: #ffffff;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.about-logo .icon-svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2;
+}
+
+.about-app-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.5px;
+}
+
+.about-app-version {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* Profil Kartı */
+.developer-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+  text-align: left;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.developer-profile-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-hover);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.developer-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.25);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.developer-info {
+  flex: 1;
+}
+
+.developer-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.developer-title {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.developer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a.meta-item:hover {
+  color: var(--accent-primary);
+}
+
+.meta-item .icon-svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
+  color: var(--text-muted);
+}
+
+a.meta-item:hover .icon-svg {
+  color: var(--accent-primary);
+}
+
+/* Proje Detayları */
+.project-details {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.project-details p {
+  margin-bottom: 16px;
+}
+
+.about-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.about-buttons .btn {
+  flex: 1;
+  max-width: 160px;
+  height: 36px;
+  font-weight: 600;
+}
+
+.about-copyright {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: 12px;
+}
+
+
