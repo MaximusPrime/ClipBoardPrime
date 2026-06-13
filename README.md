@@ -89,4 +89,4 @@ ClipBoardPro/
 
 ## 📄 Lisans
 
-Bu proje kişisel kullanım ve açık kaynaklı geliştirme amacıyla hazırlanmıştır. Tüm hakları saklıdır.
+Bu proje **MIT Lisansı** altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına göz atabilirsiniz.
