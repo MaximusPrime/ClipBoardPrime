@@ -23,13 +23,15 @@ const NotesPanel = (() => {
     editContent: document.getElementById('note-edit-content'),
     editCategory: document.getElementById('note-edit-category'),
     categoryPreview: document.getElementById('note-edit-category-preview'),
+    noteColorPicker: document.getElementById('note-edit-color-picker'),
     modalTitle: document.getElementById('note-editor-title'),
     
     // Category Manager Modal
     categoryModal: document.getElementById('category-manager-modal'),
     categoryCloseBtn: document.getElementById('category-manager-close-btn'),
     categoryNameInput: document.getElementById('new-category-name'),
-    categoryColorInput: document.getElementById('new-category-color'),
+    categoryColorInput: document.getElementById('new-category-color-picker'),
+    categoryIconInput: document.getElementById('new-category-icon'),
     addCategoryBtn: document.getElementById('add-category-btn'),
     categoryList: document.getElementById('category-list'),
 
@@ -48,7 +50,8 @@ const NotesPanel = (() => {
   let categoriesList = [];
   let activeCategoryFilter = '';
   let searchQuery = '';
-  let selectedColor = 'gray';
+  let selectedColor = 'charcoal';
+  let isDraggingGlobal = false;
 
   /**
    * Modülü başlatır ve olay dinleyicilerini tanımlar
@@ -92,11 +95,37 @@ const NotesPanel = (() => {
       updateCategoryPreview();
     });
 
+    elements.noteColorPicker.addEventListener('click', (e) => {
+      const swatch = e.target.closest('.color-swatch');
+      if (!swatch) return;
+
+      elements.noteColorPicker.querySelectorAll('.color-swatch').forEach(s => {
+        s.classList.remove('active');
+        s.style.border = '2px solid transparent';
+      });
+      swatch.classList.add('active');
+      swatch.style.border = '2px solid #fff';
+      selectedColor = swatch.dataset.color || 'charcoal';
+    });
+
     // ─── Kategori Yöneticisi Modalı Dinleyicileri ───
     elements.categoryCloseBtn.addEventListener('click', () => closeCategoryModal());
     elements.addCategoryBtn.addEventListener('click', () => addCategory());
     elements.categoryNameInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') addCategory();
+    });
+
+    // Kategori modalı renk seçimi
+    elements.categoryColorInput.addEventListener('click', (e) => {
+      const swatch = e.target.closest('.category-color-swatch');
+      if (!swatch) return;
+
+      elements.categoryColorInput.querySelectorAll('.category-color-swatch').forEach(s => {
+        s.classList.remove('active');
+        s.style.border = '2px solid transparent';
+      });
+      swatch.classList.add('active');
+      swatch.style.border = '2px solid #fff';
     });
 
     // ─── Detay Modalı Dinleyicileri ───
@@ -126,7 +155,11 @@ const NotesPanel = (() => {
       };
 
       if (activeCategoryFilter) {
-        params.category_id = parseInt(activeCategoryFilter);
+        if (activeCategoryFilter === 'null') {
+          params.category_id = null;
+        } else {
+          params.category_id = parseInt(activeCategoryFilter);
+        }
       }
 
       const response = await window.api.getNotes(params);
@@ -194,9 +227,10 @@ const NotesPanel = (() => {
       elements.categoryFilter.appendChild(opt);
     });
     elements.categoryFilter.value = filterVal; // Seçimi koru
+    activeCategoryFilter = elements.categoryFilter.value; // JS durumunu gerçek seçili değerle senkronize et
 
     // 2. Editor modal dropdown
-    elements.editCategory.innerHTML = '';
+    elements.editCategory.innerHTML = '<option value="">(Kategorisiz)</option>';
     categoriesList.forEach((cat) => {
       const opt = document.createElement('option');
       opt.value = cat.id;
@@ -215,10 +249,10 @@ const NotesPanel = (() => {
 
     if (notesList.length === 0) {
       elements.list.innerHTML = `
-        <div class="panel-empty-state">
+        <div class="empty-state">
           <span class="empty-state-icon">${Utils.Icons.fileText}</span>
           <p class="empty-state-title">Not Bulunamadı</p>
-          <p class="empty-state-desc">${searchQuery ? 'Aramanızla eşleşen not bulunamadı.' : 'Yeni bir not eklemek için sağ üstteki "+" butonuna tıklayın.'}</p>
+          <p class="empty-state-text">${searchQuery ? 'Aramanızla eşleşen not bulunamadı.' : 'Yeni bir not eklemek için sağ üstteki "+" butonuna tıklayın.'}</p>
         </div>
       `;
       return;
@@ -230,7 +264,8 @@ const NotesPanel = (() => {
       const el = document.createElement('div');
       el.className = `note-item ${note.is_pinned ? 'pinned' : ''}`;
       el.dataset.id = note.id;
-      el.dataset.color = note.color || 'blue';
+      el.dataset.color = note.color || 'charcoal';
+      el.setAttribute('tabindex', '0');
 
       // Arama vurgulaması
       const titleText = note.title || 'Başlıksız Not';
@@ -262,10 +297,11 @@ const NotesPanel = (() => {
         <div class="note-item-header">
           <div class="note-item-title">${highlightedTitle}</div>
           <div class="note-item-actions">
-            <button class="note-action-btn copy-btn" data-tooltip="Kopyala">${Utils.Icons.copy}</button>
-            <button class="note-action-btn edit-btn" data-tooltip="Düzenle">${Utils.Icons.edit}</button>
-            <button class="note-action-btn pin-btn ${note.is_pinned ? 'pin-active' : ''}" data-tooltip="${note.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}">${Utils.Icons.pin}</button>
-            <button class="note-action-btn delete-btn" data-tooltip="Sil">${Utils.Icons.trash}</button>
+            <button class="note-action-btn detail-btn" data-tooltip="Detayları Göster" aria-label="Detayları göster">${Utils.Icons.eye}</button>
+            <button class="note-action-btn copy-btn" data-tooltip="Kopyala" aria-label="Kopyala">${Utils.Icons.copy}</button>
+            <button class="note-action-btn edit-btn" data-tooltip="Düzenle" aria-label="Düzenle">${Utils.Icons.edit}</button>
+            <button class="note-action-btn pin-btn ${note.is_pinned ? 'pin-active' : ''}" data-tooltip="${note.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}" aria-label="${note.is_pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}">${Utils.Icons.pin}</button>
+            <button class="note-action-btn delete-btn" data-tooltip="Sil" aria-label="Sil">${Utils.Icons.trash}</button>
           </div>
         </div>
         <div class="note-item-content">${highlightedContent.replace(/\n/g, '<br>')}</div>
@@ -274,7 +310,7 @@ const NotesPanel = (() => {
         </div>
         <div class="note-item-footer">
           <div style="display: flex; align-items: center; gap: 8px;">
-            ${note.category_name ? `<span class="note-category-tag">${Utils.Icons[note.category_icon] || Utils.Icons.folder} ${note.category_name}</span>` : '<span></span>'}
+            ${note.category_name ? `<span class="note-category-tag" style="border-color: ${note.category_color || 'var(--border-primary)'}; color: ${note.category_color || 'var(--text-secondary)'}; background: ${note.category_color ? note.category_color + '15' : 'var(--bg-tertiary)'};">${Utils.Icons[note.category_icon] || Utils.Icons.folder} ${note.category_name}</span>` : `<span class="note-category-tag" style="border-color: var(--border-primary); color: var(--text-muted); background: var(--bg-tertiary); font-style: italic;">Kategorisiz</span>`}
             ${badgeHTML}
           </div>
           <span class="note-date">${dateLabel}</span>
@@ -289,6 +325,10 @@ const NotesPanel = (() => {
   }
 
   async function handleNoteReorder(draggedId, targetId, isPinned) {
+    if (searchQuery || activeCategoryFilter) {
+      Utils.showToast('Arama veya filtreleme etkinken sıralama değiştirilemez', 'warning');
+      return;
+    }
     const groupNotes = notesList.filter(n => n.is_pinned === isPinned);
     const draggedIndex = groupNotes.findIndex(n => n.id === draggedId);
     const targetIndex = groupNotes.findIndex(n => n.id === targetId);
@@ -318,8 +358,33 @@ const NotesPanel = (() => {
   }
 
   function bindNoteEvents(el, note) {
+    // Klavye navigasyonu (Ok tuşları ile odaklanma, Enter/Space ile detayı açma)
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openDetailModal(note);
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = el.nextElementSibling;
+        if (next && next.classList.contains('note-item')) {
+          next.focus();
+        }
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = el.previousElementSibling;
+        if (prev && prev.classList.contains('note-item')) {
+          prev.focus();
+        }
+      }
+    });
+
     // Nota tıklayınca akordiyonu aç/kapat (Madde 4)
     el.addEventListener('click', (e) => {
+      if (isDraggingGlobal) return;
       if (e.target.closest('.note-action-btn') || e.target.closest('.note-item-accordion')) return;
       
       const isOpen = el.classList.contains('accordion-open');
@@ -334,11 +399,13 @@ const NotesPanel = (() => {
       }
     });
 
-    // Tüm notlar için sürükle-bırak (Madde 2 - genişletilmiş)
-    el.setAttribute('draggable', 'true');
+    // Arama veya filtre aktifse sürüklemeyi engelle
+    const isDraggable = (!searchQuery && !activeCategoryFilter) ? 'true' : 'false';
+    el.setAttribute('draggable', isDraggable);
     
     el.addEventListener('dragstart', (e) => {
       console.log('Drag başlatıldı - Not ID:', note.id, 'Pinned:', note.is_pinned);
+      isDraggingGlobal = true;
       draggedNoteId = note.id;
       el.classList.add('dragging');
       elements.list.classList.add('notes-list-dragging');
@@ -353,6 +420,9 @@ const NotesPanel = (() => {
       document.querySelectorAll('.note-item.drag-over').forEach(item => {
         item.classList.remove('drag-over');
       });
+      setTimeout(() => {
+        isDraggingGlobal = false;
+      }, 100);
     });
 
     el.addEventListener('dragover', (e) => {
@@ -381,6 +451,21 @@ const NotesPanel = (() => {
         }
       }
     });
+
+    // Çift tıklama ile detay modalını aç
+    el.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.note-action-btn') || e.target.closest('.note-item-accordion')) return;
+      openDetailModal(note);
+    });
+
+    // Detay/Göz butonu
+    const detailBtn = el.querySelector('.detail-btn');
+    if (detailBtn) {
+      detailBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openDetailModal(note);
+      });
+    }
 
     // Kopyala butonu
     el.querySelector('.copy-btn').addEventListener('click', async (e) => {
@@ -490,10 +575,12 @@ const NotesPanel = (() => {
     };
 
     elements.detailModal.classList.add('active');
+    Utils.initFocusTrap(elements.detailModal);
   }
 
   function closeDetailModal() {
     elements.detailModal.classList.remove('active');
+    Utils.destroyFocusTrap(elements.detailModal);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -512,7 +599,7 @@ const NotesPanel = (() => {
       elements.editTitle.value = note.title || '';
       elements.editContent.value = note.content || '';
       elements.editCategory.value = note.category_id || '';
-      selectedColor = 'gray';
+      selectedColor = note.color || 'charcoal';
     } else {
       // Yeni not ekleme modu
       if (iconSpan) iconSpan.innerHTML = Utils.Icons.fileText;
@@ -520,22 +607,42 @@ const NotesPanel = (() => {
       elements.editId.value = '';
       elements.editTitle.value = '';
       elements.editContent.value = '';
-      // Varsayılan olarak Genel kategorisini seç (kategorisiz seçeneği kalktı)
-      const genelCat = categoriesList.find(c => c.name === 'Genel');
-      const defaultCatId = genelCat ? genelCat.id : (categoriesList.length > 0 ? categoriesList[0].id : '');
-      elements.editCategory.value = activeCategoryFilter || defaultCatId;
-      selectedColor = 'gray';
+      // Varsayılan olarak aktif kategori filtresini seç
+      if (activeCategoryFilter && activeCategoryFilter !== 'null') {
+        elements.editCategory.value = activeCategoryFilter;
+      } else {
+        if (categoriesList.length > 0) {
+          elements.editCategory.value = categoriesList[0].id;
+        } else {
+          elements.editCategory.value = '';
+        }
+      }
+      selectedColor = 'charcoal';
     }
 
+    // Renk seçici swatch'larını güncelle
+    elements.noteColorPicker.querySelectorAll('.color-swatch').forEach(s => {
+      if (s.dataset.color === selectedColor) {
+        s.classList.add('active');
+        s.style.border = '2px solid #fff';
+      } else {
+        s.classList.remove('active');
+        s.style.border = '2px solid transparent';
+      }
+    });
+
     elements.editorModal.classList.add('active');
+    Utils.initFocusTrap(elements.editorModal);
     elements.editTitle.focus();
     updateCategoryPreview();
   }
 
   function closeEditorModal() {
     elements.editorModal.classList.remove('active');
+    Utils.destroyFocusTrap(elements.editorModal);
     elements.editorForm.reset();
     elements.categoryPreview.style.display = 'none';
+    selectedColor = 'charcoal';
   }
 
   function updateCategoryPreview() {
@@ -600,16 +707,28 @@ const NotesPanel = (() => {
 
   function openCategoryModal() {
     elements.categoryNameInput.value = '';
-    if (elements.categoryColorInput) {
-      elements.categoryColorInput.value = '#6b7280';
-    }
+    elements.categoryIconInput.value = 'folder';
+    
+    // Renk swatch'larını sıfırla (ilk swatch varsayılan aktif)
+    elements.categoryColorInput.querySelectorAll('.category-color-swatch').forEach((s, idx) => {
+      if (idx === 0) {
+        s.classList.add('active');
+        s.style.border = '2px solid #fff';
+      } else {
+        s.classList.remove('active');
+        s.style.border = '2px solid transparent';
+      }
+    });
+
     renderCategoryList();
     elements.categoryModal.classList.add('active');
+    Utils.initFocusTrap(elements.categoryModal);
     elements.categoryNameInput.focus();
   }
 
   function closeCategoryModal() {
     elements.categoryModal.classList.remove('active');
+    Utils.destroyFocusTrap(elements.categoryModal);
   }
 
   /**
@@ -637,10 +756,10 @@ const NotesPanel = (() => {
 
       row.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:14px;display:flex;align-items:center;color:var(--text-secondary)">${Utils.Icons[cat.icon] || Utils.Icons.folder}</span>
+          <span style="font-size:14px;display:flex;align-items:center;color:${cat.color || 'var(--text-secondary)'}">${Utils.Icons[cat.icon] || Utils.Icons.folder}</span>
           <span style="font-weight:500;color:var(--text-primary)">${Utils.escapeHtml(cat.name)}</span>
         </div>
-        <button class="btn-delete-cat" data-id="${cat.id}" style="color:var(--text-muted);cursor:pointer;font-size:11px;transition:color var(--transition-fast);padding:4px 8px;">✕ Sil</button>
+        <button class="btn-delete-cat" data-id="${cat.id}" style="color:var(--text-muted);cursor:pointer;font-size:11px;transition:color var(--transition-fast);padding:4px 8px;" aria-label="Kategoriyi sil">✕ Sil</button>
       `;
 
       // Kategori silme olayı
@@ -678,10 +797,13 @@ const NotesPanel = (() => {
    */
   async function addCategory() {
     const name = elements.categoryNameInput.value.trim();
-    const color = '#6b7280'; 
     
-    // Varsayılan klasör simgesi
-    const icon = 'folder'; 
+    // Seçili swatch rengini al
+    const activeSwatch = elements.categoryColorInput.querySelector('.category-color-swatch.active');
+    const color = activeSwatch ? activeSwatch.dataset.color : '#6b7280';
+    
+    // Seçili ikonu al
+    const icon = elements.categoryIconInput.value || 'folder'; 
 
     if (!name) {
       Utils.showToast('Kategori adı girmelisiniz', 'warning');
@@ -699,6 +821,8 @@ const NotesPanel = (() => {
         Utils.showToast('Kategori oluşturuldu', 'success');
         elements.categoryNameInput.value = '';
         await loadCategories();
+        // Dropdown'ları ve listeyi yenile
+        loadNotes();
       } else {
         Utils.showToast('Kategori oluşturulamadı: ' + response?.error, 'error');
       }

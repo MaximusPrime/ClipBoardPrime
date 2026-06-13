@@ -10,6 +10,7 @@ const App = (() => {
     resizer: document.getElementById('panel-resizer'),
     clipboardPanel: document.getElementById('clipboard-panel'),
     notesPanel: document.getElementById('notes-panel'),
+    mainContent: document.querySelector('.main-content'),
     
     // Search
     globalSearch: document.getElementById('global-search'),
@@ -34,21 +35,34 @@ const App = (() => {
   };
 
   let confirmResolve = null;
+  let settings = {};
 
   /**
    * Uygulamayı başlatır
    */
   async function init() {
-    // 1. Önce Ayarları Yükle ve Başlat (Tema gibi ayarların ilk yüklenmesi için)
+    // 1. Ayarları tek bir asenkron I/O ile en başta çekip önbelleğe al
+    try {
+      if (window.api) {
+        const response = await window.api.getSettings();
+        if (response && response.success) {
+          App.settings = response.data;
+        }
+      }
+    } catch (err) {
+      console.error('Ayarlar önbelleğe alınamadı:', err);
+    }
+
+    // 2. Ayarları Yükle ve Başlat (Tema gibi ayarların ilk yüklenmesi için)
     if (window.SettingsPanel) {
       window.SettingsPanel.init();
     }
 
-    // 2. Diğer panelleri başlat
+    // 3. Diğer panelleri başlat
     if (window.ClipboardPanel) window.ClipboardPanel.init();
     if (window.NotesPanel) window.NotesPanel.init();
 
-    // 3. Genel UI olaylarını ve Panel Genişliğini Kur
+    // 4. Genel UI olaylarını ve Panel Genişliğini Kur
     setupResizer();
     setupGlobalSearch();
     setupTitleBarActions();
@@ -56,8 +70,19 @@ const App = (() => {
     setupConfirmDialog();
     setupGlobalTooltips();
     
-    // Kayıtlı panel genişliğini uygula
-    await loadPanelWidth();
+    // Kayıtlı panel genişliğini önbellekten anında uygula (sıfır flicker)
+    loadPanelWidthFromCache();
+
+    // Geçici stil bloğunu temizle (çakışmaları önlemek için)
+    const initialStyle = document.getElementById('initial-panel-width-style');
+    if (initialStyle) {
+      initialStyle.remove();
+    }
+
+    // Ana içeriği yumuşak şekilde göster (Flicker engelleme)
+    if (elements.mainContent) {
+      elements.mainContent.style.opacity = '1';
+    }
     
     // Alt durum çubuğunu doldur
     updateStatusBar();
@@ -104,21 +129,12 @@ const App = (() => {
   }
 
   /**
-   * Kayıtlı sol panel genişliğini ayardan yükler
+   * Kayıtlı sol panel genişliğini önbellekten yükler
    */
-  async function loadPanelWidth() {
-    try {
-      if (window.api) {
-        const response = await window.api.getSettings();
-        if (response && response.success) {
-          const width = response.data.leftPanelWidth;
-          if (width) {
-            elements.clipboardPanel.style.width = `${width}px`;
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Panel genişliği yüklenemedi:', err);
+  function loadPanelWidthFromCache() {
+    const width = App.settings && App.settings.leftPanelWidth;
+    if (width) {
+      elements.clipboardPanel.style.width = `${width}px`;
     }
   }
 
@@ -224,14 +240,18 @@ const App = (() => {
       if (e.key === 'Escape') {
         if (window.SettingsPanel) window.SettingsPanel.closeSettingsModal();
         if (window.NotesPanel) {
-          // Note editor veya category modalını kapat
+          // Note editor, category veya detail modalını kapat
           const editorModal = document.getElementById('note-editor-modal');
           const catModal = document.getElementById('category-manager-modal');
+          const detailModal = document.getElementById('note-detail-modal');
           if (editorModal.classList.contains('active')) {
             editorModal.classList.remove('active');
           }
           if (catModal.classList.contains('active')) {
             catModal.classList.remove('active');
+          }
+          if (detailModal.classList.contains('active')) {
+            detailModal.classList.remove('active');
           }
         }
         
@@ -356,11 +376,13 @@ const App = (() => {
       elements.confirmIcon.innerHTML = icon || Utils.Icons.alertTriangle;
       
       elements.confirmDialog.classList.add('active');
+      Utils.initFocusTrap(elements.confirmDialog);
     });
   }
 
   function handleConfirmResponse(value) {
     elements.confirmDialog.classList.remove('active');
+    Utils.destroyFocusTrap(elements.confirmDialog);
     if (confirmResolve) {
       confirmResolve(value);
       confirmResolve = null;

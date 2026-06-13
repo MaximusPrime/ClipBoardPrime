@@ -774,7 +774,7 @@ function formatBytes(bytes) {
  * Tüm veriyi JSON objesi olarak dışa aktarır.
  */
 function exportAll() {
-  const clipboard_history = db.prepare('SELECT * FROM clipboard_history').all();
+  const clipboard_history = db.prepare('SELECT * FROM clipboard_history').all().map(decryptSensitiveItem);
   const notes = db.prepare('SELECT * FROM notes').all();
   const categories = db.prepare('SELECT * FROM categories').all();
   const settings = db.prepare('SELECT * FROM settings').all();
@@ -804,15 +804,120 @@ function exportAll() {
 }
 
 /**
+ * İçe aktarma verisinin şemasını doğrular.
+ * @param {Object} data - İçe aktarılacak JSON verisi
+ */
+function validateImportData(data) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('İçe aktarma verisi bir nesne (object) olmalıdır.');
+  }
+  if (!data.version || typeof data.version !== 'string') {
+    throw new Error('İçe aktarma verisi geçerli bir "version" dizesi içermelidir.');
+  }
+  if (!data.data || typeof data.data !== 'object') {
+    throw new Error('İçe aktarma verisi geçerli bir "data" nesnesi içermelidir.');
+  }
+
+  const payload = data.data;
+
+  // 1. categories doğrulaması
+  if (payload.categories !== undefined) {
+    if (!Array.isArray(payload.categories)) {
+      throw new Error('Yedek dosyasındaki "categories" bir dizi (array) olmalıdır.');
+    }
+    for (let i = 0; i < payload.categories.length; i++) {
+      const cat = payload.categories[i];
+      if (typeof cat !== 'object' || cat === null) {
+        throw new Error(`Kategoriler dizisindeki ${i}. eleman geçersiz bir nesnedir.`);
+      }
+      if (typeof cat.name !== 'string' || cat.name.trim() === '') {
+        throw new Error(`Kategoriler dizisindeki ${i}. elemanın "name" alanı zorunlu ve metin (string) olmalıdır.`);
+      }
+      if (cat.color !== undefined && typeof cat.color !== 'string') {
+        throw new Error(`Kategoriler dizisindeki "${cat.name}" elemanının "color" değeri metin (string) olmalıdır.`);
+      }
+      if (cat.icon !== undefined && typeof cat.icon !== 'string') {
+        throw new Error(`Kategoriler dizisindeki "${cat.name}" elemanının "icon" değeri metin (string) olmalıdır.`);
+      }
+    }
+  }
+
+  // 2. clipboard_history doğrulaması
+  if (payload.clipboard_history !== undefined) {
+    if (!Array.isArray(payload.clipboard_history)) {
+      throw new Error('Yedek dosyasındaki "clipboard_history" bir dizi (array) olmalıdır.');
+    }
+    for (let i = 0; i < payload.clipboard_history.length; i++) {
+      const item = payload.clipboard_history[i];
+      if (typeof item !== 'object' || item === null) {
+        throw new Error(`Pano geçmişi dizisindeki ${i}. eleman geçersiz bir nesnedir.`);
+      }
+      if (typeof item.content !== 'string') {
+        throw new Error(`Pano geçmişi dizisindeki ${i}. elemanın "content" alanı zorunlu ve metin (string) olmalıdır.`);
+      }
+      if (item.content_type !== undefined && typeof item.content_type !== 'string') {
+        throw new Error(`Pano geçmişi dizisindeki ${i}. elemanın "content_type" değeri metin (string) olmalıdır.`);
+      }
+      if (item.is_pinned !== undefined && typeof item.is_pinned !== 'number') {
+        throw new Error(`Pano geçmişi dizisindeki ${i}. elemanın "is_pinned" değeri sayı (number: 0 veya 1) olmalıdır.`);
+      }
+      if (item.is_favorite !== undefined && typeof item.is_favorite !== 'number') {
+        throw new Error(`Pano geçmişi dizisindeki ${i}. elemanın "is_favorite" değeri sayı (number: 0 veya 1) olmalıdır.`);
+      }
+    }
+  }
+
+  // 3. notes doğrulaması
+  if (payload.notes !== undefined) {
+    if (!Array.isArray(payload.notes)) {
+      throw new Error('Yedek dosyasındaki "notes" bir dizi (array) olmalıdır.');
+    }
+    for (let i = 0; i < payload.notes.length; i++) {
+      const note = payload.notes[i];
+      if (typeof note !== 'object' || note === null) {
+        throw new Error(`Notlar dizisindeki ${i}. eleman geçersiz bir nesnedir.`);
+      }
+      if (typeof note.title !== 'string') {
+        throw new Error(`Notlar dizisindeki ${i}. elemanın "title" alanı zorunlu ve metin (string) olmalıdır.`);
+      }
+      if (typeof note.content !== 'string') {
+        throw new Error(`Notlar dizisindeki ${i}. elemanın "content" alanı zorunlu ve metin (string) olmalıdır.`);
+      }
+      if (note.color !== undefined && typeof note.color !== 'string') {
+        throw new Error(`Notlar dizisindeki "${note.title}" elemanının "color" değeri metin (string) olmalıdır.`);
+      }
+    }
+  }
+
+  // 4. settings doğrulaması
+  if (payload.settings !== undefined) {
+    if (!Array.isArray(payload.settings)) {
+      throw new Error('Yedek dosyasındaki "settings" bir dizi (array) olmalıdır.');
+    }
+    for (let i = 0; i < payload.settings.length; i++) {
+      const s = payload.settings[i];
+      if (typeof s !== 'object' || s === null) {
+        throw new Error(`Ayarlar dizisindeki ${i}. eleman geçersiz bir nesnedir.`);
+      }
+      if (typeof s.key !== 'string' || s.key.trim() === '') {
+        throw new Error(`Ayarlar dizisindeki ${i}. elemanın "key" alanı zorunlu ve metin (string) olmalıdır.`);
+      }
+      if (s.value === undefined) {
+        throw new Error(`Ayarlar dizisindeki "${s.key}" elemanının "value" alanı zorunludur.`);
+      }
+    }
+  }
+}
+
+/**
  * JSON verisini veritabanına aktarır.
  * Mevcut veriyi temizlemeden ekler. Çakışmalarda mevcut kayıtlar korunur.
  * @param {Object} data - exportAll() formatında veri
  * @returns {Object} İçe aktarma sonuçları
  */
 function importAll(data) {
-  if (!data || !data.data) {
-    throw new Error('Geçersiz içe aktarma verisi');
-  }
+  // JSON Şema Doğrulaması
+  validateImportData(data);
 
   const results = {
     clipboard_history: 0,
@@ -866,29 +971,43 @@ function importAll(data) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const item of data.data.clipboard_history) {
-        let imagePath = item.image_path || null;
+        // Mükerrer kontrolü
+        const existing = checkExistingClipboardItem(item.content, item.content_type || 'text', item.is_sensitive);
+        if (existing) continue;
+
+        let imagePath = null;
 
         // Base64 görsel verisi varsa dosyaya yaz
-        if (item.image_data) {
-          try {
-            const imagesDir = path.join(path.dirname(dbPath), 'images');
-            if (!fs.existsSync(imagesDir)) {
-              fs.mkdirSync(imagesDir, { recursive: true });
+        if (item.content_type === 'image') {
+          if (item.image_data) {
+            try {
+              const imagesDir = path.join(path.dirname(dbPath), 'images');
+              if (!fs.existsSync(imagesDir)) {
+                fs.mkdirSync(imagesDir, { recursive: true });
+              }
+              const filename = `imported_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.png`;
+              const imageFilePath = path.join(imagesDir, filename);
+              const imageBuffer = Buffer.from(item.image_data, 'base64');
+              fs.writeFileSync(imageFilePath, imageBuffer);
+              imagePath = imageFilePath;
+            } catch (imgErr) {
+              console.error('Görsel import hatası:', imgErr);
             }
-            const filename = `imported_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.png`;
-            const imageFilePath = path.join(imagesDir, filename);
-            const imageBuffer = Buffer.from(item.image_data, 'base64');
-            fs.writeFileSync(imageFilePath, imageBuffer);
-            imagePath = imageFilePath;
-          } catch (imgErr) {
-            console.error('Görsel import hatası:', imgErr);
           }
+        } else {
+          imagePath = item.image_path || null;
         }
 
+        // Encrypt the sensitive content on import
+        const encryptedContent = encryptSensitiveContent(item.content, item.is_sensitive);
+
+        // Mask preview directly if sensitive
+        const preview = item.is_sensitive ? '•••••••••••• (Hassas Veri)' : (item.preview || '');
+
         clipStmt.run(
-          item.content,
+          encryptedContent,
           item.content_type || 'text',
-          item.preview || '',
+          preview,
           imagePath,
           item.is_pinned || 0,
           item.is_favorite || 0,
@@ -907,7 +1026,13 @@ function importAll(data) {
         INSERT INTO notes (title, content, category_id, color, is_pinned, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
+      const checkNote = db.prepare('SELECT id FROM notes WHERE title = ? AND content = ? AND created_at = ?');
+
       for (const note of data.data.notes) {
+        // Mükerrer kontrolü
+        const existing = checkNote.get(note.title, note.content, note.created_at || '');
+        if (existing) continue;
+
         const newCategoryId = note.category_id && categoryIdMap[note.category_id]
           ? categoryIdMap[note.category_id]
           : null;
@@ -939,6 +1064,10 @@ function importAll(data) {
   });
 
   importTransaction();
+
+  // İçe aktarma sonrasında yetim görselleri diskten temizle
+  cleanupOrphanImages();
+
   return results;
 }
 
@@ -953,41 +1082,132 @@ function importAll(data) {
  * @param {string} userDataPath - Fallback userData yolu
  * @returns {boolean}
  */
+/**
+ * Bir dosyayı kilitlenme veya meşguliyet durumlarına karşı yeniden deneme mekanizması ile kopyalar.
+ */
+function copyFileWithRetry(src, dest, maxRetries = 3, delayMs = 150) {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      fs.copyFileSync(src, dest);
+      return true;
+    } catch (err) {
+      attempt++;
+      if (attempt >= maxRetries) {
+        console.error(`Dosya kopyalama hatası (${src} -> ${dest}) - Tüm denemeler başarısız:`, err);
+        throw err;
+      }
+      console.warn(`Dosya meşgul veya kilitli, yeniden deneniyor (${attempt}/${maxRetries}): ${src}`);
+      // Gecikme beklemesi (senkron)
+      const start = Date.now();
+      while (Date.now() - start < delayMs) {
+        // Bekle
+      }
+    }
+  }
+}
+
+/**
+ * Veritabanı konumunu değiştirir.
+ * Mevcut veritabanını yeni konuma kopyalar ve yeniden açar.
+ * @param {string} newLocation - Yeni klasör yolu
+ * @param {string} userDataPath - Fallback userData yolu
+ * @returns {boolean}
+ */
 function changeLocation(newLocation, userDataPath) {
   const oldPath = dbPath;
   const newPath = path.join(newLocation, 'clipboard-pro.db');
 
-  // Aynı konumsa işlem yapma
-  if (oldPath === newPath) return true;
+  // Aynı konumsa işlem yapma (Windows için büyük/küçük harf duyarsız)
+  if (oldPath && newPath && path.normalize(oldPath).toLowerCase() === path.normalize(newPath).toLowerCase()) {
+    return true;
+  }
 
   const oldLocation = oldPath ? path.dirname(oldPath) : userDataPath;
   const oldImagesDir = path.join(oldLocation, 'images');
   const newImagesDir = path.join(newLocation, 'images');
 
+  // Disk yazma yetkisi ve boş alan kontrolü
   try {
-    // Yeni klasörleri oluştur
     if (!fs.existsSync(newLocation)) {
       fs.mkdirSync(newLocation, { recursive: true });
     }
+    
+    // Disk boş alan kontrolü
+    const stats = fs.statfsSync(newLocation);
+    // stats.bavail * stats.bsize = kullanılabilir boş alan (byte cinsinden)
+    const freeSpace = stats.bavail * stats.bsize;
 
-    // Mevcut DB'yi kapat
+    // Kopyalanacak dosyaların toplam boyutunu hesapla
+    let requiredSpace = 0;
+    if (oldPath && fs.existsSync(oldPath)) {
+      requiredSpace += fs.statSync(oldPath).size;
+      const walPath = oldPath + '-wal';
+      const shmPath = oldPath + '-shm';
+      if (fs.existsSync(walPath)) requiredSpace += fs.statSync(walPath).size;
+      if (fs.existsSync(shmPath)) requiredSpace += fs.statSync(shmPath).size;
+    }
+    if (fs.existsSync(oldImagesDir)) {
+      const files = fs.readdirSync(oldImagesDir);
+      for (const file of files) {
+        requiredSpace += fs.statSync(path.join(oldImagesDir, file)).size;
+      }
+    }
+
+    if (freeSpace < requiredSpace) {
+      throw new Error('Hedef sürücüde yeterli disk alanı yok!');
+    }
+
+    // Yazma yetkisi testi
+    const testFilePath = path.join(newLocation, '.write_test_' + Date.now());
+    fs.writeFileSync(testFilePath, 'test');
+    fs.unlinkSync(testFilePath);
+  } catch (writeErr) {
+    console.error('Yeni veri konumuna yazma yetkisi veya disk alanı hatası:', writeErr);
+    throw new Error(writeErr.message.includes('disk alanı') 
+      ? 'Hedef sürücüde yeterli disk alanı yok!' 
+      : 'Seçilen klasöre yazma yetkiniz bulunmuyor. Lütfen başka bir klasör seçin.');
+  }
+
+  // Kopyalanan dosyaları takip et (hata durumunda güvenli rollback temizliği için)
+  const copiedFiles = [];
+
+  try {
+    // Mevcut DB'yi kapatmadan önce WAL verisini checkpoint ile ana dosyaya yaz
     if (db) {
+      try {
+        db.pragma('wal_checkpoint(TRUNCATE)');
+        console.log('Veritabanı checkpoint (TRUNCATE) başarıyla gerçekleştirildi.');
+      } catch (checkpointErr) {
+        console.warn('Veritabanı checkpoint başarısız (kapatma işlemine devam ediliyor):', checkpointErr);
+      }
       db.close();
       db = null;
     }
 
     // Dosyayı kopyala (varsa)
     if (oldPath && fs.existsSync(oldPath)) {
-      fs.copyFileSync(oldPath, newPath);
+      copyFileWithRetry(oldPath, newPath);
+      copiedFiles.push(newPath);
 
       // WAL ve SHM dosyalarını da kopyala
       const walPath = oldPath + '-wal';
       const shmPath = oldPath + '-shm';
       if (fs.existsSync(walPath)) {
-        try { fs.copyFileSync(walPath, newPath + '-wal'); } catch (e) {}
+        try {
+          copyFileWithRetry(walPath, newPath + '-wal', 2, 100);
+          copiedFiles.push(newPath + '-wal');
+        } catch (e) {
+          console.warn('WAL kopyalanamadı (yoksayılıyor):', e);
+        }
       }
       if (fs.existsSync(shmPath)) {
-        try { fs.copyFileSync(shmPath, newPath + '-shm'); } catch (e) {}
+        try {
+          copyFileWithRetry(shmPath, newPath + '-shm', 2, 100);
+          copiedFiles.push(newPath + '-shm');
+        } catch (e) {
+          console.warn('SHM kopyalanamadı (yoksayılıyor):', e);
+        }
       }
     }
 
@@ -1001,15 +1221,23 @@ function changeLocation(newLocation, userDataPath) {
         const oldFilePath = path.join(oldImagesDir, file);
         const newFilePath = path.join(newImagesDir, file);
         try {
-          fs.copyFileSync(oldFilePath, newFilePath);
+          copyFileWithRetry(oldFilePath, newFilePath);
+          copiedFiles.push(newFilePath);
         } catch (e) {
           console.error(`Görsel kopyalanamadı: ${file}`, e);
+          throw new Error(`Görsel dosyası kopyalanamadı (${file}): ${e.message}`);
         }
       }
     }
 
     // Yeni konumda aç
     initialize(newLocation);
+
+    // SQLite bütünlük kontrolü yap
+    const checkResult = db.pragma('integrity_check');
+    if (!checkResult || !checkResult[0] || checkResult[0].integrity_check !== 'ok') {
+      throw new Error('Veritabanı bütünlük kontrolü başarısız oldu!');
+    }
 
     // Veritabanındaki görsel yollarını yeni konuma göre güncelle
     if (fs.existsSync(newImagesDir)) {
@@ -1035,8 +1263,8 @@ function changeLocation(newLocation, userDataPath) {
         fs.unlinkSync(oldPath);
         const walPath = oldPath + '-wal';
         const shmPath = oldPath + '-shm';
-        if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
-        if (fs.existsSync(shmPath)) fs.unlinkSync(shmPath);
+        if (fs.existsSync(walPath)) try { fs.unlinkSync(walPath); } catch (e) {}
+        if (fs.existsSync(shmPath)) try { fs.unlinkSync(shmPath); } catch (e) {}
       } catch (e) {
         console.warn('Eski veritabanı dosyaları silinemedi:', e);
       }
@@ -1046,9 +1274,9 @@ function changeLocation(newLocation, userDataPath) {
       try {
         const files = fs.readdirSync(oldImagesDir);
         for (const file of files) {
-          fs.unlinkSync(path.join(oldImagesDir, file));
+          try { fs.unlinkSync(path.join(oldImagesDir, file)); } catch (e) {}
         }
-        fs.rmdirSync(oldImagesDir);
+        try { fs.rmdirSync(oldImagesDir); } catch (e) {}
       } catch (e) {
         console.warn('Eski images klasörü temizlenemedi:', e);
       }
@@ -1057,9 +1285,38 @@ function changeLocation(newLocation, userDataPath) {
     return true;
   } catch (err) {
     console.error('Veritabanı taşıma hatası:', err);
-    // Hata durumunda eski konumda aç
+    
+    // Hata durumunda yeni açılan kilitleri temizle ve yarıda kalmış yeni dosyaları sil
     try {
-      initialize(userDataPath);
+      if (db) {
+        db.close();
+        db = null;
+      }
+      
+      // Sadece bu taşıma sırasında kopyalanan dosyaları diskten sil (Rollback)
+      for (const file of copiedFiles) {
+        if (fs.existsSync(file)) {
+          try { fs.unlinkSync(file); } catch (e) {}
+        }
+      }
+      
+      // Eğer newImagesDir klasörü tarafımızdan oluşturulup içi boş kaldıysa kaldır
+      if (fs.existsSync(newImagesDir)) {
+        try {
+          const files = fs.readdirSync(newImagesDir);
+          if (files.length === 0) {
+            fs.rmdirSync(newImagesDir);
+          }
+        } catch (e) {}
+      }
+    } catch (cleanupErr) {
+      console.warn('Geri dönüş temizliği başarısız:', cleanupErr);
+    }
+
+    // Eski konumda tekrar aç ve yükle
+    try {
+      const oldLocationCustom = oldLocation === userDataPath ? '' : oldLocation;
+      initialize(userDataPath, oldLocationCustom);
     } catch (fallbackErr) {
       console.error('Fallback açma hatası:', fallbackErr);
     }
@@ -1121,4 +1378,51 @@ module.exports = {
   // Import / Export
   exportAll,
   importAll,
+  cleanupOrphanImages,
 };
+
+/**
+ * Veritabanında kaydı bulunmayan yetim (orphan) görsel dosyalarını diskten siler.
+ */
+function cleanupOrphanImages() {
+  try {
+    if (!dbPath) return;
+    const baseDir = path.dirname(dbPath);
+    const imagesDir = path.join(baseDir, 'images');
+    
+    if (!fs.existsSync(imagesDir)) return;
+
+    // 1. Veritabanındaki tüm geçerli görsel yollarını al ve normalize et
+    const dbImages = db.prepare(
+      "SELECT image_path FROM clipboard_history WHERE image_path IS NOT NULL"
+    ).all();
+    
+    const dbPathsSet = new Set(
+      dbImages.map(img => path.normalize(img.image_path).toLowerCase())
+    );
+
+    // 2. Klasördeki tüm dosyaları oku ve listede yoksa sil
+    const files = fs.readdirSync(imagesDir);
+    let deletedCount = 0;
+    
+    for (const file of files) {
+      const filePath = path.join(imagesDir, file);
+      const normalizedFilePath = path.normalize(filePath).toLowerCase();
+      
+      if (!dbPathsSet.has(normalizedFilePath)) {
+        try {
+          fs.unlinkSync(filePath);
+          deletedCount++;
+        } catch (err) {
+          console.error(`Yetim görsel silinemedi (${file}):`, err);
+        }
+      }
+    }
+    
+    if (deletedCount > 0) {
+      console.log(`Yetim görsel temizleme tamamlandı: ${deletedCount} adet görsel silindi.`);
+    }
+  } catch (err) {
+    console.error('Yetim görsel temizleme hatası:', err);
+  }
+}

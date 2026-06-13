@@ -257,7 +257,7 @@ const Utils = (() => {
     container.appendChild(toast);
 
     // Otomatik kaldır
-    setTimeout(() => removeToast(toast), 1000);
+    setTimeout(() => removeToast(toast), 2500);
   }
 
   function removeToast(toast) {
@@ -323,6 +323,60 @@ const Utils = (() => {
     return Number(num).toLocaleString('tr-TR');
   }
 
+  let lastActiveElement = null;
+
+  function initFocusTrap(modal) {
+    lastActiveElement = document.activeElement;
+    
+    const allFocusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    const focusableElements = Array.from(allFocusable).filter(el => {
+      if (el.disabled) return false;
+      
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return false;
+      
+      const style = window.getComputedStyle(el);
+      return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+    });
+
+    if (focusableElements.length === 0) return;
+    
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    
+    // İlk elemana odaklan
+    setTimeout(() => firstElement.focus(), 100);
+
+    const trapHandler = (e) => {
+      if (e.key !== 'Tab') return;
+
+      if (e.shiftKey) { // Shift + Tab
+        if (document.activeElement === firstElement) {
+          lastElement.focus();
+          e.preventDefault();
+        }
+      } else { // Tab
+        if (document.activeElement === lastElement) {
+          firstElement.focus();
+          e.preventDefault();
+        }
+      }
+    };
+
+    modal._trapHandler = trapHandler;
+    modal.addEventListener('keydown', trapHandler);
+  }
+
+  function destroyFocusTrap(modal) {
+    if (modal._trapHandler) {
+      modal.removeEventListener('keydown', modal._trapHandler);
+      delete modal._trapHandler;
+    }
+    if (lastActiveElement && typeof lastActiveElement.focus === 'function') {
+      setTimeout(() => lastActiveElement.focus(), 50);
+    }
+  }
+
   return {
     Icons,
     formatDate,
@@ -341,6 +395,8 @@ const Utils = (() => {
     isValidUrl,
     highlightText,
     formatNumber,
+    initFocusTrap,
+    destroyFocusTrap,
   };
 
 })();

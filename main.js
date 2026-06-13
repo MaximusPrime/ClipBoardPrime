@@ -16,11 +16,20 @@ const {
   Menu,
   dialog,
   shell,
+  protocol,
+  net,
+  screen,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { exec } = require('child_process');
 const db = require('./database/db');
+
+// local-file protokol şemasını kaydet (app ready olmadan önce çağrılmalı)
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-file', privileges: { bypassCSP: true, secure: true, supportFetchAPI: true } }
+]);
 
 // ─── Genel Değişkenler ──────────────────────────────────────
 let mainWindow = null;
@@ -30,11 +39,18 @@ let isQuitting = false;
 let lastClipboardText = '';
 let lastClipboardHtml = '';
 let lastClipboardImageHash = '';
-let ignoreNextClipboardChange = false; // Kendi yazdığımız clipboard'u ignore et
+let lastFormats = [];
+let lastImageSize = { width: 0, height: 0 };
+let trayBalloonShown = false;
 const isDev = process.argv.includes('--dev');
+const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
 
-// Geliştirme modunda çakışmaları önlemek için farklı bir userData dizini kullan
-if (isDev) {
+// Taşınabilir (Portable) modda verileri exe yanındaki /data klasörüne kaydet,
+// Geliştirme modunda ise farklı bir userData dizini kullan.
+if (isPortable) {
+  const portableDataPath = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data');
+  app.setPath('userData', portableDataPath);
+} else if (isDev) {
   const devDataPath = path.join(app.getPath('appData'), 'clipboard-pro-app-dev');
   app.setPath('userData', devDataPath);
 }
@@ -82,6 +98,21 @@ function createWindow() {
     },
   });
 
+  // Off-screen prevention: Pencerenin görünür bir ekran sınırında olduğundan emin ol
+  if (windowBounds.x !== undefined && windowBounds.y !== undefined) {
+    const displays = screen.getAllDisplays();
+    const isVisible = displays.some(display => {
+      const { x, y, width, height } = display.bounds;
+      return windowBounds.x >= x && 
+             windowBounds.x < x + width && 
+             windowBounds.y >= y && 
+             windowBounds.y < y + height;
+    });
+    if (!isVisible) {
+      mainWindow.center();
+    }
+  }
+
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 
   // DevTools sadece --dev argümanı varken aç
@@ -99,6 +130,17 @@ function createWindow() {
     if (!isQuitting) {
       event.preventDefault();
       mainWindow.hide();
+      if (!trayBalloonShown && tray) {
+        try {
+          tray.displayBalloon({
+            title: 'ClipBoardPro',
+            content: 'Uygulama sistem tepsisinde çalışmaya devam ediyor. Açmak için çift tıklayabilir veya Ctrl+Shift+V kısayolunu kullanabilirsiniz.',
+          });
+          trayBalloonShown = true;
+        } catch (balloonErr) {
+          console.error('Tray balon bildirimi gösterilemedi:', balloonErr);
+        }
+      }
     }
   });
 
@@ -131,22 +173,30 @@ function createWindow() {
  * Tray ikonu yolunu döner. Her başlatmada güncel ikonu programatik oluşturur.
  */
 function getTrayIconPath() {
-  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
-
-  try {
-    const assetsDir = path.join(__dirname, 'assets');
-    if (!fs.existsSync(assetsDir)) {
-      fs.mkdirSync(assetsDir, { recursive: true });
-    }
-    // Her zaman en güncel mavi premium ikonu yaz
-    const icon = createTrayIcon();
-    fs.writeFileSync(iconPath, icon.toPNG());
-  } catch (err) {
-    console.error('Tray ikonu oluşturma hatası:', err);
-    return null;
+  // Windows için öncelikle kırpılmış ve kaliteli tray-icon.ico dosyasını tercih et
+  const trayIcoPath = path.join(__dirname, 'assets', 'tray-icon.ico');
+  if (fs.existsSync(trayIcoPath)) {
+    return trayIcoPath;
   }
 
-  return iconPath;
+  // Fallback olarak normal .ico dosyasını tercih et
+  const icoPath = path.join(__dirname, 'assets', 'icon.ico');
+  if (fs.existsSync(icoPath)) {
+    return icoPath;
+  }
+  
+  const buildIcoPath = path.join(__dirname, 'build', 'icon.ico');
+  if (fs.existsSync(buildIcoPath)) {
+    return buildIcoPath;
+  }
+
+  // Fallback olarak png
+  const pngPath = path.join(__dirname, 'assets', 'tray-icon.png');
+  if (fs.existsSync(pngPath)) {
+    return pngPath;
+  }
+
+  return null;
 }
 
 function isPointOnSquareBorder(x, y, x1, y1, x2, y2, w) {
@@ -251,18 +301,16 @@ function createTrayIcon() {
  */
 function createTray() {
   const iconPath = getTrayIconPath();
-  let trayIcon;
 
   if (iconPath && fs.existsSync(iconPath)) {
-    trayIcon = nativeImage.createFromPath(iconPath);
+    // Windows'ta doğrudan dosya yolu vermek işletim sisteminin ikonu en kaliteli (DPI-aware) şekilde ölçeklemesini sağlar
+    tray = new Tray(iconPath);
   } else {
-    trayIcon = createTrayIcon();
+    let trayIcon = createTrayIcon();
+    trayIcon = trayIcon.resize({ width: 16, height: 16 });
+    tray = new Tray(trayIcon);
   }
-
-  // Windows'ta ikon boyutunu küçült
-  trayIcon = trayIcon.resize({ width: 16, height: 16 });
-
-  tray = new Tray(trayIcon);
+  
   tray.setToolTip('ClipBoardPro');
 
   const contextMenu = Menu.buildFromTemplate([
@@ -382,60 +430,222 @@ function stopClipboardWatcher() {
   }
 }
 
-/**
- * Clipboard'da değişiklik olup olmadığını kontrol eder.
- */
+function areFormatsEqual(f1, f2) {
+  if (f1.length !== f2.length) return false;
+  for (let i = 0; i < f1.length; i++) {
+    if (f1[i] !== f2[i]) return false;
+  }
+  return true;
+}
+
+function updateLastClipboardState() {
+  lastClipboardText = clipboard.readText() || '';
+  lastClipboardHtml = clipboard.readHTML() || '';
+  lastFormats = clipboard.availableFormats() || [];
+  
+  const img = clipboard.readImage();
+  if (img && !img.isEmpty()) {
+    lastClipboardImageHash = hashImage(img);
+    lastImageSize = img.getSize();
+  } else {
+    lastClipboardImageHash = '';
+    lastImageSize = { width: 0, height: 0 };
+  }
+}
+
 function checkClipboard() {
-  // Kendi yazdığımız clipboard'u atla
-  if (ignoreNextClipboardChange) {
-    ignoreNextClipboardChange = false;
-    // Yeni değerleri kaydet (sonraki karşılaştırma için)
-    lastClipboardText = clipboard.readText() || '';
-    lastClipboardHtml = clipboard.readHTML() || '';
-    const img = clipboard.readImage();
-    if (img && !img.isEmpty()) {
-      lastClipboardImageHash = hashImage(img);
+  const currentFormats = clipboard.availableFormats() || [];
+  const currentText = clipboard.readText() || '';
+  const currentHtml = clipboard.readHTML() || '';
+
+  // Panoda görsel var mı?
+  const hasImage = currentFormats.some(f => f.toLowerCase().includes('image') || f.toLowerCase().includes('bitmap'));
+  let currentImage = null;
+  let currentHash = '';
+
+  if (hasImage) {
+    currentImage = clipboard.readImage();
+    if (currentImage && !currentImage.isEmpty()) {
+      currentHash = hashImage(currentImage);
     }
+  }
+
+  // Değişiklik yoksa doğrudan çık
+  if (
+    currentText === lastClipboardText &&
+    currentHtml === lastClipboardHtml &&
+    areFormatsEqual(currentFormats, lastFormats) &&
+    currentHash === lastClipboardImageHash
+  ) {
     return;
   }
 
+  // Değişiklik algılandı, yeni durumu sakla
+  lastClipboardText = currentText;
+  lastClipboardHtml = currentHtml;
+  lastFormats = currentFormats;
+  lastClipboardImageHash = currentHash;
+
   // Görsel kontrolü
-  const currentImage = clipboard.readImage();
   if (currentImage && !currentImage.isEmpty()) {
-    const currentHash = hashImage(currentImage);
-    if (currentHash !== lastClipboardImageHash) {
-      lastClipboardImageHash = currentHash;
-      // Yeni görsel bulundu
-      handleNewImage(currentImage);
+    handleNewImage(currentImage);
+    return;
+  }
+
+  const trimmedText = currentText ? currentText.trim() : '';
+
+  // 1. Özel Metin Tipleri Kontrolü (Kod, URL, E-posta)
+  if (trimmedText.length > 0) {
+    // URL Kontrolü
+    if (/^https?:\/\/[^\s]+$/i.test(trimmedText) || /^www\.[^\s]+$/i.test(trimmedText)) {
+      handleNewClipboardItem(currentText, 'url');
+      return;
+    }
+    // E-posta Kontrolü
+    if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmedText)) {
+      handleNewClipboardItem(currentText, 'email');
+      return;
+    }
+    // Kod Kontrolü (Zengin metin olsun olmasın, düz metin kod ise koddur)
+    if (isCodeContent(currentText)) {
+      handleNewClipboardItem(currentText, 'code');
       return;
     }
   }
 
-  // Metin kontrolü
-  const currentText = clipboard.readText() || '';
-  const currentHtml = clipboard.readHTML() || '';
-
-  // HTML içeriği var mı ve metin içeriğinden farklı mı?
-  if (currentHtml && currentHtml.trim().length > 0 && currentHtml !== lastClipboardHtml) {
-    // HTML içeriğinin sadece metin wrapper'ı olmadığını kontrol et
+  // 2. HTML (Zengin Metin) Kontrolü
+  if (currentHtml && currentHtml.trim().length > 0) {
     const strippedHtml = currentHtml.replace(/<[^>]*>/g, '').trim();
     const isRichContent = currentHtml.includes('<') && strippedHtml !== currentText.trim();
 
-    if (isRichContent && currentHtml !== lastClipboardHtml) {
-      lastClipboardHtml = currentHtml;
-      lastClipboardText = currentText;
+    if (isRichContent) {
       handleNewClipboardItem(currentHtml, 'html');
       return;
     }
   }
 
-  // Düz metin kontrolü
-  if (currentText && currentText.trim().length > 0 && currentText !== lastClipboardText) {
-    lastClipboardText = currentText;
-    lastClipboardHtml = currentHtml;
+  // 3. Normal Düz Metin Kontrolü
+  if (currentText && currentText.trim().length > 0) {
     handleNewClipboardItem(currentText, 'text');
     return;
   }
+}
+
+/**
+ * Metnin kod içeriği olup olmadığını gelişmiş regex ve analizle doğrular.
+ */
+function isCodeContent(text) {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+  if (trimmed.length < 5) return false;
+
+  // 1. JSON (Sıkı veya Gevşek JS Nesneleri / Dizileri)
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    // Sıkı JSON testi
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch (e) {}
+    
+    // Gevşek nesne/dizi kontrolü (ör. js nesnesi {a: 1, b: 'test'})
+    if (/^\s*[\{\[]\s*(?:['"]?\w+['"]?\s*:\s*.+|['"]?\w+['"]?)\s*/m.test(trimmed)) {
+      return true;
+    }
+  }
+
+  // 2. HTML / XML / SVG Kontrolü (Tag tespiti)
+  const htmlTagRegex = /<\/?[a-zA-Z][a-zA-Z0-9\-]*(\s+[a-zA-Z0-9\-]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^>\s]+))?)*\s*\/?>/g;
+  const matches = trimmed.match(htmlTagRegex);
+  if (matches) {
+    if (/<!DOCTYPE\s+html/i.test(trimmed) || 
+        /<html/i.test(trimmed) || 
+        /<head/i.test(trimmed) || 
+        /<body/i.test(trimmed) || 
+        /<script/i.test(trimmed) || 
+        /<style/i.test(trimmed) || 
+        /<svg/i.test(trimmed) || 
+        /<\?xml/i.test(trimmed)) {
+      return true;
+    }
+    if (matches.length >= 2) {
+      return true;
+    }
+    const singleTagName = matches[0].replace(/[<\/>]/g, '').split(/\s+/)[0].toLowerCase();
+    const commonTags = ['div', 'span', 'p', 'input', 'button', 'meta', 'link', 'style', 'script', 'iframe', 'canvas', 'section', 'header', 'footer', 'nav', 'aside', 'main', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'form', 'textarea', 'select', 'option', 'img', 'br', 'hr', 'xml', 'path', 'rect', 'circle', 'g'];
+    if (commonTags.includes(singleTagName)) {
+      return true;
+    }
+  }
+
+  // 3. CSS / SASS / LESS Kontrolü
+  if (/^[\.\#a-zA-Z0-9\-\s_,\+\>\:\*\[\]\(\)\=]+\s*\{\s*[^}]+\}/m.test(trimmed)) {
+    if (/[\w\-]+\s*:\s*[^;\}]+;?/m.test(trimmed)) {
+      return true;
+    }
+  }
+
+  // 4. SQL Kontrolü
+  if (/^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|MERGE|WITH|REPLACE|UPSERT)\b/i.test(trimmed)) {
+    return true;
+  }
+
+  // 5. Terminal / Bash / Powershell Paket Yöneticisi Komutları
+  const terminalCommands = [
+    /^\s*(npm|yarn|pnpm|npx)\s+(install|add|run|init|publish|remove|uninstall|update|dev|start|build)\b/,
+    /^\s*git\s+(clone|pull|push|commit|add|status|checkout|branch|merge|rebase|init|remote|log|diff)\b/,
+    /^\s*docker\s+(run|build|ps|images|stop|rm|rmi|exec|logs|compose|volume|network)\b/,
+    /^\s*pip\s+(install|uninstall|list|show|freeze)\b/,
+    /^\s*python3?\s+-m\s+/,
+    /^\s*(apt-get|apt|yum|brew|choco|pacman)\s+(install|upgrade|update|remove|autoremove)\b/,
+    /^\s*kubectl\s+(get|apply|delete|describe|logs|exec|port-forward)\b/,
+    /^\s*gcloud\s+(auth|config|projects|compute|app|container)\b/,
+    /^\s*aws\s+(s3|ec2|rds|lambda|iam|configure)\b/
+  ];
+  if (terminalCommands.some(pattern => pattern.test(trimmed))) {
+    return true;
+  }
+
+  // 6. Kod Anahtar Kelimeleri & Programlama Yapıları
+  const codeKeywords = [
+    // JS/TS/C-Like
+    /\b(const|let|var)\s+\w+\s*=/,
+    /\b(function|class)\s+\w+\s*\(/,
+    /\bconsole\.(log|error|warn|info|debug)\s*\(/,
+    /\bimport\s+.*\s+from\s+['"]/,
+    /\brequire\s*\(\s*['"]/,
+    /\bmodule\.exports\s*=/,
+    /\bexport\s+(const|let|var|class|function|default)\b/,
+    /\b(public|private|protected|internal|static)\s+(class|void|string|int|double|float|bool|var|let|const)\b/,
+    /\bsystem\.out\.print(ln)?\b/i,
+    /\bnamespace\s+\w+\b/,
+    /\busing\s+[\w\.]+;/,
+    // Python
+    /\bdef\s+\w+\s*\(.*\)\s*:/,
+    /\bif\s+.*\s*:\s*\n/,
+    /\bimport\s+\w+(\s+as\s+\w+)?\b/,
+    /\bfrom\s+\w+\s+import\s+\w+\b/,
+    // Go / Rust / PHP / Ruby
+    /\bfunc\s+\w+\s*\(.*\)/,
+    /\bpackage\s+\w+\b/,
+    /\bfmt\.Print(ln|f)?\b/,
+    /\bfn\s+\w+\s*\(.*\)\s*(->\s*\w+)?\s*\{/,
+    /\blet\s+mut\s+\w+/,
+    /<\?php\b/i,
+    /\b(public|private|protected)\s+\$\w+\b/,
+    // Genel programlama yapıları
+    /if\s*\(.+\)\s*\{\s*$/m,
+    /for\s*\(.+\)\s*\{\s*$/m,
+    /while\s*\(.+\)\s*\{\s*$/m,
+    /try\s*\{\s*$/m,
+    /catch\s*\(.+\)\s*\{\s*$/m,
+    /switch\s*\(.+\)\s*\{\s*$/m
+  ];
+
+  if (codeKeywords.some(pattern => pattern.test(trimmed))) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -444,11 +654,24 @@ function checkClipboard() {
 function handleNewClipboardItem(content, contentType) {
   console.log('handleNewClipboardItem tetiklendi! content:', content ? content.substring(0, 50) : '', 'contentType:', contentType);
 
-  // Otomatik içerik tipi algılama
-  if (contentType === 'text') {
-    const trimmed = content.trim();
+  // Otomatik içerik tipi algılama (Hem 'text' hem 'html' için)
+  if (contentType === 'text' || contentType === 'html') {
+    const plainText = contentType === 'html' ? content.replace(/<[^>]*>/g, '') : content;
+    const trimmed = plainText.trim();
+    // 1. URL Kontrolü
     if (/^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+$/i.test(trimmed)) {
       contentType = 'url';
+      content = trimmed;
+    }
+    // 2. E-posta Kontrolü
+    else if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
+      contentType = 'email';
+      content = trimmed;
+    }
+    // 3. Kod / HTML / CSS / SQL Kontrolü
+    else if (isCodeContent(plainText)) {
+      contentType = 'code';
+      content = plainText;
     }
   }
 
@@ -517,7 +740,8 @@ function handleNewImage(image) {
  */
 function hashImage(image) {
   try {
-    const buffer = image.toBitmap();
+    const resized = image.resize({ width: 16, height: 16 });
+    const buffer = resized.toBitmap();
     return crypto.createHash('md5').update(buffer).digest('hex');
   } catch (err) {
     return '';
@@ -528,25 +752,45 @@ function hashImage(image) {
  * Hassas içerik algılama (kredi kartı, şifre vb.).
  */
 function detectSensitiveContent(text) {
+  if (!text || typeof text !== 'string' || text.length === 0) return false;
+  
+  // Performans açısından çok uzun metinlerin sadece ilk 10.000 karakterini tara
+  const textToScan = text.length > 10000 ? text.substring(0, 10000) : text;
+
   const patterns = [
-    // Kredi kartı numarası (basit pattern)
-    /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/,
-    // Sosyal güvenlik numarası benzeri
-    /\b\d{3}[\s-]\d{2}[\s-]\d{4}\b/,
-    // E-posta + şifre kombinasyonu
-    /password\s*[:=]\s*\S+/i,
-    /şifre\s*[:=]\s*\S+/i,
-    /parola\s*[:=]\s*\S+/i,
-    // API key benzeri
-    /api[_-]?key\s*[:=]\s*\S+/i,
-    // Secret/token benzeri
-    /secret\s*[:=]\s*\S+/i,
-    /token\s*[:=]\s*\S+/i,
+    // Kredi kartı (13-19 hane arası yaygın kredi kartı şemaları: Visa, MC, Amex, Troy vb.)
+    /\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|6(?:011|5[0-9]{2})[0-9]{12}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|(?:2131|1800|35\d{3})\d{11})\b/,
+    // E-posta + şifre kombinasyonu veya anahtar kelimeler
+    /\b(?:password|şifre|parola|passwd|secret)\s*[:=]\s*\S+/i,
+    // API anahtarı veya Secret (AWS, Google, GitHub, Slack vb. yaygın formatlar)
+    /\b(?:AIzaSy[A-Za-z0-9-_]{33}|ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9]{82}|xox[baprs]-[0-9a-zA-Z-]{10,48}|SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43})\b/i,
+    // JWT token algılama (Format: header.payload.signature)
+    /\beyJ[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\b/,
     // Private key
-    /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/,
+    /-----BEGIN\s+(?:RSA\s+|EC\s+|PEM\s+)?PRIVATE\s+KEY-----/,
   ];
 
-  return patterns.some((pattern) => pattern.test(text));
+  // 1. Hızlı regex kontrolü
+  if (patterns.some((pattern) => pattern.test(textToScan))) {
+    return true;
+  }
+
+  // 2. T.C. Kimlik Numarası algılama ve checksum doğrulaması (Yanlış pozitifleri önler)
+  const tcCandidates = textToScan.match(/\b[1-9]\d{10}\b/g);
+  if (tcCandidates) {
+    for (const tc of tcCandidates) {
+      const digits = tc.split('').map(Number);
+      const oddSum = digits[0] + digits[2] + digits[4] + digits[6] + digits[8];
+      const evenSum = digits[1] + digits[3] + digits[5] + digits[7];
+      const digit10 = (oddSum * 7 - evenSum) % 10;
+      const totalSum = digits.slice(0, 10).reduce((sum, d) => sum + d, 0);
+      if (digit10 === digits[9] && totalSum % 10 === digits[10]) {
+        return true; // Geçerli checksum'a sahip T.C. Kimlik numarası bulundu!
+      }
+    }
+  }
+
+  return false;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -578,6 +822,37 @@ function registerGlobalShortcuts() {
 // ═══════════════════════════════════════════════════════════════
 
 function registerIPCHandlers() {
+  ipcMain.on('get-cached-settings', (event) => {
+    try {
+      if (db.isReady()) {
+        event.returnValue = db.getAllSettings();
+      } else {
+        event.returnValue = null;
+      }
+    } catch (err) {
+      console.error('get-cached-settings hatası:', err);
+      event.returnValue = null;
+    }
+  });
+
+  ipcMain.handle('get-app-info', async () => {
+    try {
+      return {
+        success: true,
+        data: {
+          name: app.getName(),
+          version: app.getVersion(),
+          isDev: isDev,
+          isPortable: isPortable,
+          author: 'ClipBoardPro',
+        }
+      };
+    } catch (err) {
+      console.error('get-app-info hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   // ── Clipboard ────────────────────────────────────────────────
 
   ipcMain.handle('get-clipboard-history', async (_event, params) => {
@@ -632,10 +907,6 @@ function registerIPCHandlers() {
   ipcMain.handle('copy-to-clipboard', async (_event, { content, type, ignoreChange = true }) => {
     console.log('copy-to-clipboard IPC tetiklendi! content:', content ? content.substring(0, 50) : '', 'type:', type, 'ignoreChange:', ignoreChange);
     try {
-      if (ignoreChange) {
-        ignoreNextClipboardChange = true;
-      }
-
       if (type === 'image') {
         // Görsel dosyasını oku ve clipboard'a yaz
         if (fs.existsSync(content)) {
@@ -685,17 +956,11 @@ function registerIPCHandlers() {
       }
 
       // Yeni değerleri sakla (sonraki karşılaştırma için)
-      lastClipboardText = clipboard.readText() || '';
-      lastClipboardHtml = clipboard.readHTML() || '';
-      const img = clipboard.readImage();
-      if (img && !img.isEmpty()) {
-        lastClipboardImageHash = hashImage(img);
-      }
+      updateLastClipboardState();
 
       return { success: true };
     } catch (err) {
       console.error('copy-to-clipboard hatası:', err);
-      ignoreNextClipboardChange = false;
       return { success: false, error: err.message };
     }
   });
@@ -725,14 +990,12 @@ function registerIPCHandlers() {
   ipcMain.handle('paste-to-active-window', async (_event, content) => {
     console.log('paste-to-active-window IPC tetiklendi! content:', content ? content.substring(0, 50) : '');
     try {
-      ignoreNextClipboardChange = true;
       clipboard.writeText(content);
 
       // Clipboard değerlerini güncelle
-      lastClipboardText = content;
-      lastClipboardHtml = clipboard.readHTML() || '';
+      updateLastClipboardState();
 
-      // Çift tıklayarak yapıştırılan metni de veritabanında en üste taşı/ekle
+      // Yapıştırılan metni de veritabanında en üste taşı/ekle
       if (db.isReady()) {
         try {
           let isSensitive = 0;
@@ -741,9 +1004,19 @@ function registerIPCHandlers() {
             isSensitive = detectSensitiveContent(content) ? 1 : 0;
           }
 
+          let contentType = 'text';
+          const trimmed = content.trim();
+          if (/^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+$/i.test(trimmed)) {
+            contentType = 'url';
+          } else if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
+            contentType = 'email';
+          } else if (isCodeContent(trimmed)) {
+            contentType = 'code';
+          }
+
           const item = db.addClipboardItem({
             content: content,
-            content_type: 'text',
+            content_type: contentType,
             is_sensitive: isSensitive,
             char_count: content.length,
           });
@@ -757,15 +1030,21 @@ function registerIPCHandlers() {
         }
       }
 
-      // Pencereyi gizle (kullanıcı yapıştırabilsin)
+      // Pencereyi gizle ve hedef uygulamaya Ctrl+V gönder
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.hide();
+        setTimeout(() => {
+          exec('mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))', (err) => {
+            if (err) {
+              console.error('Yapıştırma simülasyon hatası:', err);
+            }
+          });
+        }, 150);
       }
 
       return { success: true };
     } catch (err) {
       console.error('paste-to-active-window hatası:', err);
-      ignoreNextClipboardChange = false;
       return { success: false, error: err.message };
     }
   });
@@ -886,6 +1165,9 @@ function registerIPCHandlers() {
   });
 
   ipcMain.handle('select-data-location', async () => {
+    if (isPortable) {
+      return { success: false, error: 'Taşınabilir modda veri konumu değiştirilemez.' };
+    }
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
         title: 'Veri Konumu Seçin',
@@ -1066,14 +1348,40 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(() => {
+  // Varsayılan üst menü çubuğunu (File, Edit, View vb.) kaldırır
+  Menu.setApplicationMenu(null);
+
+  // local-file protokolünü tanımla (yerel görselleri güvenle yüklemek için)
+  protocol.handle('local-file', (request) => {
+    try {
+      let urlPath = request.url.replace('local-file:///', '');
+      if (request.url.startsWith('local-file://') && !request.url.startsWith('local-file:///')) {
+        urlPath = request.url.replace('local-file://', '');
+      }
+      const decodedPath = decodeURIComponent(urlPath);
+      if (fs.existsSync(decodedPath)) {
+        const data = fs.readFileSync(decodedPath);
+        return new Response(data, {
+          headers: { 'Content-Type': 'image/png' }
+        });
+      } else {
+        console.error('Dosya bulunamadı:', decodedPath);
+        return new Response('Dosya bulunamadı', { status: 404 });
+      }
+    } catch (err) {
+      console.error('local-file protokol hatası:', err);
+      return new Response('Hata: ' + err.message, { status: 500 });
+    }
+  });
+
   try {
     // Veritabanını başlat
     const customLocation = '';
     db.initialize(app.getPath('userData'), customLocation);
 
-    // Özel veri konumu varsa yeniden aç
+    // Özel veri konumu varsa ve portable modda değilsek yeniden aç
     const savedLocation = db.getSetting('dataLocation');
-    if (savedLocation && savedLocation.length > 0) {
+    if (savedLocation && savedLocation.length > 0 && !isPortable) {
       try {
         db.initialize(savedLocation);
       } catch (err) {
@@ -1081,6 +1389,21 @@ app.whenReady().then(() => {
         db.initialize(app.getPath('userData'));
       }
     }
+
+    // Başlangıçta aç ayarını veritabanından oku ve uygula (Portable modda engelle)
+    const startWithWindows = db.getSetting('startWithWindows') === 'true';
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: !isPortable && startWithWindows,
+        path: app.getPath('exe'),
+      });
+    } catch (autoStartErr) {
+      console.error('Otomatik başlatma ayarı uygulanamadı:', autoStartErr);
+    }
+
+    // Yetim görsel dosyalarını temizle
+    db.cleanupOrphanImages();
+
   } catch (err) {
     console.error('Veritabanı başlatma hatası:', err);
     dialog.showErrorBox(

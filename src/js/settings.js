@@ -8,6 +8,7 @@ const SettingsPanel = (() => {
   const elements = {
     modal: document.getElementById('settings-modal'),
     closeBtn: document.getElementById('settings-close-btn'),
+    footerCloseBtn: document.getElementById('settings-footer-close-btn'),
     tabs: document.querySelectorAll('.settings-tab'),
     sections: document.querySelectorAll('.settings-section'),
     
@@ -17,16 +18,17 @@ const SettingsPanel = (() => {
     sensitive: document.getElementById('setting-sensitive'),
     historyLimit: document.getElementById('setting-history-limit'),
     pollInterval: document.getElementById('setting-poll-interval'),
+    shortcut: document.getElementById('setting-shortcut'),
     
     // Data Actions
     locationPath: document.getElementById('data-location-path'),
     changeLocationBtn: document.getElementById('change-data-location-btn'),
     exportBtn: document.getElementById('export-data-btn'),
     importBtn: document.getElementById('import-data-btn'),
-    clearAllBtn: document.getElementById('danger-clear-btn'),
   };
 
   let currentSettings = {};
+  let isPortableMode = false;
 
   /**
    * Modülü başlatır ve olay dinleyicilerini kurar
@@ -40,8 +42,9 @@ const SettingsPanel = (() => {
    * Olay dinleyicilerini tanımlar
    */
   function setupEventListeners() {
-    // Kapatma butonu
+    // Kapatma butonları
     elements.closeBtn.addEventListener('click', () => closeSettingsModal());
+    elements.footerCloseBtn.addEventListener('click', () => closeSettingsModal());
 
     // Boşluğa tıklayarak kapatma
     elements.modal.addEventListener('click', (e) => {
@@ -71,7 +74,6 @@ const SettingsPanel = (() => {
     elements.changeLocationBtn.addEventListener('click', () => changeDataLocation());
     elements.exportBtn.addEventListener('click', () => exportData());
     elements.importBtn.addEventListener('click', () => importData());
-    elements.clearAllBtn.addEventListener('click', () => clearAllHistory());
 
     // ─── Hakkında Bağlantıları Dinleyicileri ───
     document.querySelectorAll('.about-link').forEach((link) => {
@@ -89,16 +91,92 @@ const SettingsPanel = (() => {
       currentSettings[key] = value;
       updateUIField(key, value);
     });
+
+    // Sistem teması değişikliklerini canlı olarak dinle
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (currentSettings.theme === 'system') {
+        applyTheme('system');
+      }
+    });
+
+    // ─── Kısayol Düzenleme Mantığı ───
+    let isListeningShortcut = false;
+
+    elements.shortcut.addEventListener('focus', () => {
+      isListeningShortcut = true;
+      elements.shortcut.style.borderColor = 'var(--accent-primary)';
+      elements.shortcut.style.boxShadow = '0 0 0 3px var(--accent-subtle)';
+      elements.shortcut.value = 'Kombinasyona bas...';
+    });
+
+    elements.shortcut.addEventListener('blur', () => {
+      isListeningShortcut = false;
+      elements.shortcut.style.borderColor = '';
+      elements.shortcut.style.boxShadow = '';
+      elements.shortcut.value = currentSettings.globalShortcut || 'Ctrl+Shift+V';
+    });
+
+    elements.shortcut.addEventListener('keydown', (e) => {
+      if (!isListeningShortcut) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === 'Escape') {
+        elements.shortcut.blur();
+        return;
+      }
+
+      const modifiers = [];
+      if (e.ctrlKey) modifiers.push('Ctrl');
+      if (e.altKey) modifiers.push('Alt');
+      if (e.shiftKey) modifiers.push('Shift');
+      if (e.metaKey) modifiers.push('Meta');
+
+      const key = e.key;
+      const isModifierKey = ['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'Tab'].includes(key);
+
+      if (!isModifierKey) {
+        let keyName = key;
+        // Harfleri büyüt
+        if (keyName.length === 1) {
+          keyName = keyName.toUpperCase();
+        } else {
+          // Özel tuşları normalize et
+          if (keyName === ' ') keyName = 'Space';
+          else if (keyName === 'ArrowUp') keyName = 'Up';
+          else if (keyName === 'ArrowDown') keyName = 'Down';
+          else if (keyName === 'ArrowLeft') keyName = 'Left';
+          else if (keyName === 'ArrowRight') keyName = 'Right';
+        }
+
+        if (modifiers.length > 0) {
+          const shortcutString = `${modifiers.join('+')}+${keyName}`;
+          elements.shortcut.value = shortcutString;
+          
+          saveSetting('globalShortcut', shortcutString);
+          elements.shortcut.blur();
+        }
+      }
+    });
   }
+
 
   /**
    * Ayarları yükler ve UI'ı doldurur
    */
   async function loadSettings() {
     try {
-      const response = await window.api.getSettings();
-      if (response && response.success) {
-        currentSettings = response.data;
+      let settingsData = window.App && window.App.settings;
+      if (!settingsData) {
+        const response = await window.api.getSettings();
+        if (response && response.success) {
+          settingsData = response.data;
+        }
+      }
+
+      if (settingsData) {
+        currentSettings = settingsData;
         
         // UI alanlarını doldur
         elements.theme.value = currentSettings.theme || 'dark';
@@ -106,12 +184,84 @@ const SettingsPanel = (() => {
         elements.sensitive.checked = currentSettings.detectSensitive === 'true';
         elements.historyLimit.value = currentSettings.maxHistory || '0';
         elements.pollInterval.value = currentSettings.pollingInterval || '500';
+        elements.shortcut.value = currentSettings.globalShortcut || 'Ctrl+Shift+V';
 
         // Temayı uygula
         applyTheme(currentSettings.theme);
 
         // Veritabanı konumunu ve istatistikleri al
         await refreshLocationPath();
+
+        // Uygulama bilgilerini çek ve Hakkında sekmesini doldur
+        if (window.api && window.api.getAppInfo) {
+          const infoRes = await window.api.getAppInfo();
+          if (infoRes && infoRes.success) {
+            const appInfo = infoRes.data;
+            isPortableMode = !!appInfo.isPortable;
+
+            const titleEl = document.getElementById('about-app-title');
+            const versionEl = document.getElementById('about-app-version');
+            const authorEl = document.getElementById('about-app-author');
+            const devLinkEl = document.getElementById('about-dev-link');
+            const sourceLinkEl = document.getElementById('about-source-link');
+
+            if (titleEl) titleEl.textContent = appInfo.name;
+            if (versionEl) versionEl.textContent = `Sürüm ${appInfo.version}`;
+            if (authorEl) authorEl.textContent = `${appInfo.author}`;
+            if (devLinkEl) devLinkEl.dataset.url = 'https://github.com/MaximusPrime77';
+            if (sourceLinkEl) sourceLinkEl.dataset.url = 'https://github.com/MaximusPrime77/ClipBoardPro';
+
+            // Taşınabilir (Portable) Sürüm Kilit Arayüzü
+            if (isPortableMode) {
+              elements.autostart.disabled = true;
+              elements.autostart.checked = false;
+              elements.autostart.setAttribute('title', 'Portable sürümde otomatik başlatma kullanılamaz.');
+              const autostartContainer = elements.autostart.closest('.setting-item');
+              if (autostartContainer && !document.getElementById('portable-autostart-warning')) {
+                const warningSpan = document.createElement('span');
+                warningSpan.id = 'portable-autostart-warning';
+                warningSpan.className = 'portable-setting-info';
+                warningSpan.style.display = 'block';
+                warningSpan.style.marginTop = '4px';
+                warningSpan.style.fontSize = '12px';
+                warningSpan.style.color = 'var(--text-muted)';
+                warningSpan.innerHTML = 'Taşınabilir (Portable) modda kayıt defteri kirliliğini önlemek amacıyla otomatik başlatma devre dışıdır.';
+                autostartContainer.appendChild(warningSpan);
+              }
+
+              elements.changeLocationBtn.disabled = true;
+              elements.changeLocationBtn.classList.add('disabled');
+              elements.changeLocationBtn.setAttribute('title', 'Portable sürümde veri konumu değiştirilemez.');
+              elements.changeLocationBtn.innerHTML = `
+                <svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                Portable Modda Kilitli
+              `;
+
+              const locationContainer = elements.changeLocationBtn.parentElement;
+              if (locationContainer) {
+                // Portable modda veri konumu değiştirme satırını gizle
+                locationContainer.style.display = 'none';
+
+                const parentElement = locationContainer.parentElement;
+                if (parentElement && !document.getElementById('portable-warning-box')) {
+                  const warningBox = document.createElement('div');
+                  warningBox.id = 'portable-warning-box';
+                  warningBox.className = 'portable-info-box';
+                  warningBox.innerHTML = `
+                    <div class="portable-info-icon">
+                      <svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    </div>
+                    <div class="portable-info-text">
+                      <strong>Taşınabilir (Portable) Sürüm Aktif</strong>
+                      <span>Verileriniz taşınabilirlik ve sıfır iz (zero-trace) ilkesi için her zaman uygulama dizinindeki <code>/data</code> klasöründe saklanır. Bu modda veri konumu değiştirilemez.</span>
+                    </div>
+                  `;
+                  parentElement.appendChild(warningBox);
+                }
+              }
+            }
+          }
+        }
       }
     } catch (err) {
       console.error('loadSettings hatası:', err);
@@ -149,6 +299,7 @@ const SettingsPanel = (() => {
     else if (key === 'detectSensitive') elements.sensitive.checked = value === 'true';
     else if (key === 'maxHistory') elements.historyLimit.value = value;
     else if (key === 'pollingInterval') elements.pollInterval.value = value;
+    else if (key === 'globalShortcut') elements.shortcut.value = value;
   }
 
   /**
@@ -184,6 +335,11 @@ const SettingsPanel = (() => {
    * Veritabanı konumunu değiştirmeyi tetikler
    */
   async function changeDataLocation() {
+    if (isPortableMode) {
+      Utils.showToast('Portable sürümde veri konumu değiştirilemez.', 'error');
+      return;
+    }
+
     const confirmed = await window.App.confirm(
       'Veri Konumunu Taşı',
       'Veritabanı konumunu değiştirmek ve mevcut verilerinizi yeni konuma kopyalamak istediğinize emin misiniz?',
@@ -262,52 +418,9 @@ const SettingsPanel = (() => {
     }
   }
 
-  /**
-   * Sabitlenmişler dahil tüm pano geçmişini siler
-   */
-  async function clearAllHistory() {
-    const confirmed1 = await window.App.confirm(
-      'Kritik Eylem: Tüm Geçmişi Sil',
-      'Sabitlenmiş ve favorilenmiş öğeler dahil TÜM pano geçmişini silmek istediğinize emin misiniz? Bu işlem geri alınamaz!',
-      Utils.Icons.alertTriangle
-    );
-
-    if (!confirmed1) return;
-
-    const confirmed2 = await window.App.confirm(
-      'Son Onay',
-      'Gerçekten emin misiniz? Tüm pano verileriniz kalıcı olarak yok edilecektir.',
-      Utils.Icons.alertCircle
-    );
-
-    if (!confirmed2) return;
-
-    try {
-      // 1. Önce sabitlenmiş tüm öğeleri bulup tek tek silelim (çünkü clearHistory sadece pinned=0 siler)
-      const pinResponse = await window.api.getClipboardHistory({ pinned: true, limit: 10000 });
-      if (pinResponse && pinResponse.success) {
-        const pinnedItems = pinResponse.data.items;
-        for (const item of pinnedItems) {
-          await window.api.deleteClipboardItem(item.id);
-        }
-      }
-
-      // 2. Kalan tüm geçmişi (normal öğeleri) de temizleyelim
-      const response = await window.api.clearClipboardHistory();
-      if (response && response.success) {
-        Utils.showToast('Tüm pano geçmişi kalıcı olarak temizlendi.', 'success');
-        
-        // Listeyi yenile
-        if (window.ClipboardPanel) window.ClipboardPanel.loadHistory(false);
-      }
-    } catch (err) {
-      console.error(err);
-      Utils.showToast('Temizleme hatası oluştu', 'error');
-    }
-  }
-
   function openSettingsModal() {
     elements.modal.classList.add('active');
+    Utils.initFocusTrap(elements.modal);
     
     // İlk sekme varsayılan aktif
     elements.tabs[0].click();
@@ -315,6 +428,7 @@ const SettingsPanel = (() => {
 
   function closeSettingsModal() {
     elements.modal.classList.remove('active');
+    Utils.destroyFocusTrap(elements.modal);
   }
 
   return {

@@ -165,8 +165,10 @@ const ClipboardPanel = (() => {
    */
   function showSkeleton() {
     elements.list.innerHTML = Array(5).fill(0).map(() => `
-      <div class="clip-item skeleton" style="height: 70px; margin-bottom: 4px; pointer-events: none;">
-        <div class="clip-item-icon" style="background: var(--border-primary);"></div>
+      <div class="clip-item skeleton" style="height: 76px; margin-bottom: 4px; pointer-events: none;">
+        <div class="clip-item-left">
+          <div class="clip-item-icon" style="background: var(--border-primary);"></div>
+        </div>
         <div class="clip-item-body" style="gap: 8px;">
           <div style="width: 70%; height: 14px; background: var(--border-primary); border-radius: var(--radius-sm);"></div>
           <div style="width: 40%; height: 10px; background: var(--border-primary); border-radius: var(--radius-sm);"></div>
@@ -179,20 +181,12 @@ const ClipboardPanel = (() => {
    * Pano geçmişini DOM'a çizer
    */
   function renderHistory(append = false, keepScroll = false, savedScroll = 0) {
-    if (!append) {
-      elements.list.innerHTML = '';
-    } else {
-      // Önceki skeleton veya yükleniyor göstergelerini temizle
-      const skeletons = elements.list.querySelectorAll('.skeleton');
-      skeletons.forEach(s => s.remove());
-    }
-
     if (historyItems.length === 0) {
       elements.list.innerHTML = `
-        <div class="panel-empty-state">
+        <div class="empty-state">
           <span class="empty-state-icon">${Utils.Icons.clipboard}</span>
           <p class="empty-state-title">Pano Geçmişi Boş</p>
-          <p class="empty-state-desc">${searchQuery ? 'Aramanızla eşleşen öğe bulunamadı.' : 'Kopyaladığınız öğeler burada görünecektir.'}</p>
+          <p class="empty-state-text">${searchQuery ? 'Aramanızla eşleşen öğe bulunamadı.' : 'Kopyaladığınız öğeler burada görünecektir.'}</p>
         </div>
       `;
       return;
@@ -218,7 +212,15 @@ const ClipboardPanel = (() => {
       fragment.appendChild(itemEl);
     });
 
-    elements.list.appendChild(fragment);
+    if (!append) {
+      // replaceChildren, innerHTML = '' + appendChild işlemine göre çok daha performanslıdır ve titremeyi (flicker) önler
+      elements.list.replaceChildren(fragment);
+    } else {
+      // Önceki skeleton veya yükleniyor göstergelerini temizle
+      const skeletons = elements.list.querySelectorAll('.skeleton');
+      skeletons.forEach(s => s.remove());
+      elements.list.appendChild(fragment);
+    }
 
     // Yeni liste yüklemesinde (append değilse) scroll durumunu belirle
     if (!append) {
@@ -235,15 +237,17 @@ const ClipboardPanel = (() => {
    */
   function createItemElement(item) {
     const el = document.createElement('div');
-    el.className = `clip-item ${item.is_pinned ? 'pinned' : ''}`;
+    const isLongText = item.content_type !== 'image' && item.content && (item.content.length > 120 || item.content.includes('\n'));
+    el.className = `clip-item ${item.is_pinned ? 'pinned' : ''} ${isLongText ? 'has-expand' : ''}`;
     el.dataset.id = item.id;
     el.dataset.type = item.content_type;
+    el.setAttribute('tabindex', '0');
 
     // İçerik önizleme veya görsel önizleme
     let contentHTML = '';
     if (item.content_type === 'image' && item.image_path) {
-      // Windows dosya yollarını dosya URL'ine çevir
-      const fileUrl = 'file:///' + item.image_path.replace(/\\/g, '/');
+      // Windows dosya yollarını local-file URL'ine çevir (güvenle yüklenmesi için)
+      const fileUrl = 'local-file:///' + item.image_path.replace(/\\/g, '/');
       contentHTML = `
         <img class="clip-item-image-preview" src="${fileUrl}" alt="Görsel Pano" onerror="this.src='./assets/image-error.png';">
       `;
@@ -280,18 +284,27 @@ const ClipboardPanel = (() => {
       badgesHTML += `</div>`;
     }
 
-    // Genişletme (göz) butonu sadece gerçekten uzun metin ve kodlar için gösterilmeli
-    let expandBtnHTML = '';
-    if (item.content_type !== 'image' && item.content_type !== 'url') {
-      const textVal = item.content || '';
-      const newlineCount = (textVal.match(/\n/g) || []).length;
-      if (textVal.length > 200 || newlineCount >= 3) {
-        expandBtnHTML = `<button class="clip-action-btn expand-btn" data-tooltip="Genişlet/Daralt">${Utils.Icons.eye}</button>`;
-      }
+    // Hassas veri maske kaldır butonu
+    let sensitiveBtnHTML = '';
+    if (item.is_sensitive) {
+      sensitiveBtnHTML = `<button class="clip-action-btn sensitive-btn" data-tooltip="İçeriği Göster" aria-label="Hassas içeriği göster veya gizle">${Utils.Icons.eye}</button>`;
     }
 
+    // Uzun metinler için genişletme butonu (chevron-down)
+    let expandBtnHTML = '';
+    if (isLongText) {
+      const chevronDownIcon = `<svg class="icon-svg expand-icon" style="transition: transform 0.2s ease;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+      expandBtnHTML = `<button class="clip-action-btn expand-btn" data-tooltip="Genişlet" aria-label="Genişlet">${chevronDownIcon}</button>`;
+    }
+
+    const pasteIcon = `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>`;
+
     el.innerHTML = `
-      <div class="clip-item-icon">${Utils.getContentTypeIcon(item.content_type)}</div>
+      <div class="clip-item-left">
+        <div class="clip-item-icon">
+          ${Utils.getContentTypeIcon(item.content_type)}
+        </div>
+      </div>
       <div class="clip-item-body">
         ${contentHTML}
         <div class="clip-item-meta">
@@ -299,17 +312,17 @@ const ClipboardPanel = (() => {
           <span class="clip-date">${dateLabel}</span>
         </div>
       </div>
-      ${badgesHTML}
       <div class="clip-item-actions">
-        ${expandBtnHTML}
-        <button class="clip-action-btn copy-btn" data-tooltip="Kopyala">${Utils.Icons.copy}</button>
-        <button class="clip-action-btn pin-btn ${item.is_pinned ? 'pin-active' : ''}" data-tooltip="${item.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}">${Utils.Icons.pin}</button>
-        <button class="clip-action-btn fav-btn ${item.is_favorite ? 'fav-active' : ''}" data-tooltip="${item.is_favorite ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}">${Utils.Icons.star}</button>
-        <button class="clip-action-btn note-btn" data-tooltip="Not Olarak Kaydet">${Utils.Icons.fileText}</button>
-        <button class="clip-action-btn delete-btn" data-tooltip="Sil">${Utils.Icons.trash}</button>
+        ${sensitiveBtnHTML}
+        <button class="clip-action-btn paste-btn" data-tooltip="Aktif Pencereye Yapıştır" aria-label="Aktif pencereye yapıştır">${pasteIcon}</button>
+        <button class="clip-action-btn copy-btn" data-tooltip="Kopyala" aria-label="Kopyala">${Utils.Icons.copy}</button>
+        <button class="clip-action-btn pin-btn ${item.is_pinned ? 'pin-active' : ''}" data-tooltip="${item.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}" aria-label="${item.is_pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}">${Utils.Icons.pin}</button>
+        <button class="clip-action-btn fav-btn ${item.is_favorite ? 'fav-active' : ''}" data-tooltip="${item.is_favorite ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}" aria-label="${item.is_favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}">${Utils.Icons.star}</button>
+        <button class="clip-action-btn note-btn" data-tooltip="Not Olarak Kaydet" aria-label="Not olarak kaydet">${Utils.Icons.fileText}</button>
+        <button class="clip-action-btn delete-btn" data-tooltip="Sil" aria-label="Sil">${Utils.Icons.trash}</button>
       </div>
+      ${expandBtnHTML}
     `;
-
 
     bindItemEvents(el, item);
     return el;
@@ -319,50 +332,151 @@ const ClipboardPanel = (() => {
    * Pano öğesi üzerindeki olayları bağlar
    */
   function bindItemEvents(el, item) {
-    // Sol tık: Panoya kopyala
-    el.addEventListener('click', async (e) => {
-      // Eğer tıklama aksiyon butonlarından birine yapıldıysa kopyalama yapma
-      if (e.target.closest('.clip-action-btn')) return;
-
-      await copyToSystemClipboard(item, el);
-    });
-
-    // Çift tık: Aktif pencereye yapıştır
-    el.addEventListener('dblclick', async (e) => {
-      if (e.target.closest('.clip-action-btn')) return;
-      
-      // Hassas veri ise gerçek içeriği al
-      const pasteContent = item.content;
-      if (item.content_type !== 'image' && pasteContent) {
-        Utils.copyFlashAnimation(el);
-        const response = await window.api.pasteToActiveWindow(pasteContent);
-        if (response && response.success) {
-          // Pencere zaten kapandı, kullanıcı yapıştırdı.
+    // Klavye navigasyonu (Ok tuşları ile odaklanma, Enter ile yapıştırma, Space ile kopyalama)
+    el.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (item.content_type === 'image' && item.image_path) {
+          openImageViewer(item.image_path);
         } else {
-          Utils.showToast('Yapıştırılamadı: ' + response?.error, 'error');
+          await pasteToActiveWindow(item);
         }
-      } else {
-        // Görseller için normal kopyalama yap
-        await copyToSystemClipboard(item, el);
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        if (item.content_type === 'image' && item.image_path) {
+          openImageViewer(item.image_path);
+        } else {
+          await copyToSystemClipboard(item, el);
+        }
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = el.nextElementSibling;
+        if (next && next.classList.contains('clip-item')) {
+          next.focus();
+        }
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = el.previousElementSibling;
+        if (prev && prev.classList.contains('clip-item')) {
+          prev.focus();
+        }
       }
     });
 
-    // Genişlet/Daralt butonu
+    // Kartı daraltan akıllı yardımcı fonksiyon (parlama efekti ve hassas kaydırma dahil)
+    function collapseCard() {
+      if (!el.classList.contains('expanded')) return;
+
+      el.classList.remove('expanded');
+      const icon = el.querySelector('.expand-icon');
+      if (icon) icon.style.transform = 'rotate(0deg)';
+      const expBtn = el.querySelector('.expand-btn');
+      if (expBtn) expBtn.setAttribute('data-tooltip', 'Genişlet');
+
+      // 1. requestAnimationFrame ile tarayıcının yeni boyut hesaplamasını yakala ve kusursuz kaydır
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+      });
+
+      // 2. Kullanıcı gözünü karta odaklamak için hafif ve şık parlama efekti tetikle
+      el.classList.add('collapse-highlight');
+      el.addEventListener('animationend', () => {
+        el.classList.remove('collapse-highlight');
+      }, { once: true });
+    }
+
+    // Sol tık: Görsel ise görüntüleyiciyi aç, değilse gecikmeli daralt (çift tık ile çakışmayı önlemek için)
+    let clickTimeout = null;
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.clip-action-btn')) return;
+
+      if (item.content_type === 'image' && item.image_path) {
+        openImageViewer(item.image_path);
+        return;
+      }
+
+      // Eğer zaten tıklanmışsa ve 200ms dolmamışsa (çift tıklama), tek tık daraltmasını iptal et
+      if (clickTimeout) {
+        clearTimeout(clickTimeout);
+        clickTimeout = null;
+        return;
+      }
+
+      clickTimeout = setTimeout(() => {
+        clickTimeout = null;
+
+        // Eğer kullanıcı metin seçiyorsa daraltma yapma
+        const selection = window.getSelection().toString();
+        if (selection && selection.trim().length > 0) {
+          return;
+        }
+
+        collapseCard();
+      }, 200);
+    });
+
+    // Çift tıklama: Görseller hariç öğeyi doğrudan kopyalar
+    el.addEventListener('dblclick', async (e) => {
+      if (e.target.closest('.clip-action-btn')) return;
+      if (item.content_type === 'image') return;
+      await copyToSystemClipboard(item, el);
+    });
+
+    // Genişlet/Daralt butonu olayını bağla
     const expandBtn = el.querySelector('.expand-btn');
     if (expandBtn) {
       expandBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        el.classList.toggle('expanded');
-        if (el.classList.contains('expanded')) {
-          expandBtn.innerHTML = Utils.Icons.eyeOff;
-          expandBtn.setAttribute('data-tooltip', 'Daralt');
+        
+        const isExpanded = el.classList.contains('expanded');
+        if (isExpanded) {
+          collapseCard();
         } else {
-          expandBtn.innerHTML = Utils.Icons.eye;
-          expandBtn.setAttribute('data-tooltip', 'Genişlet');
+          el.classList.add('expanded');
+          expandBtn.setAttribute('data-tooltip', 'Daralt');
+          const icon = expandBtn.querySelector('.expand-icon');
+          if (icon) icon.style.transform = 'rotate(180deg)';
         }
       });
     }
 
+    // Hassas veri maske göster/gizle butonu
+    const sensitiveBtn = el.querySelector('.sensitive-btn');
+    if (sensitiveBtn) {
+      let isRevealed = false;
+      sensitiveBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isRevealed = !isRevealed;
+        
+        const previewEl = el.querySelector('.clip-item-preview');
+        if (previewEl) {
+          if (isRevealed) {
+            previewEl.textContent = item.content;
+            sensitiveBtn.innerHTML = Utils.Icons.eyeOff;
+            sensitiveBtn.setAttribute('data-tooltip', 'İçeriği Gizle');
+          } else {
+            previewEl.textContent = '•••••••••••• (Hassas Veri)';
+            sensitiveBtn.innerHTML = Utils.Icons.eye;
+            sensitiveBtn.setAttribute('data-tooltip', 'İçeriği Göster');
+          }
+        }
+      });
+    }
+
+
+
+
+    // Yapıştır butonu
+    el.querySelector('.paste-btn').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await pasteToActiveWindow(item);
+    });
 
     // Kopyala butonu
     el.querySelector('.copy-btn').addEventListener('click', async (e) => {
@@ -517,9 +631,9 @@ const ClipboardPanel = (() => {
         contentToCopy = item.image_path;
       }
 
+      // ignoreChange = false geçilerek sistem panosunun değişikliği algılaması ve öğeyi en üste taşıması sağlandı
       const response = await window.api.copyToClipboard(contentToCopy, copyType, false);
       if (response && response.success) {
-        Utils.copyFlashAnimation(element);
         Utils.showToast('Panoya kopyalandı!', 'success');
       } else {
         Utils.showToast('Kopyalanamadı: ' + response?.error, 'error');
@@ -531,10 +645,32 @@ const ClipboardPanel = (() => {
   }
 
   /**
+   * Öğeyi aktif pencereye yapıştırır
+   */
+  async function pasteToActiveWindow(item) {
+    try {
+      let contentToPaste = item.content;
+      if (item.content_type === 'image') {
+        Utils.showToast('Görseller doğrudan yapıştırılamaz. Panoya kopyalanıyor...', 'info');
+        await copyToSystemClipboard(item);
+        return;
+      }
+
+      const response = await window.api.pasteToActiveWindow(contentToPaste);
+      if (!response || !response.success) {
+        Utils.showToast('Yapıştırma başarısız: ' + response?.error, 'error');
+      }
+    } catch (err) {
+      console.error('pasteToActiveWindow hatası:', err);
+      Utils.showToast('Yapıştırma başarısız', 'error');
+    }
+  }
+
+  /**
    * Main process'ten yeni bir veri geldiğinde listeye ekler
    */
   function handleNewItem(item) {
-    // Eğer kopyalanan öğe mevcut listenin en başındakiyle aynıysa yenileme (bunu main process engelliyor ama garantiye alalım)
+    // Eğer kopyalanan öğe mevcut listenin en başındakiyle aynıysa yenileme yapma
     if (historyItems.length > 0 && historyItems[0].content === item.content && historyItems[0].content_type === item.content_type) {
       return;
     }
@@ -563,17 +699,79 @@ const ClipboardPanel = (() => {
       // En başa ekle
       historyItems.unshift(item);
 
-      // Sadece created_at DESC ile sırala (sabitler üste çıkmayacak)
+      // Kronolojik olarak sırala
       historyItems.sort((a, b) => {
-        return b.created_at.localeCompare(a.created_at);
+        // created_at karşılaştırması: ISO formatındaki tarihleri alfabetik (tersine) kıyaslar.
+        if (a.created_at < b.created_at) return 1;
+        if (a.created_at > b.created_at) return -1;
+        return b.id - a.id;
       });
 
-      renderHistory(false);
-      // Otomatik en üste kay (Madde 5)
-      elements.list.scrollTop = 0;
+      // Limit kontrolü
+      if (historyItems.length > limit) {
+        historyItems = historyItems.slice(0, limit);
+      }
+
+      // Listeyi hızlıca ve yanıp sönme (flicker) olmadan renderHistory ile yeniden çiz.
+      // replaceChildren kullandığımız için hem date header'lar güncellenir hem de titreme olmaz.
+      renderHistory(false, true, elements.list.scrollTop);
+
+      // Ekranda listenin başına kusursuz şekilde gelmesi için scroll'u en üst seviyeye akıcı şekilde kaydırıyoruz.
+      const isAlreadyAtTop = elements.list.scrollTop === 0;
+
+      const triggerFlash = () => {
+        const newEl = elements.list.querySelector(`.clip-item[data-id="${item.id}"]`);
+        if (newEl) {
+          Utils.copyFlashAnimation(newEl);
+        }
+      };
+
+      if (isAlreadyAtTop) {
+        triggerFlash();
+      } else {
+        // Kaydırma (scroll) animasyonu tamamlandığında en üstteki öğeyi flaşlatmak için dinleyiciler ekliyoruz.
+        const handleScrollEnd = () => {
+          if (elements.list.scrollTop === 0) {
+            cleanup();
+            triggerFlash();
+          }
+        };
+
+        const handleScroll = () => {
+          if (elements.list.scrollTop === 0) {
+            cleanup();
+            triggerFlash();
+          }
+        };
+
+        const cleanup = () => {
+          elements.list.removeEventListener('scroll', handleScroll);
+          elements.list.removeEventListener('scrollend', handleScrollEnd);
+        };
+
+        elements.list.addEventListener('scroll', handleScroll);
+        elements.list.addEventListener('scrollend', handleScrollEnd);
+
+        // Akıcı yukarı kaydırma başlat
+        elements.list.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Güvenlik önlemi: Eğer beklenmedik şekilde scroll 0'a tam oturmazsa, 800ms sonra zorla flaşlat ve temizle.
+        setTimeout(() => {
+          cleanup();
+          const newEl = elements.list.querySelector(`.clip-item[data-id="${item.id}"]`);
+          if (newEl && !newEl.classList.contains('copy-flash')) {
+            triggerFlash();
+          }
+        }, 800);
+      }
+
+      // Sayaçları güncelle
+      updateCounters(historyItems.length);
     } else {
-      // Eşleşmese bile arka planda total sayaçlarını güncellemek için listeyi yenile
-      loadHistory(false);
+      // Eşleşmiyorsa listeyi yenileyip titretmek yerine sadece global durum sayaçlarını güncelliyoruz.
+      if (window.App && typeof window.App.updateStatusBar === 'function') {
+        window.App.updateStatusBar();
+      }
     }
   }
 
@@ -613,24 +811,7 @@ const ClipboardPanel = (() => {
       el.classList.remove('pinned');
     }
 
-    // 2. Rozetleri (badges) güncelle
-    const existingBadges = el.querySelector('.clip-status-badges');
-    if (existingBadges) {
-      existingBadges.remove();
-    }
 
-    if (updatedItem.is_pinned || updatedItem.is_favorite) {
-      let badgesHTML = `<div class="clip-status-badges">`;
-      if (updatedItem.is_pinned) badgesHTML += `<span class="status-badge pin-badge" data-tooltip="Sabitlenmiş">${Utils.Icons.pin}</span>`;
-      if (updatedItem.is_favorite) badgesHTML += `<span class="status-badge fav-badge" data-tooltip="Favori">${Utils.Icons.star}</span>`;
-      badgesHTML += `</div>`;
-
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = badgesHTML;
-      const newBadgesEl = tempDiv.firstChild;
-      const actionsDiv = el.querySelector('.clip-item-actions');
-      el.insertBefore(newBadgesEl, actionsDiv);
-    }
 
     // 3. Pin butonunu güncelle
     const pinBtn = el.querySelector('.pin-btn');
@@ -655,6 +836,46 @@ const ClipboardPanel = (() => {
         favBtn.setAttribute('data-tooltip', 'Favorilere Ekle');
       }
     }
+  }
+
+  /**
+   * Resimleri tam boyutta görüntüleyen modal
+   */
+  function openImageViewer(imagePath) {
+    let modal = document.getElementById('image-viewer-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'image-viewer-modal';
+      modal.className = 'modal-overlay';
+      modal.style.zIndex = '3000'; // En üstte göster
+      modal.innerHTML = `
+        <div class="modal" style="width: auto; max-width: 85vw; background: transparent; border: none; box-shadow: none; display: flex; align-items: center; justify-content: center;">
+          <div style="position: relative; display: inline-block;">
+            <button id="image-viewer-close-btn" style="position: absolute; right: 12px; top: 12px; background: rgba(0, 0, 0, 0.7); color: #fff; border-radius: 50%; width: 32px; height: 32px; font-size: 16px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.25); cursor: pointer; z-index: 10; font-weight: bold; transition: all 0.2s ease;">✕</button>
+            <img id="image-viewer-img" style="max-width: 100%; max-height: 85vh; border-radius: var(--radius-md); box-shadow: var(--shadow-xl); display: block; border: 1px solid var(--border-primary);" src="" alt="Görsel">
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      const closeBtn = modal.querySelector('#image-viewer-close-btn');
+      closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('active');
+      });
+      
+      // ESC ile kapatma desteği
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+          modal.classList.remove('active');
+        }
+      });
+    }
+
+    const img = modal.querySelector('#image-viewer-img');
+    const fileUrl = 'local-file:///' + imagePath.replace(/\\/g, '/');
+    img.src = fileUrl;
+    modal.classList.add('active');
   }
 
   return {

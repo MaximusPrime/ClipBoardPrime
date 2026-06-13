@@ -68,22 +68,27 @@
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2);
   --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.35);
 
-  /* Note Colors */
-  --note-blue: #3b82f6;
-  --note-purple: #0ea5e9;
-  --note-green: #10b981;
-  --note-orange: #f59e0b;
-  --note-red: #ef4444;
-  --note-pink: #ec4899;
-  --note-teal: #14b8a6;
-  --note-gray: #6b7280;
+  /* Note Colors (Mavi ve Gri Tonları) */
+  --note-charcoal: #2a2e35;   /* Koyu Mavi-Gri */
+  --note-anthracite: #2563eb; /* Kraliyet Mavisi */
+  --note-silver: #475569;     /* Slate Mavi-Gri */
+  
+  /* Fallback aliases for backward compatibility */
+  --note-blue: var(--note-charcoal);
+  --note-purple: var(--note-charcoal);
+  --note-green: var(--note-anthracite);
+  --note-orange: var(--note-anthracite);
+  --note-red: var(--note-anthracite);
+  --note-pink: var(--note-silver);
+  --note-teal: var(--note-silver);
+  --note-gray: var(--note-silver);
 
-  /* Content Type Colors */
-  --type-text: #9ca3af;
-  --type-url: #6b7280;
-  --type-email: #4b5563;
-  --type-code: #52525b;
-  --type-image: #d4d4d8;
+  /* Content Type Colors (Kraliyet Mavisi, Mavi ve Gri Tonları) */
+  --type-text: #5a6e85;  /* Slate Mavi-Gri */
+  --type-url: #3b82f6;   /* Parlak Mavi */
+  --type-email: #2563eb; /* Kraliyet Mavisi */
+  --type-code: #1d4ed8;  /* Koyu Mavi */
+  --type-image: #60a5fa; /* Açık Mavi */
 
   /* Misc */
   --radius-sm: 6px;
@@ -124,7 +129,7 @@
   /* Text */
   --text-primary: #1f2937;     /* High contrast charcoal black */
   --text-secondary: #4b5563;   /* Slate grey subtext */
-  --text-muted: #8892a0;       /* Muted grey */
+  --text-muted: #6b7280;       /* Muted grey */
   --text-inverse: #ffffff;
 
   /* Accent */

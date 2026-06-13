@@ -31,6 +31,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'paste-to-active-window',
   'reorder-notes',
   'open-external',
+  'get-app-info',
 ];
 
 const ALLOWED_ON_CHANNELS = [
@@ -68,6 +69,8 @@ function safeOn(channel, callback) {
 
 // ─── API Exposure ──────────────────────────────────────────────
 contextBridge.exposeInMainWorld('api', {
+  getCachedSettings: () => ipcRenderer.sendSync('get-cached-settings'),
+
   // ── Clipboard ──────────────────────────────────────────────
   getClipboardHistory: (params) => safeInvoke('get-clipboard-history', params),
   deleteClipboardItem: (id) => safeInvoke('delete-clipboard-item', id),
@@ -98,6 +101,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Stats ──────────────────────────────────────────────────
   getStats: () => safeInvoke('get-stats'),
+  getAppInfo: () => safeInvoke('get-app-info'),
 
   // ── Events ─────────────────────────────────────────────────
   onClipboardChanged: (callback) => safeOn('clipboard-changed', callback),

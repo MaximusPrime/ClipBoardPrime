@@ -1,0 +1,1165 @@
+﻿diff --git a/main.js b/main.js
+index c8513d8..4834f61 100644
+--- a/main.js
++++ b/main.js
+@@ -1,63 +1,10 @@
+-/**
+- * ClipBoard Pro ÔÇö Electron Main Process
+- * ========================================
+- * Uygulama penceresi, system tray, clipboard izleme,
+- * ve t├╝m IPC handler'lar─▒.
+- */
+-
+-const {
+-  app,
+-  BrowserWindow,
+-  ipcMain,
+-  clipboard,
+-  nativeImage,
+-  globalShortcut,
+-  Tray,
+-  Menu,
+-  dialog,
+-  shell,
+-} = require('electron');
+-const path = require('path');
+-const fs = require('fs');
+-const crypto = require('crypto');
+-const db = require('./database/db');
+-
+-// ÔöÇÔöÇÔöÇ Genel De─şi┼şkenler ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+-let mainWindow = null;
+-let tray = null;
+-let clipboardWatcher = null;
+-let isQuitting = false;
+-let lastClipboardText = '';
+-let lastClipboardHtml = '';
+-let lastClipboardImageHash = '';
+-let ignoreNextClipboardChange = false; // Kendi yazd─▒─ş─▒m─▒z clipboard'u ignore et
+-const isDev = process.argv.includes('--dev');
+-
+-// Geli┼ştirme modunda ├ğak─▒┼şmalar─▒ ├Ânlemek i├ğin farkl─▒ bir userData dizini kullan
+-if (isDev) {
+-  const devDataPath = path.join(app.getPath('appData'), 'clipboard-pro-app-dev');
+-  app.setPath('userData', devDataPath);
+-}
+-
+-// Tek instance kilidi
+-const gotTheLock = app.requestSingleInstanceLock();
+-if (!gotTheLock) {
+-  app.quit();
+-}
+-
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-// Pencere Olu┼şturma
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-
+-function createWindow() {
++async function createWindow() {
+   // Kaydedilmi┼ş pencere konumu ve boyutunu oku
+   let windowBounds = { width: 1200, height: 800 };
+   try {
+-    if (db.isReady()) {
+-      const savedBounds = db.getSetting('windowBounds');
+-      if (savedBounds) {
+-        windowBounds = { ...windowBounds, ...JSON.parse(savedBounds) };
+-      }
++    const savedBounds = await runDb('getSetting', 'windowBounds');
++    if (savedBounds) {
++      windowBounds = { ...windowBounds, ...JSON.parse(savedBounds) };
+     }
+   } catch (err) {
+     // Kay─▒tl─▒ konum yoksa varsay─▒lan kullan
+@@ -72,7 +19,7 @@ function createWindow() {
+     minHeight: 600,
+     frame: true,
+     show: false, // ready-to-show ile g├Âster (flicker engelleme)
+-    icon: getTrayIconPath(),
++    icon: path.join(__dirname, 'build', 'icon.ico'), // Buras─▒ build/icon.ico olarak g├╝ncellendi
+     webPreferences: {
+       preload: path.join(__dirname, 'preload.js'),
+       contextIsolation: true,
+@@ -84,6 +31,9 @@ function createWindow() {
+ 
+   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+ 
++  // Varsay─▒lan men├╝ bar─▒n─▒ gizle
++  mainWindow.setMenu(null);
++
+   // DevTools sadece --dev arg├╝man─▒ varken a├ğ
+   if (isDev) {
+     mainWindow.webContents.openDevTools({ mode: 'detach' });
+@@ -91,7 +41,9 @@ function createWindow() {
+ 
+   // Pencere haz─▒r olunca g├Âster (beyaz fla┼ş engelleme)
+   mainWindow.once('ready-to-show', () => {
+-    mainWindow.show();
++    if (!startInTray) {
++      mainWindow.show();
++    }
+   });
+ 
+   // Kapatma ÔåÆ tray'e k├╝├ğ├╝lt (ger├ğekten kapatma)
+@@ -99,15 +51,28 @@ function createWindow() {
+     if (!isQuitting) {
+       event.preventDefault();
+       mainWindow.hide();
++
++      // Bilgilendirme balonu g├Âster (sadece bir kez)
++      const config = getConfig();
++      if (!config.trayBalloonShown) {
++        if (tray) {
++          tray.displayBalloon({
++            title: 'ClipBoardPro',
++            content: 'Uygulama sistem tepsisinde (tray) arka planda ├ğal─▒┼şmaya devam ediyor.',
++            iconType: 'info',
++          });
++          saveConfig({ trayBalloonShown: true });
++        }
++      }
+     }
+   });
+ 
+   // Pencere boyutu/konumu de─şi┼şince kaydet
+-  const saveBoundsDebounced = debounce(() => {
++  const saveBoundsDebounced = debounce(async () => {
+     if (mainWindow && !mainWindow.isDestroyed()) {
+       try {
+         const bounds = mainWindow.getBounds();
+-        db.saveSetting('windowBounds', JSON.stringify(bounds));
++        await runDb('saveSetting', { key: 'windowBounds', value: JSON.stringify(bounds) });
+       } catch (err) {
+         // Kay─▒t hatas─▒ g├Ârmezden gel
+       }
+@@ -121,1029 +86,4 @@ function createWindow() {
+   mainWindow.on('closed', () => {
+     mainWindow = null;
+   });
+-}
+-
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-// System Tray
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-
+-/**
+- * Tray ikonu yolunu d├Âner. Her ba┼şlatmada g├╝ncel ikonu programatik olu┼şturur.
+- */
+-function getTrayIconPath() {
+-  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
+-
+-  try {
+-    const assetsDir = path.join(__dirname, 'assets');
+-    if (!fs.existsSync(assetsDir)) {
+-      fs.mkdirSync(assetsDir, { recursive: true });
+-    }
+-    // Her zaman en g├╝ncel mavi premium ikonu yaz
+-    const icon = createTrayIcon();
+-    fs.writeFileSync(iconPath, icon.toPNG());
+-  } catch (err) {
+-    console.error('Tray ikonu olu┼şturma hatas─▒:', err);
+-    return null;
+-  }
+-
+-  return iconPath;
+-}
+-
+-function isPointOnSquareBorder(x, y, x1, y1, x2, y2, w) {
+-  const halfW = w / 2;
+-  const left = Math.abs(x - x1) <= halfW && y >= y1 - halfW && y <= y2 + halfW;
+-  const right = Math.abs(x - x2) <= halfW && y >= y1 - halfW && y <= y2 + halfW;
+-  const top = Math.abs(y - y1) <= halfW && x >= x1 - halfW && x <= x2 + halfW;
+-  const bottom = Math.abs(y - y2) <= halfW && x >= x1 - halfW && x <= x2 + halfW;
+-  return left || right || top || bottom;
+-}
+-
+-/**
+- * Programatik olarak premium 64x64 mavi copy/clipboard ikonu olu┼şturur.
+- */
+-function createTrayIcon() {
+-  const size = 64;
+-  const canvas = Buffer.alloc(size * size * 4);
+-
+-  // Background rounded rect params
+-  const rx1 = 4, ry1 = 4, rx2 = 59, ry2 = 59;
+-  const R = 14;
+-  const cx1 = rx1 + R, cx2 = rx2 - R;
+-  const cy1 = ry1 + R, cy2 = ry2 - R;
+-
+-  // Square params
+-  const w = 2.5; // thickness
+-  // Back square: top-left
+-  const bx1 = 18, by1 = 18, bx2 = 39, by2 = 39;
+-  // Front square: bottom-right
+-  const fx1 = 25, fy1 = 25, fx2 = 46, fy2 = 46;
+-  const gap = 2.0;
+-
+-  for (let y = 0; y < size; y++) {
+-    for (let x = 0; x < size; x++) {
+-      const idx = (y * size + x) * 4;
+-
+-      // Check if point is inside the rounded rect
+-      let insideRoundedRect = false;
+-      if (x >= rx1 && x <= rx2 && y >= ry1 && y <= ry2) {
+-        if (x < cx1 && y < cy1) {
+-          insideRoundedRect = (x - cx1)**2 + (y - cy1)**2 <= R**2;
+-        } else if (x > cx2 && y < cy1) {
+-          insideRoundedRect = (x - cx2)**2 + (y - cy1)**2 <= R**2;
+-        } else if (x < cx1 && y > cy2) {
+-          insideRoundedRect = (x - cx1)**2 + (y - cy2)**2 <= R**2;
+-        } else if (x > cx2 && y > cy2) {
+-          insideRoundedRect = (x - cx2)**2 + (y - cy2)**2 <= R**2;
+-        } else {
+-          insideRoundedRect = true;
+-        }
+-      }
+-
+-      if (insideRoundedRect) {
+-        // Draw the overlapping squares
+-        const onFrontBorder = isPointOnSquareBorder(x, y, fx1, fy1, fx2, fy2, w);
+-        const insideFrontMask = x >= (fx1 - gap) && x <= (fx2 + gap) && y >= (fy1 - gap) && y <= (fy2 + gap);
+-        const onBackBorder = isPointOnSquareBorder(x, y, bx1, by1, bx2, by2, w);
+-
+-        if (onFrontBorder) {
+-          // White front square border
+-          canvas[idx] = 255;
+-          canvas[idx + 1] = 255;
+-          canvas[idx + 2] = 255;
+-          canvas[idx + 3] = 255;
+-        } else if (insideFrontMask) {
+-          // Blue gap/interior of front square (Royal Blue #2563eb)
+-          canvas[idx] = 37;
+-          canvas[idx + 1] = 99;
+-          canvas[idx + 2] = 235;
+-          canvas[idx + 3] = 255;
+-        } else if (onBackBorder) {
+-          // White back square border
+-          canvas[idx] = 255;
+-          canvas[idx + 1] = 255;
+-          canvas[idx + 2] = 255;
+-          canvas[idx + 3] = 255;
+-        } else {
+-          // Blue background (Royal Blue #2563eb)
+-          canvas[idx] = 37;
+-          canvas[idx + 1] = 99;
+-          canvas[idx + 2] = 235;
+-          canvas[idx + 3] = 255;
+-        }
+-      } else {
+-        // Transparent
+-        canvas[idx] = 0;
+-        canvas[idx + 1] = 0;
+-        canvas[idx + 2] = 0;
+-        canvas[idx + 3] = 0;
+-      }
+-    }
+-  }
+-
+-  return nativeImage.createFromBuffer(canvas, {
+-    width: size,
+-    height: size,
+-  });
+-}
+-
+-/**
+- * System tray'i olu┼şturur.
+- */
+-function createTray() {
+-  const iconPath = getTrayIconPath();
+-  let trayIcon;
+-
+-  if (iconPath && fs.existsSync(iconPath)) {
+-    trayIcon = nativeImage.createFromPath(iconPath);
+-  } else {
+-    trayIcon = createTrayIcon();
+-  }
+-
+-  // Windows'ta ikon boyutunu k├╝├ğ├╝lt
+-  trayIcon = trayIcon.resize({ width: 16, height: 16 });
+-
+-  tray = new Tray(trayIcon);
+-  tray.setToolTip('ClipBoardPro');
+-
+-  const contextMenu = Menu.buildFromTemplate([
+-    {
+-      label: 'G├Âster',
+-      click: () => {
+-        showWindow();
+-      },
+-    },
+-    {
+-      label: 'Ayarlar',
+-      click: () => {
+-        showWindow();
+-        // Ayarlar sayfas─▒n─▒ a├ğ
+-        if (mainWindow && !mainWindow.isDestroyed()) {
+-          mainWindow.webContents.send('navigate', 'settings');
+-        }
+-      },
+-    },
+-    { type: 'separator' },
+-    {
+-      label: '├ç─▒k─▒┼ş',
+-      click: () => {
+-        isQuitting = true;
+-        app.quit();
+-      },
+-    },
+-  ]);
+-
+-  tray.setContextMenu(contextMenu);
+-
+-  // Tray'e t─▒klay─▒nca g├Âster/gizle
+-  tray.on('click', () => {
+-    toggleWindow();
+-  });
+-}
+-
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-// Pencere Yard─▒mc─▒ Fonksiyonlar
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-
+-function showWindow() {
+-  if (!mainWindow) {
+-    createWindow();
+-    return;
+-  }
+-  if (mainWindow.isMinimized()) mainWindow.restore();
+-  mainWindow.show();
+-  mainWindow.focus();
+-}
+-
+-function hideWindow() {
+-  if (mainWindow && !mainWindow.isDestroyed()) {
+-    mainWindow.hide();
+-  }
+-}
+-
+-function toggleWindow() {
+-  if (!mainWindow || mainWindow.isDestroyed()) {
+-    createWindow();
+-  } else if (mainWindow.isVisible()) {
+-    hideWindow();
+-  } else {
+-    showWindow();
+-  }
+-}
+-
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-// Clipboard Monitoring
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-
+-/**
+- * Clipboard izlemeyi ba┼şlat─▒r.
+- */
+-function startClipboardWatcher() {
+-  // Mevcut clipboard i├ğeri─şini oku (kar┼ş─▒la┼şt─▒rma i├ğin)
+-  try {
+-    lastClipboardText = clipboard.readText() || '';
+-    lastClipboardHtml = clipboard.readHTML() || '';
+-    const img = clipboard.readImage();
+-    if (img && !img.isEmpty()) {
+-      lastClipboardImageHash = hashImage(img);
+-    }
+-  } catch (err) {
+-    console.error('─░lk clipboard okuma hatas─▒:', err);
+-  }
+-
+-  // Polling interval ayar─▒n─▒ oku
+-  let interval = 500;
+-  try {
+-    if (db.isReady()) {
+-      const savedInterval = db.getSetting('pollingInterval');
+-      if (savedInterval) {
+-        interval = Math.max(200, Math.min(5000, parseInt(savedInterval) || 500));
+-      }
+-    }
+-  } catch (err) {
+-    // Varsay─▒lan kullan
+-  }
+-
+-  clipboardWatcher = setInterval(() => {
+-    try {
+-      checkClipboard();
+-    } catch (err) {
+-      console.error('Clipboard kontrol hatas─▒:', err);
+-    }
+-  }, interval);
+-}
+-
+-/**
+- * Clipboard izlemeyi durdurur.
+- */
+-function stopClipboardWatcher() {
+-  if (clipboardWatcher) {
+-    clearInterval(clipboardWatcher);
+-    clipboardWatcher = null;
+-  }
+-}
+-
+-/**
+- * Clipboard'da de─şi┼şiklik olup olmad─▒─ş─▒n─▒ kontrol eder.
+- */
+-function checkClipboard() {
+-  // Kendi yazd─▒─ş─▒m─▒z clipboard'u atla
+-  if (ignoreNextClipboardChange) {
+-    ignoreNextClipboardChange = false;
+-    // Yeni de─şerleri kaydet (sonraki kar┼ş─▒la┼şt─▒rma i├ğin)
+-    lastClipboardText = clipboard.readText() || '';
+-    lastClipboardHtml = clipboard.readHTML() || '';
+-    const img = clipboard.readImage();
+-    if (img && !img.isEmpty()) {
+-      lastClipboardImageHash = hashImage(img);
+-    }
+-    return;
+-  }
+-
+-  // G├Ârsel kontrol├╝
+-  const currentImage = clipboard.readImage();
+-  if (currentImage && !currentImage.isEmpty()) {
+-    const currentHash = hashImage(currentImage);
+-    if (currentHash !== lastClipboardImageHash) {
+-      lastClipboardImageHash = currentHash;
+-      // Yeni g├Ârsel bulundu
+-      handleNewImage(currentImage);
+-      return;
+-    }
+-  }
+-
+-  // Metin kontrol├╝
+-  const currentText = clipboard.readText() || '';
+-  const currentHtml = clipboard.readHTML() || '';
+-
+-  // HTML i├ğeri─şi var m─▒ ve metin i├ğeri─şinden farkl─▒ m─▒?
+-  if (currentHtml && currentHtml.trim().length > 0 && currentHtml !== lastClipboardHtml) {
+-    // HTML i├ğeri─şinin sadece metin wrapper'─▒ olmad─▒─ş─▒n─▒ kontrol et
+-    const strippedHtml = currentHtml.replace(/<[^>]*>/g, '').trim();
+-    const isRichContent = currentHtml.includes('<') && strippedHtml !== currentText.trim();
+-
+-    if (isRichContent && currentHtml !== lastClipboardHtml) {
+-      lastClipboardHtml = currentHtml;
+-      lastClipboardText = currentText;
+-      handleNewClipboardItem(currentHtml, 'html');
+-      return;
+-    }
+-  }
+-
+-  // D├╝z metin kontrol├╝
+-  if (currentText && currentText.trim().length > 0 && currentText !== lastClipboardText) {
+-    lastClipboardText = currentText;
+-    lastClipboardHtml = currentHtml;
+-    handleNewClipboardItem(currentText, 'text');
+-    return;
+-  }
+-}
+-
+-/**
+- * Yeni clipboard ├Â─şesini i┼şler ve DB'ye kaydeder.
+- */
+-function handleNewClipboardItem(content, contentType) {
+-  console.log('handleNewClipboardItem tetiklendi! content:', content ? content.substring(0, 50) : '', 'contentType:', contentType);
+-
+-  // Otomatik i├ğerik tipi alg─▒lama
+-  if (contentType === 'text') {
+-    const trimmed = content.trim();
+-    if (/^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+$/i.test(trimmed)) {
+-      contentType = 'url';
+-    }
+-  }
+-
+-  if (!db.isReady()) return;
+-
+-  try {
+-    // Hassas veri alg─▒lama
+-    let isSensitive = 0;
+-    const detectSensitive = db.getSetting('detectSensitive');
+-    if (detectSensitive === 'true') {
+-      isSensitive = detectSensitiveContent(content) ? 1 : 0;
+-    }
+-
+-    const item = db.addClipboardItem({
+-      content: content,
+-      content_type: contentType,
+-      is_sensitive: isSensitive,
+-      char_count: content.length,
+-    });
+-
+-    // Renderer'a bildir
+-    if (mainWindow && !mainWindow.isDestroyed()) {
+-      mainWindow.webContents.send('clipboard-changed', item);
+-    }
+-  } catch (err) {
+-    console.error('Clipboard ├Â─şesi kaydetme hatas─▒:', err);
+-  }
+-}
+-
+-/**
+- * Yeni g├Ârsel clipboard ├Â─şesini i┼şler.
+- */
+-function handleNewImage(image) {
+-  if (!db.isReady()) return;
+-
+-  try {
+-    // G├Ârseli dosyaya kaydet
+-    const imagesDir = path.join(app.getPath('userData'), 'images');
+-    if (!fs.existsSync(imagesDir)) {
+-      fs.mkdirSync(imagesDir, { recursive: true });
+-    }
+-
+-    const filename = `clip_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.png`;
+-    const imagePath = path.join(imagesDir, filename);
+-    const pngBuffer = image.toPNG();
+-    fs.writeFileSync(imagePath, pngBuffer);
+-
+-    const item = db.addClipboardItem({
+-      content: `[G├Ârsel: ${formatBytes(pngBuffer.length)}]`,
+-      content_type: 'image',
+-      image_path: imagePath,
+-      char_count: 0,
+-    });
+-
+-    // Renderer'a bildir
+-    if (mainWindow && !mainWindow.isDestroyed()) {
+-      mainWindow.webContents.send('clipboard-changed', item);
+-    }
+-  } catch (err) {
+-    console.error('G├Ârsel kaydetme hatas─▒:', err);
+-  }
+-}
+-
+-/**
+- * G├Ârsel hash'ini hesaplar (de─şi┼şiklik alg─▒lama i├ğin).
+- */
+-function hashImage(image) {
+-  try {
+-    const buffer = image.toBitmap();
+-    return crypto.createHash('md5').update(buffer).digest('hex');
+-  } catch (err) {
+-    return '';
+-  }
+-}
+-
+-/**
+- * Hassas i├ğerik alg─▒lama (kredi kart─▒, ┼şifre vb.).
+- */
+-function detectSensitiveContent(text) {
+-  const patterns = [
+-    // Kredi kart─▒ numaras─▒ (basit pattern)
+-    /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/,
+-    // Sosyal g├╝venlik numaras─▒ benzeri
+-    /\b\d{3}[\s-]\d{2}[\s-]\d{4}\b/,
+-    // E-posta + ┼şifre kombinasyonu
+-    /password\s*[:=]\s*\S+/i,
+-    /┼şifre\s*[:=]\s*\S+/i,
+-    /parola\s*[:=]\s*\S+/i,
+-    // API key benzeri
+-    /api[_-]?key\s*[:=]\s*\S+/i,
+-    // Secret/token benzeri
+-    /secret\s*[:=]\s*\S+/i,
+-    /token\s*[:=]\s*\S+/i,
+-    // Private key
+-    /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/,
+-  ];
+-
+-  return patterns.some((pattern) => pattern.test(text));
+-}
+-
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-// Global K─▒sayollar
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-
+-function registerGlobalShortcuts() {
+-  try {
+-    let shortcut = 'Ctrl+Shift+V';
+-    if (db.isReady()) {
+-      const saved = db.getSetting('globalShortcut');
+-      if (saved) shortcut = saved;
+-    }
+-
+-    const registered = globalShortcut.register(shortcut, () => {
+-      toggleWindow();
+-    });
+-
+-    if (!registered) {
+-      console.warn(`Global k─▒sayol kaydedilemedi: ${shortcut}`);
+-    }
+-  } catch (err) {
+-    console.error('Global k─▒sayol kay─▒t hatas─▒:', err);
+-  }
+-}
+-
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-// IPC Handlers
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-
+-function registerIPCHandlers() {
+-  // ÔöÇÔöÇ Clipboard ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+-
+-  ipcMain.handle('get-clipboard-history', async (_event, params) => {
+-    try {
+-      return { success: true, data: db.getClipboardHistory(params) };
+-    } catch (err) {
+-      console.error('get-clipboard-history hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('delete-clipboard-item', async (_event, id) => {
+-    try {
+-      const result = db.deleteClipboardItem(id);
+-      return { success: true, data: result };
+-    } catch (err) {
+-      console.error('delete-clipboard-item hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('clear-clipboard-history', async () => {
+-    try {
+-      const count = db.clearHistory();
+-      return { success: true, data: { deleted: count } };
+-    } catch (err) {
+-      console.error('clear-clipboard-history hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('toggle-pin-clipboard', async (_event, id) => {
+-    try {
+-      const item = db.togglePin(id);
+-      return { success: true, data: item };
+-    } catch (err) {
+-      console.error('toggle-pin-clipboard hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('toggle-favorite-clipboard', async (_event, id) => {
+-    try {
+-      const item = db.toggleFavorite(id);
+-      return { success: true, data: item };
+-    } catch (err) {
+-      console.error('toggle-favorite-clipboard hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('copy-to-clipboard', async (_event, { content, type, ignoreChange = true }) => {
+-    console.log('copy-to-clipboard IPC tetiklendi! content:', content ? content.substring(0, 50) : '', 'type:', type, 'ignoreChange:', ignoreChange);
+-    try {
+-      if (ignoreChange) {
+-        ignoreNextClipboardChange = true;
+-      }
+-
+-      if (type === 'image') {
+-        // G├Ârsel dosyas─▒n─▒ oku ve clipboard'a yaz
+-        if (fs.existsSync(content)) {
+-          const img = nativeImage.createFromPath(content);
+-          clipboard.writeImage(img);
+-        } else {
+-          return { success: false, error: 'G├Ârsel dosyas─▒ bulunamad─▒' };
+-        }
+-      } else if (type === 'html') {
+-        clipboard.writeHTML(content);
+-        // Metin olarak da yaz ki d├╝z metin yap─▒┼şt─▒rma ├ğal─▒┼şs─▒n
+-        const plainText = content.replace(/<[^>]*>/g, '');
+-        clipboard.write({
+-          text: plainText,
+-          html: content,
+-        });
+-      } else {
+-        clipboard.writeText(content);
+-      }
+-
+-      if (!ignoreChange) {
+-        if (type === 'image') {
+-          const isExistingDbImage = content && content.includes('images') && fs.existsSync(content);
+-          if (isExistingDbImage) {
+-            try {
+-              const item = db.addClipboardItem({
+-                content: `[G├Ârsel]`,
+-                content_type: 'image',
+-                image_path: content,
+-                char_count: 0,
+-              });
+-              if (mainWindow && !mainWindow.isDestroyed()) {
+-                mainWindow.webContents.send('clipboard-changed', item);
+-              }
+-            } catch (err) {
+-              console.error('G├Ârsel g├╝ncelleme hatas─▒:', err);
+-            }
+-          } else {
+-            if (fs.existsSync(content)) {
+-              const img = nativeImage.createFromPath(content);
+-              handleNewImage(img);
+-            }
+-          }
+-        } else {
+-          handleNewClipboardItem(content, type || 'text');
+-        }
+-      }
+-
+-      // Yeni de─şerleri sakla (sonraki kar┼ş─▒la┼şt─▒rma i├ğin)
+-      lastClipboardText = clipboard.readText() || '';
+-      lastClipboardHtml = clipboard.readHTML() || '';
+-      const img = clipboard.readImage();
+-      if (img && !img.isEmpty()) {
+-        lastClipboardImageHash = hashImage(img);
+-      }
+-
+-      return { success: true };
+-    } catch (err) {
+-      console.error('copy-to-clipboard hatas─▒:', err);
+-      ignoreNextClipboardChange = false;
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('clip-to-note', async (_event, id) => {
+-    try {
+-      const clipItem = db.getClipboardItemById(id);
+-      if (!clipItem) {
+-        return { success: false, error: 'Clipboard ├Â─şesi bulunamad─▒' };
+-      }
+-
+-      const note = db.addNote({
+-        title: clipItem.preview
+-          ? clipItem.preview.substring(0, 50)
+-          : 'Panodan Not',
+-        content: clipItem.content,
+-        color: '#3b82f6',
+-      });
+-
+-      return { success: true, data: note };
+-    } catch (err) {
+-      console.error('clip-to-note hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('paste-to-active-window', async (_event, content) => {
+-    console.log('paste-to-active-window IPC tetiklendi! content:', content ? content.substring(0, 50) : '');
+-    try {
+-      ignoreNextClipboardChange = true;
+-      clipboard.writeText(content);
+-
+-      // Clipboard de─şerlerini g├╝ncelle
+-      lastClipboardText = content;
+-      lastClipboardHtml = clipboard.readHTML() || '';
+-
+-      // ├çift t─▒klayarak yap─▒┼şt─▒r─▒lan metni de veritaban─▒nda en ├╝ste ta┼ş─▒/ekle
+-      if (db.isReady()) {
+-        try {
+-          let isSensitive = 0;
+-          const detectSensitive = db.getSetting('detectSensitive');
+-          if (detectSensitive === 'true') {
+-            isSensitive = detectSensitiveContent(content) ? 1 : 0;
+-          }
+-
+-          const item = db.addClipboardItem({
+-            content: content,
+-            content_type: 'text',
+-            is_sensitive: isSensitive,
+-            char_count: content.length,
+-          });
+-
+-          // Renderer'a bildir ki aray├╝zde en ├╝ste ├ğ─▒ks─▒n
+-          if (mainWindow && !mainWindow.isDestroyed()) {
+-            mainWindow.webContents.send('clipboard-changed', item);
+-          }
+-        } catch (dbErr) {
+-          console.error('Yap─▒┼şt─▒rma s─▒ras─▒nda DB g├╝ncellenemedi:', dbErr);
+-        }
+-      }
+-
+-      // Pencereyi gizle (kullan─▒c─▒ yap─▒┼şt─▒rabilsin)
+-      if (mainWindow && !mainWindow.isDestroyed()) {
+-        mainWindow.hide();
+-      }
+-
+-      return { success: true };
+-    } catch (err) {
+-      console.error('paste-to-active-window hatas─▒:', err);
+-      ignoreNextClipboardChange = false;
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  // ÔöÇÔöÇ Notes ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+-
+-  ipcMain.handle('get-notes', async (_event, params) => {
+-    try {
+-      const notes = db.getNotes(params);
+-      return { success: true, data: notes };
+-    } catch (err) {
+-      console.error('get-notes hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('save-note', async (_event, note) => {
+-    try {
+-      let result;
+-      if (note.id) {
+-        result = db.updateNote(note);
+-      } else {
+-        result = db.addNote(note);
+-      }
+-      return { success: true, data: result };
+-    } catch (err) {
+-      console.error('save-note hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('delete-note', async (_event, id) => {
+-    try {
+-      const result = db.deleteNote(id);
+-      return { success: true, data: result };
+-    } catch (err) {
+-      console.error('delete-note hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('reorder-notes', async (_event, orderedIds) => {
+-    try {
+-      db.reorderNotes(orderedIds);
+-      return { success: true };
+-    } catch (err) {
+-      console.error('reorder-notes hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  // ÔöÇÔöÇ Categories ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+-
+-  ipcMain.handle('get-categories', async () => {
+-    try {
+-      const categories = db.getCategories();
+-      return { success: true, data: categories };
+-    } catch (err) {
+-      console.error('get-categories hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('save-category', async (_event, cat) => {
+-    try {
+-      let result;
+-      if (cat.id) {
+-        result = db.updateCategory(cat);
+-      } else {
+-        result = db.addCategory(cat);
+-      }
+-      return { success: true, data: result };
+-    } catch (err) {
+-      console.error('save-category hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('delete-category', async (_event, id) => {
+-    try {
+-      const result = db.deleteCategory(id);
+-      return { success: true, data: result };
+-    } catch (err) {
+-      console.error('delete-category hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  // ÔöÇÔöÇ Settings ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+-
+-  ipcMain.handle('get-settings', async () => {
+-    try {
+-      const settings = db.getAllSettings();
+-      return { success: true, data: settings };
+-    } catch (err) {
+-      console.error('get-settings hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('save-setting', async (_event, { key, value }) => {
+-    try {
+-      const result = db.saveSetting(key, value);
+-
+-      // Belirli ayarlar de─şi┼şince anl─▒k tepki ver
+-      handleSettingChange(key, value);
+-
+-      // Renderer'a bildir
+-      if (mainWindow && !mainWindow.isDestroyed()) {
+-        mainWindow.webContents.send('settings-changed', { key, value });
+-      }
+-
+-      return { success: true, data: result };
+-    } catch (err) {
+-      console.error('save-setting hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('select-data-location', async () => {
+-    try {
+-      const result = await dialog.showOpenDialog(mainWindow, {
+-        title: 'Veri Konumu Se├ğin',
+-        properties: ['openDirectory', 'createDirectory'],
+-        buttonLabel: 'Bu Klas├Âr├╝ Se├ğ',
+-      });
+-
+-      if (result.canceled || result.filePaths.length === 0) {
+-        return { success: false, error: '─░ptal edildi' };
+-      }
+-
+-      const newLocation = result.filePaths[0];
+-      db.changeLocation(newLocation, app.getPath('userData'));
+-
+-      return { success: true, data: { path: newLocation } };
+-    } catch (err) {
+-      console.error('select-data-location hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('export-data', async () => {
+-    try {
+-      const result = await dialog.showSaveDialog(mainWindow, {
+-        title: 'Veriyi D─▒┼şa Aktar',
+-        defaultPath: `clipboard-pro-backup-${formatDate(new Date())}.json`,
+-        filters: [
+-          { name: 'JSON Dosyas─▒', extensions: ['json'] },
+-        ],
+-        buttonLabel: 'D─▒┼şa Aktar',
+-      });
+-
+-      if (result.canceled || !result.filePath) {
+-        return { success: false, error: '─░ptal edildi' };
+-      }
+-
+-      const exportData = db.exportAll();
+-      fs.writeFileSync(result.filePath, JSON.stringify(exportData, null, 2), 'utf8');
+-
+-      return { success: true, data: { path: result.filePath } };
+-    } catch (err) {
+-      console.error('export-data hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  ipcMain.handle('import-data', async () => {
+-    try {
+-      const result = await dialog.showOpenDialog(mainWindow, {
+-        title: 'Veri ─░├ğe Aktar',
+-        filters: [
+-          { name: 'JSON Dosyas─▒', extensions: ['json'] },
+-        ],
+-        properties: ['openFile'],
+-        buttonLabel: '─░├ğe Aktar',
+-      });
+-
+-      if (result.canceled || result.filePaths.length === 0) {
+-        return { success: false, error: '─░ptal edildi' };
+-      }
+-
+-      const fileContent = fs.readFileSync(result.filePaths[0], 'utf8');
+-      const importData = JSON.parse(fileContent);
+-
+-      // Do─şrulama
+-      if (!importData.data) {
+-        return { success: false, error: 'Ge├ğersiz dosya format─▒' };
+-      }
+-
+-      const importResult = db.importAll(importData);
+-      return { success: true, data: importResult };
+-    } catch (err) {
+-      console.error('import-data hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  // ÔöÇÔöÇ Stats ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+-
+-  ipcMain.handle('get-stats', async () => {
+-    try {
+-      const stats = db.getStats();
+-      return { success: true, data: stats };
+-    } catch (err) {
+-      console.error('get-stats hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-
+-  // ÔöÇÔöÇ open-external ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+-
+-  ipcMain.handle('open-external', async (_event, url) => {
+-    try {
+-      await shell.openExternal(url);
+-      return { success: true };
+-    } catch (err) {
+-      console.error('open-external hatas─▒:', err);
+-      return { success: false, error: err.message };
+-    }
+-  });
+-}
+-
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-// Ayar De─şi┼şikli─şi ─░┼şleme
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-
+-function handleSettingChange(key, value) {
+-  switch (key) {
+-    case 'pollingInterval':
+-      // Clipboard izleme aral─▒─ş─▒n─▒ g├╝ncelle
+-      stopClipboardWatcher();
+-      startClipboardWatcher();
+-      break;
+-
+-    case 'globalShortcut':
+-      // Global k─▒sayolu g├╝ncelle
+-      globalShortcut.unregisterAll();
+-      registerGlobalShortcuts();
+-      break;
+-
+-    case 'startWithWindows':
+-      // Ba┼şlang─▒├ğta a├ğ ayar─▒n─▒ g├╝ncelle
+-      try {
+-        app.setLoginItemSettings({
+-          openAtLogin: value === 'true',
+-          path: app.getPath('exe'),
+-        });
+-      } catch (err) {
+-        console.error('Otomatik ba┼şlatma ayar─▒ hatas─▒:', err);
+-      }
+-      break;
+-  }
+-}
+-
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-// Yard─▒mc─▒ Fonksiyonlar
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-
+-/**
+- * Debounce fonksiyonu.
+- */
+-function debounce(func, wait) {
+-  let timeout;
+-  return function (...args) {
+-    clearTimeout(timeout);
+-    timeout = setTimeout(() => func.apply(this, args), wait);
+-  };
+-}
+-
+-/**
+- * Tarihi YYYY-MM-DD format─▒nda d├Âner.
+- */
+-function formatDate(date) {
+-  const y = date.getFullYear();
+-  const m = String(date.getMonth() + 1).padStart(2, '0');
+-  const d = String(date.getDate()).padStart(2, '0');
+-  return `${y}-${m}-${d}`;
+-}
+-
+-/**
+- * Byte de─şerini okunabilir formata ├ğevirir.
+- */
+-function formatBytes(bytes) {
+-  if (bytes === 0) return '0 B';
+-  const k = 1024;
+-  const sizes = ['B', 'KB', 'MB', 'GB'];
+-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+-}
+-
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-// Uygulama Ya┼şam D├Âng├╝s├╝
+-// ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+-
+-// ─░kinci instance a├ğ─▒l─▒nca mevcut pencereyi g├Âster
+-app.on('second-instance', () => {
+-  showWindow();
+-});
+-
+-app.whenReady().then(() => {
+-  try {
+-    // Veritaban─▒n─▒ ba┼şlat
+-    const customLocation = '';
+-    db.initialize(app.getPath('userData'), customLocation);
+-
+-    // ├ûzel veri konumu varsa yeniden a├ğ
+-    const savedLocation = db.getSetting('dataLocation');
+-    if (savedLocation && savedLocation.length > 0) {
+-      try {
+-        db.initialize(savedLocation);
+-      } catch (err) {
+-        console.error('├ûzel veri konumu a├ğ─▒lamad─▒, varsay─▒lan kullan─▒l─▒yor:', err);
+-        db.initialize(app.getPath('userData'));
+-      }
+-    }
+-  } catch (err) {
+-    console.error('Veritaban─▒ ba┼şlatma hatas─▒:', err);
+-    dialog.showErrorBox(
+-      'Veritaban─▒ Hatas─▒',
+-      `Veritaban─▒ ba┼şlat─▒lamad─▒: ${err.message}\nUygulama kapat─▒lacak.`
+-    );
+-    app.quit();
+-    return;
+-  }
+-
+-  // Pencereyi olu┼ştur
+-  createWindow();
+-
+-  // System tray olu┼ştur
+-  createTray();
+-
+-  // Global k─▒sayollar─▒ kaydet
+-  registerGlobalShortcuts();
+-
+-  // IPC handler'lar─▒ kaydet
+-  registerIPCHandlers();
+-
+-  // Clipboard izlemeyi ba┼şlat
+-  startClipboardWatcher();
+-});
+-
+-// macOS'ta t├╝m pencereler kapat─▒l─▒nca uygulamay─▒ kapatma
+-app.on('window-all-closed', () => {
+-  // macOS d─▒┼ş─▒nda da kapatma ÔÇö tray'de devam et
+-  // Sadece isQuitting true ise kapat
+-});
+-
+-app.on('activate', () => {
+-  // macOS'ta dock ikonuna t─▒klay─▒nca pencereyi g├Âster
+-  if (BrowserWindow.getAllWindows().length === 0) {
+-    createWindow();
+-  } else {
+-    showWindow();
+-  }
+-});
+-
+-app.on('before-quit', () => {
+-  isQuitting = true;
+-});
+-
+-app.on('will-quit', () => {
+-  // Kaynaklar─▒ temizle
+-  globalShortcut.unregisterAll();
+-  stopClipboardWatcher();
+-  db.close();
+-
+-  // Tray'i temizle
+-  if (tray) {
+-    tray.destroy();
+-    tray = null;
+-  }
+-});
+-
+-// Beklenmeyen hatalar─▒ yakala
+-process.on('uncaughtException', (err) => {
+-  console.error('Yakalanmam─▒┼ş hata:', err);
+-});
+-
+-process.on('unhandledRejection', (reason) => {
+-  console.error('─░┼şlenmemi┼ş Promise hatas─▒:', reason);
+-});
++}
+\ No newline at end of file

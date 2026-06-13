@@ -6,16 +6,45 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "rebuild": "electron-rebuild"
+    "rebuild": "electron-rebuild",
+    "build": "electron-builder"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
     "electron-store": "^10.0.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.0.0",
     "electron": "^33.0.0",
-    "@electron/rebuild": "^3.0.0"
+    "electron-builder": "^26.15.3"
   },
   "author": "ClipBoardPro",
-  "license": "MIT"
+  "license": "MIT",
+  "build": {
+    "appId": "com.clipboardpro.app",
+    "productName": "ClipBoardPro",
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "${productName} Portable ${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName} Setup ${version}.${ext}"
+    },
+    "files": [
+      "**/*",
+      "!dist/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*"
+    ]
+  }
 }
