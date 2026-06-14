@@ -12,16 +12,21 @@ const fs = require('fs');
 let db = null;
 let dbPath = null;
 
+// Şifreleme / Çözme placeholders (Main process'ten enjekte edilir)
+let encryptFn = (text) => text;
+let decryptFn = (text) => text;
+
 // ─── Varsayılan Ayarlar ──────────────────────────────────────
 const DEFAULT_SETTINGS = {
   theme: 'dark',
   maxHistory: '0',
   pollingInterval: '500',
-  startWithWindows: 'false',
+  startWithWindows: 'true',
   dataLocation: '',
   globalShortcut: 'Ctrl+Shift+V',
   showPreview: 'true',
   detectSensitive: 'true',
+  blurToTray: 'true',
 };
 
 // ─── Varsayılan Kategoriler ──────────────────────────────────
@@ -40,8 +45,11 @@ const DEFAULT_CATEGORIES = [
  * Veritabanını başlatır.
  * @param {string} userDataPath - Electron app.getPath('userData') değeri
  * @param {string} [customLocation] - Kullanıcının seçtiği özel veri konumu
+ * @param {Object} [options] - Şifreleme/çözme fonksiyonları { encrypt, decrypt }
  */
-function initialize(userDataPath, customLocation) {
+function initialize(userDataPath, customLocation, options = {}) {
+  if (options && typeof options.encrypt === 'function') encryptFn = options.encrypt;
+  if (options && typeof options.decrypt === 'function') decryptFn = options.decrypt;
   try {
     // Veritabanı konumunu belirle
     const baseDir = customLocation && customLocation.length > 0
@@ -67,6 +75,9 @@ function initialize(userDataPath, customLocation) {
 
     // Migrasyon: Notes sort_order
     migrateNoteSortOrder();
+
+    // Migrasyon: Notes is_favorite
+    migrateNoteIsFavorite();
 
     // Migrasyon: Eski emoji kategorilerini temizle
     migrateCategoryIcons();
@@ -110,6 +121,7 @@ function createTables() {
       category_id INTEGER,
       color TEXT DEFAULT '#3b82f6',
       is_pinned INTEGER DEFAULT 0,
+      is_favorite INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now','localtime')),
       updated_at TEXT DEFAULT (datetime('now','localtime')),
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
@@ -151,6 +163,22 @@ function migrateNoteSortOrder() {
     }
   } catch (err) {
     console.error('Notes sort_order migration hatası:', err);
+  }
+}
+
+/**
+ * Notes tablosuna is_favorite kolonu ekler (migration).
+ */
+function migrateNoteIsFavorite() {
+  try {
+    const columns = db.pragma('table_info(notes)');
+    const hasIsFavorite = columns.some(c => c.name === 'is_favorite');
+    if (!hasIsFavorite) {
+      db.exec('ALTER TABLE notes ADD COLUMN is_favorite INTEGER DEFAULT 0');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_notes_is_favorite ON notes(is_favorite)');
+    }
+  } catch (err) {
+    console.error('Notes is_favorite migration hatası:', err);
   }
 }
 
@@ -246,16 +274,27 @@ function isReady() {
  */
 function addClipboardItem(item) {
   console.log('db.addClipboardItem çağrıldı! item:', JSON.stringify(item));
+  
+  // Nesneyi klonlayıp şifreleme uygulayalım
+  const dbItem = { ...item };
+  if (dbItem.is_sensitive && dbItem.content_type !== 'image' && dbItem.content) {
+    // Deterministik şifreleme yap ki mükerrerlik tespiti doğru çalışsın
+    dbItem.content = encryptFn(dbItem.content, true);
+    if (dbItem.preview) {
+      dbItem.preview = encryptFn(dbItem.preview, true);
+    }
+  }
+
   // Mükerrerlik Kontrolü
   let existing = null;
-  if (item.content_type === 'image') {
-    if (item.image_path) {
-      existing = db.prepare('SELECT id FROM clipboard_history WHERE image_path = ?').get(item.image_path);
+  if (dbItem.content_type === 'image') {
+    if (dbItem.image_path) {
+      existing = db.prepare('SELECT id FROM clipboard_history WHERE image_path = ?').get(dbItem.image_path);
     }
   } else {
     existing = db.prepare('SELECT id FROM clipboard_history WHERE content = ? AND content_type = ?').get(
-      item.content,
-      item.content_type || 'text'
+      dbItem.content,
+      dbItem.content_type || 'text'
     );
   }
 
@@ -269,22 +308,32 @@ function addClipboardItem(item) {
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
-  const preview = item.preview || (
-    item.content_type === 'text'
-      ? item.content.substring(0, 200)
-      : item.content_type === 'html'
-        ? item.content.replace(/<[^>]*>/g, '').substring(0, 200)
+  let preview = dbItem.preview || (
+    dbItem.content_type === 'text'
+      ? dbItem.content.substring(0, 200)
+      : dbItem.content_type === 'html'
+        ? dbItem.content.replace(/<[^>]*>/g, '').substring(0, 200)
         : ''
   );
 
+  // Eğer preview otomatik oluşturulduysa ve veri hassassa o da şifrelenmeli
+  if (dbItem.is_sensitive && dbItem.content_type !== 'image' && !dbItem.preview) {
+    const plainPreview = item.content_type === 'text'
+      ? item.content.substring(0, 200)
+      : item.content_type === 'html'
+        ? item.content.replace(/<[^>]*>/g, '').substring(0, 200)
+        : '';
+    preview = encryptFn(plainPreview, true);
+  }
+
   const result = stmt.run(
-    item.content,
-    item.content_type || 'text',
+    dbItem.content,
+    dbItem.content_type || 'text',
     preview,
-    item.image_path || null,
-    item.is_sensitive || 0,
-    item.source_app || null,
-    item.char_count || (item.content ? item.content.length : 0)
+    dbItem.image_path || null,
+    dbItem.is_sensitive || 0,
+    dbItem.source_app || null,
+    dbItem.char_count || (item.content ? item.content.length : 0)
   );
 
   // maxHistory kontrolü
@@ -298,7 +347,15 @@ function addClipboardItem(item) {
  */
 function getClipboardItemById(id) {
   const stmt = db.prepare('SELECT * FROM clipboard_history WHERE id = ?');
-  return stmt.get(id) || null;
+  const item = stmt.get(id) || null;
+  
+  if (item && item.is_sensitive && item.content_type !== 'image') {
+    item.content = decryptFn(item.content);
+    if (item.preview) {
+      item.preview = decryptFn(item.preview);
+    }
+  }
+  return item;
 }
 
 /**
@@ -356,6 +413,14 @@ function getClipboardHistory(params = {}) {
     LIMIT ? OFFSET ?
   `);
   const items = itemsStmt.all(...queryParams, limit, offset);
+
+  // Hassas verileri çözmeyelim, renderer'a göndermemek için content'i null yapıp preview'u maskeleyelim
+  items.forEach(item => {
+    if (item.is_sensitive && item.content_type !== 'image') {
+      item.content = null;
+      item.preview = '•••••••••••• (Hassas Veri)';
+    }
+  });
 
   return { items, total, page, limit };
 }
@@ -560,19 +625,57 @@ function getNotes(params = {}) {
     queryParams.push(params.category_id);
   }
 
+  if (params.pinned !== undefined && params.pinned !== null) {
+    whereClauses.push('n.is_pinned = ?');
+    queryParams.push(params.pinned ? 1 : 0);
+  }
+
+  if (params.favorite !== undefined && params.favorite !== null) {
+    whereClauses.push('n.is_favorite = ?');
+    queryParams.push(params.favorite ? 1 : 0);
+  }
+
   const whereSQL = whereClauses.length > 0
     ? 'WHERE ' + whereClauses.join(' AND ')
     : '';
+
+  const hasCategory = params.category_id !== undefined && params.category_id !== null;
+  const hasPinned = params.pinned !== undefined && params.pinned !== null;
+  const hasFavorite = params.favorite !== undefined && params.favorite !== null;
+  const isAllView = !hasCategory && !hasPinned && !hasFavorite;
+  const orderClause = isAllView ? 'ORDER BY n.updated_at DESC' : 'ORDER BY n.sort_order ASC, n.updated_at DESC';
 
   const stmt = db.prepare(`
     SELECT n.*, c.name as category_name, c.icon as category_icon, c.color as category_color
     FROM notes n
     LEFT JOIN categories c ON n.category_id = c.id
     ${whereSQL}
-    ORDER BY n.is_pinned DESC, n.sort_order ASC, n.updated_at DESC
+    ${orderClause}
   `);
 
   return stmt.all(...queryParams);
+}
+
+/**
+ * Notun favori durumunu değiştirir.
+ */
+function toggleFavoriteNote(id) {
+  const stmt = db.prepare(
+    'UPDATE notes SET is_favorite = CASE WHEN is_favorite = 1 THEN 0 ELSE 1 END WHERE id = ?'
+  );
+  stmt.run(id);
+  return getNoteById(id);
+}
+
+/**
+ * Notun pin durumunu değiştirir.
+ */
+function togglePinNote(id) {
+  const stmt = db.prepare(
+    'UPDATE notes SET is_pinned = CASE WHEN is_pinned = 1 THEN 0 ELSE 1 END WHERE id = ?'
+  );
+  stmt.run(id);
+  return getNoteById(id);
 }
 
 /**
@@ -597,6 +700,15 @@ function reorderNotes(orderedIds) {
   });
   updateMany();
   return true;
+}
+
+/**
+ * Notun güncelleme tarihini doğrudan değiştirir.
+ */
+function updateNoteDate(id, newDateStr) {
+  const stmt = db.prepare('UPDATE notes SET updated_at = ? WHERE id = ?');
+  const result = stmt.run(newDateStr, id);
+  return result.changes > 0;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -657,8 +769,10 @@ function getCategories() {
  */
 function deleteCategory(id) {
   const stmt = db.prepare('DELETE FROM categories WHERE id = ?');
-  const result = stmt.run(id);
-  return result.changes > 0;
+  const transaction = db.transaction((catId) => {
+    return stmt.run(catId).changes > 0;
+  });
+  return transaction(id);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -769,6 +883,21 @@ function formatBytes(bytes) {
 // ═══════════════════════════════════════════════════════════════
 // Import / Export
 // ═══════════════════════════════════════════════════════════════
+
+/**
+ * Şifreli hassas verileri yedekleme işlemi için düz metne çözer.
+ */
+function decryptSensitiveItem(item) {
+  if (item && item.is_sensitive && item.content_type !== 'image') {
+    const dbItem = { ...item };
+    dbItem.content = decryptFn(dbItem.content);
+    if (dbItem.preview) {
+      dbItem.preview = decryptFn(dbItem.preview);
+    }
+    return dbItem;
+  }
+  return item;
+}
 
 /**
  * Tüm veriyi JSON objesi olarak dışa aktarır.
@@ -910,6 +1039,28 @@ function validateImportData(data) {
 }
 
 /**
+ * İçe aktarma sırasında mükerrer pano öğesi kontrolü yapar.
+ */
+function checkExistingClipboardItem(content, contentType, isSensitive) {
+  let queryContent = content;
+  if (isSensitive && contentType !== 'image' && content) {
+    queryContent = encryptFn(content, true);
+  }
+  const stmt = db.prepare('SELECT id FROM clipboard_history WHERE content = ? AND content_type = ?');
+  return stmt.get(queryContent, contentType) || null;
+}
+
+/**
+ * İçe aktarma sırasında hassas verileri şifreler.
+ */
+function encryptSensitiveContent(content, isSensitive) {
+  if (isSensitive && content) {
+    return encryptFn(content, true);
+  }
+  return content;
+}
+
+/**
  * JSON verisini veritabanına aktarır.
  * Mevcut veriyi temizlemeden ekler. Çakışmalarda mevcut kayıtlar korunur.
  * @param {Object} data - exportAll() formatında veri
@@ -1001,8 +1152,11 @@ function importAll(data) {
         // Encrypt the sensitive content on import
         const encryptedContent = encryptSensitiveContent(item.content, item.is_sensitive);
 
-        // Mask preview directly if sensitive
-        const preview = item.is_sensitive ? '•••••••••••• (Hassas Veri)' : (item.preview || '');
+        // Mask/encrypt preview if sensitive
+        let preview = item.preview || '';
+        if (item.is_sensitive && item.content_type !== 'image') {
+          preview = encryptFn(preview || '•••••••••••• (Hassas Veri)', true);
+        }
 
         clipStmt.run(
           encryptedContent,
@@ -1359,6 +1513,9 @@ module.exports = {
   getNotes,
   deleteNote,
   reorderNotes,
+  toggleFavoriteNote,
+  togglePinNote,
+  updateNoteDate,
 
   // Categories
   addCategory,

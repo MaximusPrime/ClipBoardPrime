@@ -19,6 +19,9 @@ const ALLOWED_INVOKE_CHANNELS = [
   'get-notes',
   'save-note',
   'delete-note',
+  'toggle-favorite-note',
+  'toggle-pin-note',
+  'update-note-date',
   'get-categories',
   'save-category',
   'delete-category',
@@ -32,6 +35,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'reorder-notes',
   'open-external',
   'get-app-info',
+  'reveal-sensitive-content',
+  'cleanup-orphan-images',
 ];
 
 const ALLOWED_ON_CHANNELS = [
@@ -77,14 +82,24 @@ contextBridge.exposeInMainWorld('api', {
   clearClipboardHistory: () => safeInvoke('clear-clipboard-history'),
   togglePinClipboard: (id) => safeInvoke('toggle-pin-clipboard', id),
   toggleFavoriteClipboard: (id) => safeInvoke('toggle-favorite-clipboard', id),
-  copyToClipboard: (content, type, ignoreChange = true) => safeInvoke('copy-to-clipboard', { content, type, ignoreChange }),
+  copyToClipboard: (params, type, ignoreChange = true) => {
+    if (params && typeof params === 'object') {
+      return safeInvoke('copy-to-clipboard', params);
+    }
+    return safeInvoke('copy-to-clipboard', { content: params, type, ignoreChange });
+  },
   clipToNote: (id) => safeInvoke('clip-to-note', id),
-  pasteToActiveWindow: (content) => safeInvoke('paste-to-active-window', content),
+  pasteToActiveWindow: (params) => safeInvoke('paste-to-active-window', params),
+  revealSensitiveContent: (id) => safeInvoke('reveal-sensitive-content', id),
+  cleanupOrphanImages: () => safeInvoke('cleanup-orphan-images'),
 
   // ── Notes ──────────────────────────────────────────────────
   getNotes: (params) => safeInvoke('get-notes', params),
   saveNote: (note) => safeInvoke('save-note', note),
   deleteNote: (id) => safeInvoke('delete-note', id),
+  toggleFavoriteNote: (id) => safeInvoke('toggle-favorite-note', id),
+  togglePinNote: (id) => safeInvoke('toggle-pin-note', id),
+  updateNoteDate: (id, newDateStr) => safeInvoke('update-note-date', id, newDateStr),
   reorderNotes: (orderedIds) => safeInvoke('reorder-notes', orderedIds),
 
   // ── Categories ─────────────────────────────────────────────
@@ -110,4 +125,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // ── Utilities ──────────────────────────────────────────────
   openExternal: (url) => safeInvoke('open-external', url),
+  
+  // Modal açık/kapalı durumunu main process'e bildir (blur→tray koruması için)
+  setModalOpen: (isOpen) => ipcRenderer.send('set-modal-open', isOpen),
 });

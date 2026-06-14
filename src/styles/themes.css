@@ -156,4 +156,18 @@
   --type-email: #1f2937;
   --type-code: #6b7280;
   --type-image: #9ca3af;
+
+  /* Note Colors (Light Mode) - Soft, high contrast pastel tones */
+  --note-charcoal: #f1f5f9;   /* Light Slate */
+  --note-anthracite: #dbeafe; /* Light Blue */
+  --note-silver: #f8fafc;     /* Clean Gray */
+  
+  --note-blue: var(--note-charcoal);
+  --note-purple: var(--note-charcoal);
+  --note-green: var(--note-anthracite);
+  --note-orange: var(--note-anthracite);
+  --note-red: var(--note-anthracite);
+  --note-pink: var(--note-silver);
+  --note-teal: var(--note-silver);
+  --note-gray: var(--note-silver);
 }

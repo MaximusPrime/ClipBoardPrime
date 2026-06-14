@@ -10,8 +10,7 @@
     "build": "electron-builder"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
-    "electron-store": "^10.0.0"
+    "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.0.0",

@@ -24,7 +24,107 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { exec } = require('child_process');
+
+// Geliştirme modu ve Portable mod tespiti
+const isDev = process.argv.includes('--dev');
+const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
+
+// Taşınabilir (Portable) veya Geliştirme moduna göre userData dizini ata
+if (isPortable) {
+  const portableDataPath = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data');
+  app.setPath('userData', portableDataPath);
+} else if (isDev) {
+  const devDataPath = path.join(app.getPath('appData'), 'clipboard-pro-app-dev');
+  app.setPath('userData', devDataPath);
+}
+
+// Şifreleme Anahtarı Yönetimi (electron-store yerine yerel config.json)
+function getOrCreateEncryptionKey() {
+  const configPath = path.join(app.getPath('userData'), 'config.json');
+  let config = {};
+  try {
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    }
+  } catch (err) {
+    console.error('Konfigürasyon dosyası okunamadı:', err);
+  }
+
+  if (!config.encryptionKey) {
+    config.encryptionKey = crypto.randomBytes(32).toString('hex');
+    try {
+      const dir = path.dirname(configPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    } catch (err) {
+      console.error('Konfigürasyon dosyası yazılamadı:', err);
+    }
+  }
+  return config.encryptionKey;
+}
+
+const encryptionKey = getOrCreateEncryptionKey();
 const db = require('./database/db');
+
+let isWritingToClipboard = false;
+
+/**
+ * Metni AES-256-GCM ile şifreler.
+ */
+function encryptText(text, deterministic = false) {
+  if (!text) return '';
+  try {
+    let iv;
+    if (deterministic) {
+      // İçeriğin hash'inden 12 byte IV üret (deterministik şifreleme ve mükerrerlik tespiti için)
+      const hash = crypto.createHash('sha256').update(text).digest();
+      iv = hash.slice(0, 12);
+    } else {
+      iv = crypto.randomBytes(12);
+    }
+    const keyBuffer = Buffer.from(encryptionKey, 'hex');
+    const cipher = crypto.createCipheriv('aes-256-gcm', keyBuffer, iv);
+    
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    const authTag = cipher.getAuthTag().toString('hex');
+    return `${iv.toString('hex')}.${encrypted}.${authTag}`;
+  } catch (err) {
+    console.error('Şifreleme hatası:', err);
+    return text;
+  }
+}
+
+/**
+ * AES-256-GCM şifrelenmiş metni çözer.
+ */
+function decryptText(encryptedText) {
+  if (!encryptedText) return '';
+  try {
+    const parts = encryptedText.split('.');
+    if (parts.length !== 3) {
+      return encryptedText;
+    }
+    
+    const iv = Buffer.from(parts[0], 'hex');
+    const encrypted = parts[1];
+    const authTag = Buffer.from(parts[2], 'hex');
+    
+    const keyBuffer = Buffer.from(encryptionKey, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, iv);
+    decipher.setAuthTag(authTag);
+    
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err) {
+    console.error('Şifre çözme hatası:', err);
+    return encryptedText;
+  }
+}
 
 // local-file protokol şemasını kaydet (app ready olmadan önce çağrılmalı)
 protocol.registerSchemesAsPrivileged([
@@ -42,20 +142,101 @@ let lastClipboardImageHash = '';
 let lastFormats = [];
 let lastImageSize = { width: 0, height: 0 };
 let trayBalloonShown = false;
-const isDev = process.argv.includes('--dev');
-const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
+let isModalOpen = false;
+let lastBlurTime = 0;
+const startHidden = process.argv.includes('--hidden') || process.argv.includes('--startup');
 
-// Taşınabilir (Portable) modda verileri exe yanındaki /data klasörüne kaydet,
-// Geliştirme modunda ise farklı bir userData dizini kullan.
-if (isPortable) {
-  const portableDataPath = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data');
-  app.setPath('userData', portableDataPath);
-} else if (isDev) {
-  const devDataPath = path.join(app.getPath('appData'), 'clipboard-pro-app-dev');
-  app.setPath('userData', devDataPath);
+/**
+ * Portable veya setup sürümüne göre asıl çalıştırılabilir dosya yolunu döner.
+ */
+function getApplicationExePath() {
+  if (isPortable) {
+    return process.env.PORTABLE_EXECUTABLE_PATH ||
+      (process.env.PORTABLE_EXECUTABLE_DIR
+        ? path.join(process.env.PORTABLE_EXECUTABLE_DIR, path.basename(app.getPath('exe')))
+        : app.getPath('exe'));
+  }
+  return app.getPath('exe');
 }
 
-// Tek instance kilidi
+/**
+ * Windows başlangıç ayarlarını registry üzerinden günceller.
+ */
+function setWindowsAutostart(enabled) {
+  const exePath = getApplicationExePath();
+  const regKey = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+  const valName = 'ClipBoardPro';
+
+  if (enabled) {
+    // Çift tırnakları doğru kaçış karakterleriyle ekle
+    const cmd = `reg add "${regKey}" /v "${valName}" /t REG_SZ /d "\\"${exePath}\\" --hidden" /f`;
+    exec(cmd, (err) => {
+      if (err) {
+        console.error('Registry autostart ekleme hatası:', err);
+      } else {
+        console.log(`Registry autostart başarıyla eklendi. Path: ${exePath}`);
+      }
+    });
+  }
+}
+
+let helperExePath = null;
+
+/**
+ * Windows aktif pencere tespit aracını derler.
+ */
+function compileActiveWinHelper() {
+  const userData = app.getPath('userData');
+  const csPath = path.join(userData, 'active_win_helper.cs');
+  helperExePath = path.join(userData, 'active_win_helper.exe');
+
+  // Zaten derlenmişse tekrar derleme
+  if (fs.existsSync(helperExePath)) {
+    return;
+  }
+
+  const csCode = `using System;
+using System.Runtime.InteropServices;
+using System.Text;
+class Program {
+    [DllImport("user32.dll")]
+    static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")]
+    static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+    static void Main() {
+        IntPtr hwnd = GetForegroundWindow();
+        StringBuilder className = new StringBuilder(256);
+        GetClassName(hwnd, className, 256);
+        Console.WriteLine(className.ToString());
+    }
+}`;
+
+  try {
+    fs.writeFileSync(csPath, csCode, 'utf8');
+    const winDir = process.env.windir || 'C:\\\\Windows';
+    const cscPath = path.join(winDir, 'Microsoft.NET', 'Framework', 'v4.0.30319', 'csc.exe');
+    
+    if (fs.existsSync(cscPath)) {
+      const compileCmd = `"${cscPath}" /out:"${helperExePath}" /target:exe "${csPath}"`;
+      exec(compileCmd, (err) => {
+        if (err) {
+          console.error('C# Helper derleme hatası:', err);
+          helperExePath = null;
+        } else {
+          console.log('C# Helper başarıyla derlendi:', helperExePath);
+          try { fs.unlinkSync(csPath); } catch (e) {}
+        }
+      });
+    } else {
+      console.warn('csc.exe bulunamadı, Win32 blur tespiti devredışı.');
+      helperExePath = null;
+    }
+  } catch (err) {
+    console.error('Helper hazırlama hatası:', err);
+    helperExePath = null;
+  }
+}
+
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
@@ -67,16 +248,30 @@ if (!gotTheLock) {
 
 function createWindow() {
   // Kaydedilmiş pencere konumu ve boyutunu oku
-  let windowBounds = { width: 1200, height: 800 };
+  // Varsayılan olarak en küçük boyutta (900x600) başlasın
+  let windowBounds = { width: 900, height: 600 };
+  let isFirstRun = false;
   try {
     if (db.isReady()) {
       const savedBounds = db.getSetting('windowBounds');
       if (savedBounds) {
         windowBounds = { ...windowBounds, ...JSON.parse(savedBounds) };
+      } else {
+        isFirstRun = true;
       }
     }
   } catch (err) {
     // Kayıtlı konum yoksa varsayılan kullan
+  }
+
+  // İlk çalıştırmada pencereyi ekranın sağ alt köşesine konumlandır
+  if (isFirstRun) {
+    try {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width: sw, height: sh } = primaryDisplay.workAreaSize;
+      windowBounds.x = sw - windowBounds.width - 16;
+      windowBounds.y = sh - windowBounds.height - 16;
+    } catch (e) { /* merkeze bırak */ }
   }
 
   mainWindow = new BrowserWindow({
@@ -121,8 +316,11 @@ function createWindow() {
   }
 
   // Pencere hazır olunca göster (beyaz flaş engelleme)
+  // --hidden veya --startup argümanıyla başlatıldıysa pencereyi gösterme
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    if (!startHidden) {
+      mainWindow.show();
+    }
   });
 
   // Kapatma → tray'e küçült (gerçekten kapatma)
@@ -141,6 +339,47 @@ function createWindow() {
           console.error('Tray balon bildirimi gösterilemedi:', balloonErr);
         }
       }
+    }
+  });
+
+  // Pencere odak kaybedince tray'e gizle (blurToTray ayarı aktifse)
+  mainWindow.on('blur', () => {
+    try {
+      if (!db.isReady()) return;
+      const blurToTray = db.getSetting('blurToTray');
+      if (blurToTray !== 'true') return;
+      // Modal açıksa veya uygulama çıkıyorsa kapatma
+      if (isModalOpen || isQuitting) return;
+      // Küçültülmüş veya zaten gizliyse tekrar gizleme
+      if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible()) return;
+
+      // Eğer Win32 Helper aktifse, o anki aktif pencereyi sorgula
+      if (helperExePath && fs.existsSync(helperExePath)) {
+        exec(`"${helperExePath}"`, { timeout: 100 }, (err, stdout) => {
+          if (!err && stdout) {
+            const activeClass = stdout.trim();
+            // Sadece masaüstü (Progman, WorkerW) veya görev çubuğuna (Shell_TrayWnd) tıklandıysa gizle
+            if (activeClass === 'Progman' || activeClass === 'WorkerW' || activeClass === 'Shell_TrayWnd') {
+              if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+                mainWindow.hide();
+                lastBlurTime = Date.now();
+              }
+            }
+          } else {
+            // Hata durumunda fallback (normal gizle)
+            if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+              mainWindow.hide();
+              lastBlurTime = Date.now();
+            }
+          }
+        });
+      } else {
+        // Helper yoksa varsayılan olarak her odak kaybında gizle (fallback)
+        mainWindow.hide();
+        lastBlurTime = Date.now();
+      }
+    } catch (err) {
+      // Sessizce geç
     }
   });
 
@@ -371,7 +610,15 @@ function hideWindow() {
 function toggleWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow();
-  } else if (mainWindow.isVisible()) {
+    return;
+  }
+
+  // Eğer son 200ms içinde blur tetiklendiyse, click event'i pencereyi tekrar açmasın.
+  if (Date.now() - lastBlurTime < 200) {
+    return;
+  }
+
+  if (mainWindow.isVisible()) {
     hideWindow();
   } else {
     showWindow();
@@ -454,6 +701,8 @@ function updateLastClipboardState() {
 }
 
 function checkClipboard() {
+  if (isWritingToClipboard) return;
+
   const currentFormats = clipboard.availableFormats() || [];
   const currentText = clipboard.readText() || '';
   const currentHtml = clipboard.readHTML() || '';
@@ -461,13 +710,24 @@ function checkClipboard() {
   // Panoda görsel var mı?
   const hasImage = currentFormats.some(f => f.toLowerCase().includes('image') || f.toLowerCase().includes('bitmap'));
   let currentImage = null;
-  let currentHash = '';
+  let currentHash = lastClipboardImageHash;
+
+  // CPU Optimizasyonu: Resim hash'leme ve readImage() çağrısı sadece formatlar veya metin değiştiğinde ya da ilk kez görsel algılandığında yapılır.
+  const textOrFormatsChanged = (
+    currentText !== lastClipboardText ||
+    currentHtml !== lastClipboardHtml ||
+    !areFormatsEqual(currentFormats, lastFormats)
+  );
 
   if (hasImage) {
-    currentImage = clipboard.readImage();
-    if (currentImage && !currentImage.isEmpty()) {
-      currentHash = hashImage(currentImage);
+    if (textOrFormatsChanged || !lastClipboardImageHash) {
+      currentImage = clipboard.readImage();
+      if (currentImage && !currentImage.isEmpty()) {
+        currentHash = hashImage(currentImage);
+      }
     }
+  } else {
+    currentHash = '';
   }
 
   // Değişiklik yoksa doğrudan çık
@@ -853,6 +1113,35 @@ function registerIPCHandlers() {
     }
   });
 
+  ipcMain.handle('reveal-sensitive-content', async (_event, id) => {
+    try {
+      if (!db.isReady()) {
+        return { success: false, error: 'Veritabanı hazır değil' };
+      }
+      const item = db.getClipboardItemById(id);
+      if (!item) {
+        return { success: false, error: 'Öğe bulunamadı' };
+      }
+      return { success: true, data: item.content };
+    } catch (err) {
+      console.error('reveal-sensitive-content hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('cleanup-orphan-images', async () => {
+    try {
+      if (db.isReady()) {
+        db.cleanupOrphanImages();
+        return { success: true };
+      }
+      return { success: false, error: 'Veritabanı hazır değil' };
+    } catch (err) {
+      console.error('cleanup-orphan-images hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   // ── Clipboard ────────────────────────────────────────────────
 
   ipcMain.handle('get-clipboard-history', async (_event, params) => {
@@ -904,38 +1193,48 @@ function registerIPCHandlers() {
     }
   });
 
-  ipcMain.handle('copy-to-clipboard', async (_event, { content, type, ignoreChange = true }) => {
-    console.log('copy-to-clipboard IPC tetiklendi! content:', content ? content.substring(0, 50) : '', 'type:', type, 'ignoreChange:', ignoreChange);
+  ipcMain.handle('copy-to-clipboard', async (_event, { id, content, type, ignoreChange = true }) => {
+    console.log('copy-to-clipboard IPC tetiklendi! id:', id, 'content:', content ? content.substring(0, 50) : '', 'type:', type, 'ignoreChange:', ignoreChange);
+    isWritingToClipboard = true;
     try {
+      let actualContent = content;
+      if (id) {
+        const item = db.getClipboardItemById(id);
+        if (item) {
+          actualContent = item.content;
+          type = item.content_type;
+        }
+      }
+
       if (type === 'image') {
         // Görsel dosyasını oku ve clipboard'a yaz
-        if (fs.existsSync(content)) {
-          const img = nativeImage.createFromPath(content);
+        if (fs.existsSync(actualContent)) {
+          const img = nativeImage.createFromPath(actualContent);
           clipboard.writeImage(img);
         } else {
           return { success: false, error: 'Görsel dosyası bulunamadı' };
         }
       } else if (type === 'html') {
-        clipboard.writeHTML(content);
+        clipboard.writeHTML(actualContent);
         // Metin olarak da yaz ki düz metin yapıştırma çalışsın
-        const plainText = content.replace(/<[^>]*>/g, '');
+        const plainText = actualContent.replace(/<[^>]*>/g, '');
         clipboard.write({
           text: plainText,
-          html: content,
+          html: actualContent,
         });
       } else {
-        clipboard.writeText(content);
+        clipboard.writeText(actualContent);
       }
 
       if (!ignoreChange) {
         if (type === 'image') {
-          const isExistingDbImage = content && content.includes('images') && fs.existsSync(content);
+          const isExistingDbImage = actualContent && actualContent.includes('images') && fs.existsSync(actualContent);
           if (isExistingDbImage) {
             try {
               const item = db.addClipboardItem({
                 content: `[Görsel]`,
                 content_type: 'image',
-                image_path: content,
+                image_path: actualContent,
                 char_count: 0,
               });
               if (mainWindow && !mainWindow.isDestroyed()) {
@@ -945,13 +1244,13 @@ function registerIPCHandlers() {
               console.error('Görsel güncelleme hatası:', err);
             }
           } else {
-            if (fs.existsSync(content)) {
-              const img = nativeImage.createFromPath(content);
+            if (fs.existsSync(actualContent)) {
+              const img = nativeImage.createFromPath(actualContent);
               handleNewImage(img);
             }
           }
         } else {
-          handleNewClipboardItem(content, type || 'text');
+          handleNewClipboardItem(actualContent, type || 'text');
         }
       }
 
@@ -962,6 +1261,10 @@ function registerIPCHandlers() {
     } catch (err) {
       console.error('copy-to-clipboard hatası:', err);
       return { success: false, error: err.message };
+    } finally {
+      setTimeout(() => {
+        isWritingToClipboard = false;
+      }, 50);
     }
   });
 
@@ -987,10 +1290,26 @@ function registerIPCHandlers() {
     }
   });
 
-  ipcMain.handle('paste-to-active-window', async (_event, content) => {
-    console.log('paste-to-active-window IPC tetiklendi! content:', content ? content.substring(0, 50) : '');
+  ipcMain.handle('paste-to-active-window', async (_event, params) => {
+    let id, content;
+    if (params && typeof params === 'object') {
+      id = params.id;
+      content = params.content;
+    } else {
+      content = params;
+    }
+    console.log('paste-to-active-window IPC tetiklendi! id:', id, 'content:', content ? content.substring(0, 50) : '');
+    isWritingToClipboard = true;
     try {
-      clipboard.writeText(content);
+      let actualContent = content;
+      if (id) {
+        const item = db.getClipboardItemById(id);
+        if (item) {
+          actualContent = item.content;
+        }
+      }
+
+      clipboard.writeText(actualContent);
 
       // Clipboard değerlerini güncelle
       updateLastClipboardState();
@@ -1001,11 +1320,11 @@ function registerIPCHandlers() {
           let isSensitive = 0;
           const detectSensitive = db.getSetting('detectSensitive');
           if (detectSensitive === 'true') {
-            isSensitive = detectSensitiveContent(content) ? 1 : 0;
+            isSensitive = detectSensitiveContent(actualContent) ? 1 : 0;
           }
 
           let contentType = 'text';
-          const trimmed = content.trim();
+          const trimmed = actualContent.trim();
           if (/^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+$/i.test(trimmed)) {
             contentType = 'url';
           } else if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
@@ -1015,10 +1334,10 @@ function registerIPCHandlers() {
           }
 
           const item = db.addClipboardItem({
-            content: content,
+            content: actualContent,
             content_type: contentType,
             is_sensitive: isSensitive,
-            char_count: content.length,
+            char_count: actualContent.length,
           });
 
           // Renderer'a bildir ki arayüzde en üste çıksın
@@ -1030,22 +1349,38 @@ function registerIPCHandlers() {
         }
       }
 
-      // Pencereyi gizle ve hedef uygulamaya Ctrl+V gönder
+      // Aktif pencereye yapıştırmak için ClipBoardPro'nun odağı kaybetmesi (gizlenmesi) şarttır.
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.hide();
-        setTimeout(() => {
-          exec('mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))', (err) => {
-            if (err) {
-              console.error('Yapıştırma simülasyon hatası:', err);
-            }
-          });
-        }, 150);
       }
+
+      // VBScript/WScript.Shell tabanlı tuş simülasyonu (PowerShell'den çok daha hızlı ve hafiftir)
+      setTimeout(() => {
+        const tempVbsPath = path.join(app.getPath('temp'), `paste_${Date.now()}.vbs`);
+        try {
+          fs.writeFileSync(tempVbsPath, 'Set WshShell = WScript.CreateObject("WScript.Shell")\nWScript.Sleep 50\nWshShell.SendKeys "^v"');
+          exec(`wscript.exe "${tempVbsPath}"`, (err) => {
+            if (err) {
+              console.error('VBScript yapıştırma hatası, fallback uygulanıyor:', err);
+              // Fallback: mshta yöntemi
+              exec('mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))');
+            }
+            try { fs.unlinkSync(tempVbsPath); } catch (e) {}
+          });
+        } catch (vbsErr) {
+          console.error('VBScript oluşturma hatası, fallback uygulanıyor:', vbsErr);
+          exec('mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))');
+        }
+      }, 150);
 
       return { success: true };
     } catch (err) {
       console.error('paste-to-active-window hatası:', err);
       return { success: false, error: err.message };
+    } finally {
+      setTimeout(() => {
+        isWritingToClipboard = false;
+      }, 50);
     }
   });
 
@@ -1082,6 +1417,36 @@ function registerIPCHandlers() {
       return { success: true, data: result };
     } catch (err) {
       console.error('delete-note hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('toggle-favorite-note', async (_event, id) => {
+    try {
+      const note = db.toggleFavoriteNote(id);
+      return { success: true, data: note };
+    } catch (err) {
+      console.error('toggle-favorite-note hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('toggle-pin-note', async (_event, id) => {
+    try {
+      const note = db.togglePinNote(id);
+      return { success: true, data: note };
+    } catch (err) {
+      console.error('toggle-pin-note hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('update-note-date', async (_event, id, newDateStr) => {
+    try {
+      const result = db.updateNoteDate(id, newDateStr);
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('update-note-date hatası:', err);
       return { success: false, error: err.message };
     }
   });
@@ -1268,6 +1633,12 @@ function registerIPCHandlers() {
       return { success: false, error: err.message };
     }
   });
+
+  // ── Modal Durum Bildirimi ─────────────────────────────────────
+  // Renderer, modal açıkken blur→hide engellenmesi için bunu bildirir
+  ipcMain.on('set-modal-open', (_event, value) => {
+    isModalOpen = !!value;
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1290,14 +1661,7 @@ function handleSettingChange(key, value) {
 
     case 'startWithWindows':
       // Başlangıçta aç ayarını güncelle
-      try {
-        app.setLoginItemSettings({
-          openAtLogin: value === 'true',
-          path: app.getPath('exe'),
-        });
-      } catch (err) {
-        console.error('Otomatik başlatma ayarı hatası:', err);
-      }
+      setWindowsAutostart(value === 'true');
       break;
   }
 }
@@ -1348,6 +1712,9 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(() => {
+  // C# aktif pencere tespit aracını derle
+  compileActiveWinHelper();
+
   // Varsayılan üst menü çubuğunu (File, Edit, View vb.) kaldırır
   Menu.setApplicationMenu(null);
 
@@ -1377,29 +1744,30 @@ app.whenReady().then(() => {
   try {
     // Veritabanını başlat
     const customLocation = '';
-    db.initialize(app.getPath('userData'), customLocation);
+    const dbOptions = { encrypt: encryptText, decrypt: decryptText };
+    db.initialize(app.getPath('userData'), customLocation, dbOptions);
 
     // Özel veri konumu varsa ve portable modda değilsek yeniden aç
     const savedLocation = db.getSetting('dataLocation');
     if (savedLocation && savedLocation.length > 0 && !isPortable) {
       try {
-        db.initialize(savedLocation);
+        db.initialize(savedLocation, '', dbOptions);
       } catch (err) {
         console.error('Özel veri konumu açılamadı, varsayılan kullanılıyor:', err);
-        db.initialize(app.getPath('userData'));
+        db.initialize(app.getPath('userData'), '', dbOptions);
       }
     }
 
-    // Başlangıçta aç ayarını veritabanından oku ve uygula (Portable modda engelle)
-    const startWithWindows = db.getSetting('startWithWindows') === 'true';
-    try {
-      app.setLoginItemSettings({
-        openAtLogin: !isPortable && startWithWindows,
-        path: app.getPath('exe'),
-      });
-    } catch (autoStartErr) {
-      console.error('Otomatik başlatma ayarı uygulanamadı:', autoStartErr);
+    // ── Varsayılan ayarları ilk çalıştırmada kaydet ───────────
+    // startWithWindows daha önce hiç kaydedilmemişse true olarak ayarla
+    const existingAutostart = db.getSetting('startWithWindows');
+    if (existingAutostart === null || existingAutostart === undefined || existingAutostart === '') {
+      db.saveSetting('startWithWindows', 'true');
     }
+
+    // Başlangıçta aç ayarını veritabanından oku ve uygula
+    const startWithWindows = db.getSetting('startWithWindows') !== 'false';
+    setWindowsAutostart(startWithWindows);
 
     // Yetim görsel dosyalarını temizle
     db.cleanupOrphanImages();

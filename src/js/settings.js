@@ -19,6 +19,7 @@ const SettingsPanel = (() => {
     historyLimit: document.getElementById('setting-history-limit'),
     pollInterval: document.getElementById('setting-poll-interval'),
     shortcut: document.getElementById('setting-shortcut'),
+    blurToTray: document.getElementById('setting-blur-to-tray'),
     
     // Data Actions
     locationPath: document.getElementById('data-location-path'),
@@ -69,6 +70,9 @@ const SettingsPanel = (() => {
     elements.sensitive.addEventListener('change', (e) => saveSetting('detectSensitive', String(e.target.checked)));
     elements.historyLimit.addEventListener('change', (e) => saveSetting('maxHistory', e.target.value));
     elements.pollInterval.addEventListener('change', (e) => saveSetting('pollingInterval', e.target.value));
+    if (elements.blurToTray) {
+      elements.blurToTray.addEventListener('change', (e) => saveSetting('blurToTray', String(e.target.checked)));
+    }
 
     // ─── Veri Ayarları Dinleyicileri ───
     elements.changeLocationBtn.addEventListener('click', () => changeDataLocation());
@@ -180,11 +184,14 @@ const SettingsPanel = (() => {
         
         // UI alanlarını doldur
         elements.theme.value = currentSettings.theme || 'dark';
-        elements.autostart.checked = currentSettings.startWithWindows === 'true';
+        elements.autostart.checked = currentSettings.startWithWindows === 'true' || currentSettings.startWithWindows === undefined || currentSettings.startWithWindows === null || currentSettings.startWithWindows === '';
         elements.sensitive.checked = currentSettings.detectSensitive === 'true';
         elements.historyLimit.value = currentSettings.maxHistory || '0';
         elements.pollInterval.value = currentSettings.pollingInterval || '500';
         elements.shortcut.value = currentSettings.globalShortcut || 'Ctrl+Shift+V';
+        if (elements.blurToTray) {
+          elements.blurToTray.checked = currentSettings.blurToTray === 'true';
+        }
 
         // Temayı uygula
         applyTheme(currentSettings.theme);
@@ -211,24 +218,8 @@ const SettingsPanel = (() => {
             if (devLinkEl) devLinkEl.dataset.url = 'https://github.com/MaximusPrime77';
             if (sourceLinkEl) sourceLinkEl.dataset.url = 'https://github.com/MaximusPrime77/ClipBoardPro';
 
-            // Taşınabilir (Portable) Sürüm Kilit Arayüzü
+            // Taşınabilir (Portable) Sürüm
             if (isPortableMode) {
-              elements.autostart.disabled = true;
-              elements.autostart.checked = false;
-              elements.autostart.setAttribute('title', 'Portable sürümde otomatik başlatma kullanılamaz.');
-              const autostartContainer = elements.autostart.closest('.setting-item');
-              if (autostartContainer && !document.getElementById('portable-autostart-warning')) {
-                const warningSpan = document.createElement('span');
-                warningSpan.id = 'portable-autostart-warning';
-                warningSpan.className = 'portable-setting-info';
-                warningSpan.style.display = 'block';
-                warningSpan.style.marginTop = '4px';
-                warningSpan.style.fontSize = '12px';
-                warningSpan.style.color = 'var(--text-muted)';
-                warningSpan.innerHTML = 'Taşınabilir (Portable) modda kayıt defteri kirliliğini önlemek amacıyla otomatik başlatma devre dışıdır.';
-                autostartContainer.appendChild(warningSpan);
-              }
-
               elements.changeLocationBtn.disabled = true;
               elements.changeLocationBtn.classList.add('disabled');
               elements.changeLocationBtn.setAttribute('title', 'Portable sürümde veri konumu değiştirilemez.');
@@ -300,6 +291,7 @@ const SettingsPanel = (() => {
     else if (key === 'maxHistory') elements.historyLimit.value = value;
     else if (key === 'pollingInterval') elements.pollInterval.value = value;
     else if (key === 'globalShortcut') elements.shortcut.value = value;
+    else if (key === 'blurToTray' && elements.blurToTray) elements.blurToTray.checked = value === 'true';
   }
 
   /**

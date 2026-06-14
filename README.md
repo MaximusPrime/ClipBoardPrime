@@ -31,8 +31,10 @@
   - 💻 **Kod** — JSON, HTML, CSS, SQL, JS/TS, Python, Rust, Go, PHP ve 15+ dil/komut satırı formatlarını algılayan gelişmiş regex motoru
   - 🖼️ **Görsel** — Ekran görüntüsü veya kopyalanan görseller PNG olarak yerel diske kaydedilir
 
-### 🔒 Hassas Veri Koruma (Otomatik Maskeleme)
-- Kopyalanan içerik otomatik olarak aşağıdaki kalıplar için taranır ve `••••••••••••` ile maskelenir:
+### 🔒 Hassas Veri Koruma (Otomatik Maskeleme & AES-256-GCM Şifreleme)
+- **Güçlü Şifreleme (AES-256-GCM)**: Hassas veri olarak algılanan veya kullanıcı tarafından işaretlenen içerikler veritabanında (`clipboard-pro.db`) düz metin olarak değil, cihaza özel üretilen benzersiz şifreleme anahtarı ile **AES-256-GCM** algoritması kullanılarak şifrelenmiş halde saklanır.
+- **Güvenli Anahtar Depolama**: Şifreleme anahtarı `config.json` dosyasında saklanır. Portable modda `/data/config.json` altında tutularak veri bütünlüğü ve taşınabilirlik korunur.
+- **Otomatik Maskeleme**: Kopyalanan içerik otomatik olarak aşağıdaki kalıplar için taranır, veritabanına şifreli yazılır ve arayüzde `••••••••••••` şeklinde maskelenir:
   - **Kredi/Banka Kartı Numaraları** (Visa, Mastercard, Amex, Troy dahil 13–19 hane)
   - **API Anahtarları** (Google `AIzaSy`, GitHub `ghp_/github_pat_`, Slack `xox*`, SendGrid `SG.` formatları)
   - **JWT Tokenları** (`eyJ...` formatı)
@@ -134,8 +136,9 @@ Uygulamanın ikinci modülü; bağımsız, tam özellikli bir not alma sistemidi
 - Tek bir toggle ile etkinleştirilir/devre dışı bırakılır.
 
 ### 🚀 Windows ile Birlikte Başlat
-- Electron'un `app.setLoginItemSettings()` API'si üzerinden Windows Başlangıç'a eklenir.
-- **Portable modda otomatik olarak devre dışıdır** (kayıt defteri kirliliğini önlemek için).
+- Electron'un `app.setLoginItemSettings()` API'si üzerinden Windows Başlangıç'a (Startup) eklenir.
+- **Varsayılan Olarak Etkin**: Hem Setup (kurulum) hem de Portable (taşınabilir) sürüm ilk çalıştırıldığında Windows başlangıcında otomatik olarak (arka planda tray modunda) başlayacak şekilde yapılandırılmıştır.
+- Ayarlar menüsünden her iki sürüm için de otomatik başlangıç durumu dinamik olarak yönetilebilir. Portable modda çalıştırılabilir `.exe` dosya yolu dinamik olarak algılanarak Startup kaydı oluşturulur.
 
 ### ⌨️ Global Kısayol (Özelleştirilebilir)
 - Odaklanılınca klavyeye basmak yeterli; kombinasyon otomatik okunur ve kaydedilir.
@@ -289,8 +292,9 @@ npm run build
 
 > [!NOTE]
 > **Portable Mod** özellikleri:
-> - Otomatik başlatma devre dışıdır (kayıt defteri kirliliği yok)
+> - Otomatik başlatma varsayılan olarak etkindir ve ayarlardan kapatılıp açılabilir (asıl exe yolu dinamik tespit edilir)
 > - Veri konumu değiştirilemez (veriler her zaman `/data` klasöründe kalır)
+> - Şifreleme anahtarı da `/data/config.json` içinde tutularak tam taşınabilirlik korunur
 > - `PORTABLE_EXECUTABLE_DIR` ortam değişkeniyle tespit edilir
 
 ---

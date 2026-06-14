@@ -19,11 +19,19 @@
         document.documentElement.setAttribute('data-theme', activeTheme);
 
         // 2. Sol Panel Genişliği Ayarı (Layout Shift Engelleme)
-        const width = settings.leftPanelWidth;
-        if (width) {
+        let panelWidth = settings.leftPanelWidth;
+        const ratio = settings.leftPanelWidthRatio;
+        if (ratio) {
+          const parsedRatio = parseFloat(ratio);
+          if (parsedRatio > 0.1 && parsedRatio < 0.9) {
+            panelWidth = Math.round(window.innerWidth * parsedRatio);
+          }
+        }
+
+        if (panelWidth) {
           const style = document.createElement('style');
           style.id = 'initial-panel-width-style';
-          style.innerHTML = `#clipboard-panel { width: ${width}px !important; }`;
+          style.innerHTML = `#clipboard-panel { width: ${panelWidth}px !important; }`;
           document.head.appendChild(style);
         }
       }

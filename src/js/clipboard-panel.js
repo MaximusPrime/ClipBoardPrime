@@ -10,6 +10,8 @@ const ClipboardPanel = (() => {
     count: document.getElementById('clipboard-count'),
     filters: document.getElementById('clipboard-filters'),
     clearBtn: document.getElementById('clear-history-btn'),
+    search: document.getElementById('clipboard-search'),
+    searchClear: document.getElementById('clipboard-search-clear'),
   };
 
   let historyItems = [];
@@ -32,6 +34,12 @@ const ClipboardPanel = (() => {
    * Olay dinleyicilerini kurar
    */
   function setupEventListeners() {
+    // Filtre barda fare tekerleğiyle yatay kaydırma (horizontal scroll)
+    elements.filters.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      elements.filters.scrollLeft += e.deltaY;
+    });
+
     // Filtre butonları
     elements.filters.addEventListener('click', (e) => {
       const btn = e.target.closest('.filter-btn');
@@ -60,6 +68,29 @@ const ClipboardPanel = (() => {
     // Temizle Butonu
     elements.clearBtn.addEventListener('click', () => {
       handleClearHistory();
+    });
+
+    // Arama Girişi
+    const performSearch = Utils.debounce((query) => {
+      setSearch(query);
+    }, 250);
+
+    elements.search.addEventListener('input', (e) => {
+      const query = e.target.value;
+      if (query.trim().length > 0) {
+        elements.searchClear.classList.add('visible');
+      } else {
+        elements.searchClear.classList.remove('visible');
+      }
+      performSearch(query);
+    });
+
+    // Arama Temizleme
+    elements.searchClear.addEventListener('click', () => {
+      elements.search.value = '';
+      elements.searchClear.classList.remove('visible');
+      setSearch('');
+      elements.search.focus();
     });
 
     // IPC Olayı: Main process'ten yeni clipboard öğesi bildirimi
@@ -297,8 +328,6 @@ const ClipboardPanel = (() => {
       expandBtnHTML = `<button class="clip-action-btn expand-btn" data-tooltip="Genişlet" aria-label="Genişlet">${chevronDownIcon}</button>`;
     }
 
-    const pasteIcon = `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>`;
-
     el.innerHTML = `
       <div class="clip-item-left">
         <div class="clip-item-icon">
@@ -314,7 +343,6 @@ const ClipboardPanel = (() => {
       </div>
       <div class="clip-item-actions">
         ${sensitiveBtnHTML}
-        <button class="clip-action-btn paste-btn" data-tooltip="Aktif Pencereye Yapıştır" aria-label="Aktif pencereye yapıştır">${pasteIcon}</button>
         <button class="clip-action-btn copy-btn" data-tooltip="Kopyala" aria-label="Kopyala">${Utils.Icons.copy}</button>
         <button class="clip-action-btn pin-btn ${item.is_pinned ? 'pin-active' : ''}" data-tooltip="${item.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}" aria-label="${item.is_pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}">${Utils.Icons.pin}</button>
         <button class="clip-action-btn fav-btn ${item.is_favorite ? 'fav-active' : ''}" data-tooltip="${item.is_favorite ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}" aria-label="${item.is_favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}">${Utils.Icons.star}</button>
@@ -339,7 +367,7 @@ const ClipboardPanel = (() => {
         if (item.content_type === 'image' && item.image_path) {
           openImageViewer(item.image_path);
         } else {
-          await pasteToActiveWindow(item);
+          await copyToSystemClipboard(item, el);
         }
       } else if (e.key === ' ') {
         e.preventDefault();
@@ -450,17 +478,40 @@ const ClipboardPanel = (() => {
     const sensitiveBtn = el.querySelector('.sensitive-btn');
     if (sensitiveBtn) {
       let isRevealed = false;
-      sensitiveBtn.addEventListener('click', (e) => {
+      let revealedContent = null;
+      sensitiveBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         isRevealed = !isRevealed;
         
         const previewEl = el.querySelector('.clip-item-preview');
         if (previewEl) {
           if (isRevealed) {
-            previewEl.textContent = item.content;
+            if (!revealedContent) {
+              sensitiveBtn.disabled = true;
+              try {
+                const res = await window.api.revealSensitiveContent(item.id);
+                if (res && res.success) {
+                  revealedContent = res.data;
+                } else {
+                  isRevealed = false;
+                  Utils.showToast('İçerik çözülemedi: ' + (res?.error || 'Bilinmeyen hata'), 'error');
+                  sensitiveBtn.disabled = false;
+                  return;
+                }
+              } catch (err) {
+                console.error(err);
+                isRevealed = false;
+                Utils.showToast('İçerik çözülemedi', 'error');
+                sensitiveBtn.disabled = false;
+                return;
+              }
+              sensitiveBtn.disabled = false;
+            }
+            previewEl.textContent = revealedContent;
             sensitiveBtn.innerHTML = Utils.Icons.eyeOff;
             sensitiveBtn.setAttribute('data-tooltip', 'İçeriği Gizle');
           } else {
+            revealedContent = null;
             previewEl.textContent = '•••••••••••• (Hassas Veri)';
             sensitiveBtn.innerHTML = Utils.Icons.eye;
             sensitiveBtn.setAttribute('data-tooltip', 'İçeriği Göster');
@@ -471,12 +522,6 @@ const ClipboardPanel = (() => {
 
 
 
-
-    // Yapıştır butonu
-    el.querySelector('.paste-btn').addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await pasteToActiveWindow(item);
-    });
 
     // Kopyala butonu
     el.querySelector('.copy-btn').addEventListener('click', async (e) => {
@@ -612,6 +657,8 @@ const ClipboardPanel = (() => {
             updateCounters(historyItems.length);
           }, { once: true });
           Utils.showToast('Öğe silindi', 'info');
+          // Yetim görselleri asenkron temizle
+          window.api.cleanupOrphanImages().catch(err => console.error(err));
         }
       } catch (err) {
         console.error('Silme hatası:', err);
@@ -624,15 +671,18 @@ const ClipboardPanel = (() => {
    */
   async function copyToSystemClipboard(item, element) {
     try {
-      let contentToCopy = item.content;
-      let copyType = item.content_type;
-
-      if (copyType === 'image') {
-        contentToCopy = item.image_path;
+      let response;
+      if (item.is_sensitive) {
+        response = await window.api.copyToClipboard({ id: item.id, ignoreChange: false });
+      } else {
+        let contentToCopy = item.content;
+        let copyType = item.content_type;
+        if (copyType === 'image') {
+          contentToCopy = item.image_path;
+        }
+        response = await window.api.copyToClipboard(contentToCopy, copyType, false);
       }
-
-      // ignoreChange = false geçilerek sistem panosunun değişikliği algılaması ve öğeyi en üste taşıması sağlandı
-      const response = await window.api.copyToClipboard(contentToCopy, copyType, false);
+      
       if (response && response.success) {
         Utils.showToast('Panoya kopyalandı!', 'success');
       } else {
@@ -649,14 +699,19 @@ const ClipboardPanel = (() => {
    */
   async function pasteToActiveWindow(item) {
     try {
-      let contentToPaste = item.content;
       if (item.content_type === 'image') {
         Utils.showToast('Görseller doğrudan yapıştırılamaz. Panoya kopyalanıyor...', 'info');
         await copyToSystemClipboard(item);
         return;
       }
 
-      const response = await window.api.pasteToActiveWindow(contentToPaste);
+      let response;
+      if (item.is_sensitive) {
+        response = await window.api.pasteToActiveWindow({ id: item.id });
+      } else {
+        response = await window.api.pasteToActiveWindow(item.content);
+      }
+
       if (!response || !response.success) {
         Utils.showToast('Yapıştırma başarısız: ' + response?.error, 'error');
       }
@@ -793,6 +848,8 @@ const ClipboardPanel = (() => {
       if (response && response.success) {
         Utils.showToast(`${response.data.deleted} öğe temizlendi.`, 'success');
         loadHistory(false);
+        // Yetim görselleri asenkron temizle
+        window.api.cleanupOrphanImages().catch(err => console.error(err));
       } else {
         Utils.showToast('Temizlenemedi: ' + response?.error, 'error');
       }

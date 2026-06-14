@@ -20,14 +20,7 @@
         <span class="logo-text">ClipBoardPro</span>
       </div>
 
-      <div class="titlebar-search">
-        <span class="search-icon">
-          <svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        </span>
-        <input type="text" id="global-search" placeholder="Ara... (Ctrl+F)" autocomplete="off" spellcheck="false">
-        <span class="search-shortcut">Ctrl+F</span>
-        <button class="search-clear" id="search-clear-btn" data-tooltip="Aramayı temizle" aria-label="Aramayı temizle">✕</button>
-      </div>
+      <div class="titlebar-search-placeholder" style="flex: 1;"></div>
 
       <div class="titlebar-actions">
         <button class="titlebar-btn" id="theme-toggle" data-tooltip="Tema Değiştir" aria-label="Temayı değiştir"></button>
@@ -55,31 +48,37 @@
           </div>
         </div>
 
-        <div id="clipboard-filters">
-          <button class="filter-btn active" data-filter="all">
+        <div class="panel-search-wrapper">
+          <span class="search-icon"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+          <input type="text" id="clipboard-search" class="panel-search-input" placeholder="Panoda ara... (Ctrl+F)" autocomplete="off" spellcheck="false" aria-label="Pano geçmişinde ara">
+          <button class="search-clear-btn" id="clipboard-search-clear" aria-label="Aramayı temizle" type="button">✕</button>
+        </div>
+
+        <div id="clipboard-filters" role="tablist" aria-label="Pano geçmişi filtreleri">
+          <button class="filter-btn active" data-filter="all" role="tab" aria-selected="true" aria-label="Tüm geçmiş ögelerini göster">
             <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg></span> Tümü
           </button>
-          <button class="filter-btn" data-filter="text">
-            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg></span> Metin
-          </button>
-          <button class="filter-btn" data-filter="image">
-            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></span> Görsel
-          </button>
-          <button class="filter-btn" data-filter="url">
-            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></span> URL
-          </button>
-          <button class="filter-btn" data-filter="email">
-            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span> E-posta
-          </button>
-          <button class="filter-btn" data-filter="code">
-            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></span> Kod
-          </button>
-          <div class="filter-separator"></div>
-          <button class="filter-btn" data-filter="pinned">
+          <button class="filter-btn" data-filter="pinned" role="tab" aria-selected="false" aria-label="Sadece sabitlenmiş ögeleri göster">
             <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><line x1="18" y1="8" x2="22" y2="8"></line><line x1="12" y1="2" x2="12" y2="6"></line><path d="M12 6H8a2 2 0 0 0-2 2v2a6 6 0 0 0 6 6h2a6 6 0 0 0 6-6V8a2 2 0 0 0-2-2h-4"></path><line x1="12" y1="16" x2="12" y2="22"></line></svg></span> Sabitler
           </button>
-          <button class="filter-btn" data-filter="favorites">
+          <button class="filter-btn" data-filter="favorites" role="tab" aria-selected="false" aria-label="Sadece favorilere eklenmiş ögeleri göster">
             <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span> Favoriler
+          </button>
+          <div class="filter-separator"></div>
+          <button class="filter-btn" data-filter="text" role="tab" aria-selected="false" aria-label="Sadece metin ögelerini göster">
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg></span> Metin
+          </button>
+          <button class="filter-btn" data-filter="image" role="tab" aria-selected="false" aria-label="Sadece görsel ögelerini göster">
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></span> Görsel
+          </button>
+          <button class="filter-btn" data-filter="url" role="tab" aria-selected="false" aria-label="Sadece URL ögelerini göster">
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></span> URL
+          </button>
+          <button class="filter-btn" data-filter="email" role="tab" aria-selected="false" aria-label="Sadece e-posta ögelerini göster">
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span> E-posta
+          </button>
+          <button class="filter-btn" data-filter="code" role="tab" aria-selected="false" aria-label="Sadece kod ögelerini göster">
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></span> Kod
           </button>
         </div>
 
@@ -89,10 +88,10 @@
       </section>
 
       <!-- ─── Panel Resizer ─── -->
-      <div id="panel-resizer"></div>
-
+      <div id="panel-resizer" role="separator" aria-valuenow="50" aria-valuemin="10" aria-valuemax="90" aria-label="Panel genişlik ayırıcı" tabindex="0"></div>
+ 
       <!-- ─── Notes Panel ─── -->
-      <section id="notes-panel">
+      <section id="notes-panel" aria-label="Not Defteri Paneli">
         <div class="panel-header">
           <h2>
             <span class="panel-icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span>
@@ -100,19 +99,23 @@
             <span class="panel-count" id="notes-count">0</span>
           </h2>
           <div class="panel-header-actions">
-            <button class="panel-btn" id="manage-categories-btn" data-tooltip="Kategoriler" aria-label="Kategorileri yönet">
+            <button class="panel-btn" id="manage-categories-btn" data-tooltip="Kategoriler" aria-label="Kategorileri yönet" type="button">
               <svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
             </button>
-            <button class="panel-btn primary" id="new-note-btn">
+            <button class="panel-btn primary" id="new-note-btn" aria-label="Yeni not oluştur" type="button">
               <svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Yeni Not
             </button>
           </div>
         </div>
 
+        <div class="panel-search-wrapper">
+          <span class="search-icon"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+          <input type="text" id="notes-search" class="panel-search-input" placeholder="Notlarda ara... (Ctrl+F)" autocomplete="off" spellcheck="false" aria-label="Notlarda ara">
+          <button class="search-clear-btn" id="notes-search-clear" aria-label="Aramayı temizle" type="button">✕</button>
+        </div>
+
         <div id="notes-toolbar">
-          <select class="category-select" id="notes-category-filter">
-            <option value="">Tüm Kategoriler</option>
-          </select>
+          <div id="notes-category-filters"></div>
         </div>
 
         <div id="notes-list">
@@ -135,21 +138,21 @@
     </footer>
 
     <!-- ═══════ SETTINGS MODAL ═══════ -->
-    <div class="modal-overlay" id="settings-modal">
+    <div class="modal-overlay" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <div class="modal">
         <div class="modal-header">
-          <h3><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Ayarlar</h3>
-          <button class="modal-close" id="settings-close-btn" aria-label="Kapat">✕</button>
+          <h3 id="settings-title"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Ayarlar</h3>
+          <button class="modal-close" id="settings-close-btn" aria-label="Ayarlar modalını kapat" type="button">✕</button>
         </div>
-        <div class="settings-tabs">
-          <button class="settings-tab active" data-tab="general">Genel</button>
-          <button class="settings-tab" data-tab="data">Veri</button>
-          <button class="settings-tab" data-tab="about">Hakkında</button>
+        <div class="settings-tabs" role="tablist" aria-label="Ayarlar sekmeleri">
+          <button class="settings-tab active" data-tab="general" role="tab" aria-selected="true" aria-label="Genel ayarlar sekmesi">Genel</button>
+          <button class="settings-tab" data-tab="data" role="tab" aria-selected="false" aria-label="Veri ayarları sekmesi">Veri</button>
+          <button class="settings-tab" data-tab="about" role="tab" aria-selected="false" aria-label="Uygulama hakkında sekmesi">Hakkında</button>
         </div>
         <div class="modal-body">
 
           <!-- General Tab -->
-          <div class="settings-section active" id="settings-general">
+          <div class="settings-section active" id="settings-general" role="tabpanel" aria-label="Genel Ayarlar">
             <div class="setting-group">
               <div class="setting-group-title">Görünüm</div>
               <div class="setting-row">
@@ -158,7 +161,7 @@
                   <small>Uygulama temasını seçin</small>
                 </div>
                 <div class="setting-value">
-                  <select class="setting-select" id="setting-theme">
+                  <select class="setting-select" id="setting-theme" aria-label="Uygulama renk teması seçimi">
                     <option value="dark">Karanlık</option>
                     <option value="light">Aydınlık</option>
                     <option value="system">Sistem</option>
@@ -176,7 +179,7 @@
                 </div>
                 <div class="setting-value">
                   <label class="toggle-switch">
-                    <input type="checkbox" id="setting-autostart">
+                    <input type="checkbox" id="setting-autostart" aria-label="Sistem başlangıcında otomatik başlat">
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -188,7 +191,19 @@
                 </div>
                 <div class="setting-value">
                   <label class="toggle-switch">
-                    <input type="checkbox" id="setting-sensitive">
+                    <input type="checkbox" id="setting-sensitive" aria-label="Panodan kopyalanan hassas verileri otomatik maskele">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Masaüstüne Tıklayınca Kapat</span>
+                  <small>Pencere odağını kaybettiğinde sistem tepsisine küçült</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-blur-to-tray" aria-label="Uygulama dışına tıklandığında tepsiyi küçült">
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -199,7 +214,7 @@
                   <small>Maksimum saklanan öğe sayısı</small>
                 </div>
                 <div class="setting-value">
-                  <select class="setting-select" id="setting-history-limit">
+                  <select class="setting-select" id="setting-history-limit" aria-label="Maksimum geçmiş limiti">
                     <option value="0">Sınırsız</option>
                     <option value="500">500</option>
                     <option value="1000">1.000</option>
@@ -214,7 +229,7 @@
                   <small>Pano kontrolü arasındaki süre</small>
                 </div>
                 <div class="setting-value">
-                  <select class="setting-select" id="setting-poll-interval">
+                  <select class="setting-select" id="setting-poll-interval" aria-label="Pano izleme periyodu">
                     <option value="250">250ms</option>
                     <option value="500">500ms</option>
                     <option value="1000">1000ms</option>
@@ -227,14 +242,14 @@
                   <small>Uygulamayı açmak/gizlemek için kısayol</small>
                 </div>
                 <div class="setting-value">
-                  <input type="text" id="setting-shortcut" readonly placeholder="Kısayola bas..." style="width: 140px; text-align: center; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 11.5px; cursor: pointer; color: var(--text-primary); transition: all var(--transition-fast);">
+                  <input type="text" id="setting-shortcut" readonly placeholder="Kısayola bas..." style="width: 140px; text-align: center; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 11.5px; cursor: pointer; color: var(--text-primary); transition: all var(--transition-fast);" aria-label="Uygulamayı açıp kapatmak için global klavye kısayolu">
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Data Tab -->
-          <div class="settings-section" id="settings-data">
+          <div class="settings-section" id="settings-data" role="tabpanel" aria-label="Veri Ayarları">
             <div class="setting-group">
               <div class="setting-group-title">Veri Konumu</div>
               <div class="setting-row" style="flex-direction:column;align-items:stretch;">
@@ -244,7 +259,7 @@
                 </div>
                 <div class="data-location-row">
                   <span class="data-location-path" id="data-location-path">Yükleniyor...</span>
-                  <button class="btn btn-default" id="change-data-location-btn">Değiştir</button>
+                  <button class="btn btn-default" id="change-data-location-btn" aria-label="Veritabanı saklama konumunu değiştir">Değiştir</button>
                 </div>
               </div>
             </div>
@@ -257,7 +272,7 @@
                   <small>Tüm verileri JSON olarak dışa aktarın</small>
                 </div>
                 <div class="setting-value">
-                  <button class="btn btn-default" id="export-data-btn"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Dışa Aktar</button>
+                  <button class="btn btn-default" id="export-data-btn" aria-label="Tüm verileri dışa aktar (JSON)"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Dışa Aktar</button>
                 </div>
               </div>
               <div class="setting-row">
@@ -266,7 +281,7 @@
                   <small>Daha önce dışa aktarılan verileri geri yükle</small>
                 </div>
                 <div class="setting-value">
-                  <button class="btn btn-default" id="import-data-btn"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> İçe Aktar</button>
+                  <button class="btn btn-default" id="import-data-btn" aria-label="Dışa aktarılmış yedek dosyasından veri aktar"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> İçe Aktar</button>
                 </div>
               </div>
             </div>
@@ -300,7 +315,7 @@
               <div class="project-details">
                 <p style="margin-bottom:12px;">ClipBoardPro, panonuzu akıllıca yönetmenizi ve sık kullandığınız içerikleri pratik not defteriyle entegre saklamanızı sağlayan premium bir masaüstü uygulamasıdır.</p>
                 <div class="about-buttons" style="display:flex; justify-content:center; gap:8px;">
-                  <button class="btn btn-default about-link" id="about-dev-link" data-url="https://github.com/MaximusPrime77" style="height:32px; font-size:11.5px;"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65(5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg> Geliştirici Profili</button>
+                  <button class="btn btn-default about-link" id="about-dev-link" data-url="https://github.com/MaximusPrime77" style="height:32px; font-size:11.5px;"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg> Geliştirici Profili</button>
                   <button class="btn btn-primary about-link" id="about-source-link" data-url="https://github.com/MaximusPrime77/ClipBoardPro" style="height:32px; font-size:11.5px;"><svg class="icon-svg" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg> Kaynak Kodlar</button>
                 </div>
               </div>
@@ -311,52 +326,52 @@
 
         </div>
         <div class="modal-footer" style="padding: 12px 20px; border-top: 1px solid var(--border-primary); display: flex; justify-content: flex-end; background: var(--bg-secondary);">
-          <button class="btn btn-default" id="settings-footer-close-btn" style="height: 30px; padding: 0 16px; font-size: 12px;">Kapat</button>
+          <button class="btn btn-default" id="settings-footer-close-btn" style="height: 30px; padding: 0 16px; font-size: 12px;" aria-label="Ayarlar modalını kapat">Kapat</button>
         </div>
       </div>
     </div>
 
     <!-- ═══════ NOTE EDITOR MODAL ═══════ -->
-    <div class="modal-overlay" id="note-editor-modal">
+    <div class="modal-overlay" id="note-editor-modal" role="dialog" aria-modal="true" aria-labelledby="note-editor-title">
       <div class="modal">
         <div class="modal-header">
           <h3 id="note-editor-title">
             <span class="modal-title-icon"></span>
             <span class="modal-title-text">Yeni Not</span>
           </h3>
-          <button class="modal-close" id="note-editor-close-btn" aria-label="Kapat">✕</button>
+          <button class="modal-close" id="note-editor-close-btn" aria-label="Not editörünü kapat" type="button">✕</button>
         </div>
         <div class="modal-body">
           <form class="note-editor-form" id="note-editor-form">
             <input type="hidden" id="note-edit-id">
             <div class="form-group">
               <label for="note-edit-title">Başlık</label>
-              <input type="text" class="form-input" id="note-edit-title" placeholder="Not başlığı..." autocomplete="off">
+              <input type="text" class="form-input" id="note-edit-title" placeholder="Not başlığı..." autocomplete="off" aria-label="Not başlığı">
             </div>
             <div class="form-group">
               <label for="note-edit-content">İçerik</label>
-              <textarea class="form-textarea" id="note-edit-content" placeholder="Notunuzu yazın..."></textarea>
+              <textarea class="form-textarea" id="note-edit-content" placeholder="Notunuzu yazın..." aria-label="Not içeriği"></textarea>
             </div>
             <div class="form-row" style="display:flex; gap:16px;">
               <div class="form-group" style="flex:1;">
                 <label for="note-edit-category">Kategori / Etiket</label>
-                <select class="form-input" id="note-edit-category" style="cursor:pointer; width: 100%;"></select>
+                <select class="form-input" id="note-edit-category" style="cursor:pointer; width: 100%;" aria-label="Not kategorisi seçimi"></select>
                 <div id="note-edit-category-preview" style="margin-top: 8px; display: none;"></div>
               </div>
               <div class="form-group" style="flex:1;">
-                <label>Not Rengi</label>
-                <div class="color-picker" id="note-edit-color-picker" style="display:flex; gap:8px; align-items:center; height:36px;">
-                  <span class="color-swatch active" data-color="charcoal" style="background:var(--note-charcoal); width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid #fff; display:inline-block;" data-tooltip="Koyu Kömür (Koyu Gri)"></span>
-                  <span class="color-swatch" data-color="anthracite" style="background:var(--note-anthracite); width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:inline-block;" data-tooltip="Antrasit (Orta Gri)"></span>
-                  <span class="color-swatch" data-color="silver" style="background:var(--note-silver); width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:inline-block;" data-tooltip="Gümüş (Açık Gri)"></span>
+                <label id="note-edit-color-label">Not Rengi</label>
+                <div class="color-picker" id="note-edit-color-picker" style="display:flex; gap:8px; align-items:center; height:36px;" role="radiogroup" aria-labelledby="note-edit-color-label">
+                  <span class="color-swatch active" data-color="charcoal" style="background:var(--note-charcoal); width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid #fff; display:inline-block;" data-tooltip="Koyu Kömür (Koyu Gri)" role="radio" aria-checked="true" aria-label="Koyu Kömür" tabindex="0"></span>
+                  <span class="color-swatch" data-color="anthracite" style="background:var(--note-anthracite); width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:inline-block;" data-tooltip="Antrasit (Orta Gri)" role="radio" aria-checked="false" aria-label="Antrasit" tabindex="0"></span>
+                  <span class="color-swatch" data-color="silver" style="background:var(--note-silver); width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:inline-block;" data-tooltip="Gümüş (Açık Gri)" role="radio" aria-checked="false" aria-label="Gümüş" tabindex="0"></span>
                 </div>
               </div>
             </div>
           </form>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-ghost" id="note-editor-cancel-btn">İptal</button>
-          <button class="btn btn-primary" id="note-editor-save-btn">
+          <button class="btn btn-ghost" id="note-editor-cancel-btn" aria-label="Değişiklikleri iptal et" type="button">İptal</button>
+          <button class="btn btn-primary" id="note-editor-save-btn" aria-label="Notu kaydet" type="button">
             <svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Kaydet
           </button>
         </div>
@@ -364,14 +379,14 @@
     </div>
 
     <!-- ═══════ NOTE DETAIL MODAL ═══════ -->
-    <div class="modal-overlay" id="note-detail-modal">
+    <div class="modal-overlay" id="note-detail-modal" role="dialog" aria-modal="true" aria-labelledby="note-detail-title-text">
       <div class="modal" style="width: 480px;">
         <div class="modal-header">
           <h3 id="note-detail-title">
             <span class="modal-title-icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span>
             <span class="modal-title-text" id="note-detail-title-text">Not Detayı</span>
           </h3>
-          <button class="modal-close" id="note-detail-close-btn" aria-label="Kapat">✕</button>
+          <button class="modal-close" id="note-detail-close-btn" aria-label="Not detay modalını kapat" type="button">✕</button>
         </div>
         <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
           <div id="note-detail-category-tag" style="margin-bottom: 12px;"></div>
@@ -380,10 +395,10 @@
         <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
           <span class="note-date" id="note-detail-date" style="font-size: 10.5px;"></span>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-ghost" id="note-detail-edit-btn" style="height:30px; padding:0 10px; font-size:11.5px;">
+            <button class="btn btn-ghost" id="note-detail-edit-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="Notu düzenle" type="button">
               <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"></path></svg> Düzenle
             </button>
-            <button class="btn btn-ghost" id="note-detail-copy-btn" style="height:30px; padding:0 10px; font-size:11.5px;">
+            <button class="btn btn-ghost" id="note-detail-copy-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="Not içeriğini kopyala" type="button">
               <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Kopyala
             </button>
           </div>
@@ -392,17 +407,17 @@
     </div>
 
     <!-- ═══════ CATEGORY MANAGER MODAL ═══════ -->
-    <div class="modal-overlay" id="category-manager-modal">
+    <div class="modal-overlay" id="category-manager-modal" role="dialog" aria-modal="true" aria-labelledby="category-manager-title">
       <div class="modal" style="width:420px;">
         <div class="modal-header">
-          <h3><svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg> Kategoriler</h3>
-          <button class="modal-close" id="category-manager-close-btn" aria-label="Kapat">✕</button>
+          <h3 id="category-manager-title"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg> Kategoriler</h3>
+          <button class="modal-close" id="category-manager-close-btn" aria-label="Kategori yönetim modalını kapat" type="button">✕</button>
         </div>
         <div class="modal-body">
           <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px; border-bottom:1px solid var(--border-primary); padding-bottom:16px;">
             <div style="display:flex; gap:8px;">
-              <input type="text" class="form-input" id="new-category-name" placeholder="Kategori adı..." style="flex:1; height:32px;">
-              <select class="form-input" id="new-category-icon" style="width:110px; height:32px; font-size:11.5px; cursor:pointer; padding:0 8px;">
+              <input type="text" class="form-input" id="new-category-name" placeholder="Kategori adı..." style="flex:1; height:32px;" aria-label="Yeni kategori adı">
+              <select class="form-input" id="new-category-icon" style="width:110px; height:32px; font-size:11.5px; cursor:pointer; padding:0 8px;" aria-label="Yeni kategori simgesi">
                 <option value="folder">📁 Klasör</option>
                 <option value="briefcase">💼 İş</option>
                 <option value="code">💻 Kod</option>
@@ -412,17 +427,17 @@
               </select>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-              <div style="display:flex; gap:6px;" id="new-category-color-picker">
-                <span class="category-color-swatch active" data-color="#2c2c2c" style="background:#2c2c2c; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid #fff;" data-tooltip="Koyu Kömür"></span>
-                <span class="category-color-swatch" data-color="#3a3a3a" style="background:#3a3a3a; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Antrasit"></span>
-                <span class="category-color-swatch" data-color="#4a4a4a" style="background:#4a4a4a; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Koyu Gri"></span>
-                <span class="category-color-swatch" data-color="#5c5c5c" style="background:#5c5c5c; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Füme"></span>
-                <span class="category-color-swatch" data-color="#707070" style="background:#707070; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Orta Gri"></span>
-                <span class="category-color-swatch" data-color="#8a8a8a" style="background:#8a8a8a; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Metalik Gri"></span>
-                <span class="category-color-swatch" data-color="#a0a0a0" style="background:#a0a0a0; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Açık Gri"></span>
-                <span class="category-color-swatch" data-color="#b8b8b8" style="background:#b8b8b8; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Gümüş Gri"></span>
+              <div style="display:flex; gap:6px;" id="new-category-color-picker" role="radiogroup" aria-label="Kategori Rengi Seçimi">
+                <span class="category-color-swatch active" data-color="#2c2c2c" style="background:#2c2c2c; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid #fff;" data-tooltip="Koyu Kömür" role="radio" aria-checked="true" aria-label="Koyu Kömür" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#3a3a3a" style="background:#3a3a3a; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Antrasit" role="radio" aria-checked="false" aria-label="Antrasit" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#4a4a4a" style="background:#4a4a4a; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Koyu Gri" role="radio" aria-checked="false" aria-label="Koyu Gri" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#5c5c5c" style="background:#5c5c5c; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Füme" role="radio" aria-checked="false" aria-label="Füme" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#707070" style="background:#707070; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Orta Gri" role="radio" aria-checked="false" aria-label="Orta Gri" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#8a8a8a" style="background:#8a8a8a; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Metalik Gri" role="radio" aria-checked="false" aria-label="Metalik Gri" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#a0a0a0" style="background:#a0a0a0; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Açık Gri" role="radio" aria-checked="false" aria-label="Açık Gri" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#b8b8b8" style="background:#b8b8b8; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Gümüş Gri" role="radio" aria-checked="false" aria-label="Gümüş Gri" tabindex="0"></span>
               </div>
-              <button class="btn btn-primary" id="add-category-btn" style="height:32px;">Kategori Ekle</button>
+              <button class="btn btn-primary" id="add-category-btn" style="height:32px;" aria-label="Yeni kategori ekle" type="button">Kategori Ekle</button>
             </div>
           </div>
           <div id="category-list">
@@ -434,7 +449,7 @@
     </div>
 
     <!-- ═══════ CONFIRM DIALOG ═══════ -->
-    <div class="modal-overlay" id="confirm-dialog">
+    <div class="modal-overlay" id="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-message" aria-describedby="confirm-sub">
       <div class="modal">
         <div class="modal-body">
           <div class="confirm-content">
@@ -443,8 +458,8 @@
             <p class="confirm-sub" id="confirm-sub">Bu işlem geri alınamaz.</p>
           </div>
           <div class="confirm-actions">
-            <button class="btn btn-ghost" id="confirm-cancel-btn">İptal</button>
-            <button class="btn btn-danger" id="confirm-ok-btn">Onayla</button>
+            <button class="btn btn-ghost" id="confirm-cancel-btn" aria-label="İşlemi iptal et" type="button">İptal</button>
+            <button class="btn btn-danger" id="confirm-ok-btn" aria-label="İşlemi onayla ve devam et" type="button">Onayla</button>
           </div>
         </div>
       </div>

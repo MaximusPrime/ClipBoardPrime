@@ -12,10 +12,6 @@ const App = (() => {
     notesPanel: document.getElementById('notes-panel'),
     mainContent: document.querySelector('.main-content'),
     
-    // Search
-    globalSearch: document.getElementById('global-search'),
-    searchClearBtn: document.getElementById('search-clear-btn'),
-    
     // Header buttons
     themeToggle: document.getElementById('theme-toggle'),
     settingsBtn: document.getElementById('settings-btn'),
@@ -36,6 +32,7 @@ const App = (() => {
 
   let confirmResolve = null;
   let settings = {};
+  let lastActivePanel = 'clipboard';
 
   /**
    * Uygulamayı başlatır
@@ -64,7 +61,7 @@ const App = (() => {
 
     // 4. Genel UI olaylarını ve Panel Genişliğini Kur
     setupResizer();
-    setupGlobalSearch();
+    setupPanelSearch();
     setupTitleBarActions();
     setupKeyboardShortcuts();
     setupConfirmDialog();
@@ -86,6 +83,9 @@ const App = (() => {
     
     // Alt durum çubuğunu doldur
     updateStatusBar();
+
+    // Modalleri dinlemek için MutationObserver kur (blurToTray koruması)
+    setupModalObserver();
   }
 
   /**
@@ -120,10 +120,30 @@ const App = (() => {
       document.body.style.cursor = '';
       document.body.classList.remove('resizing');
 
-      // Genişliği ayara kaydet
+      // Oranı hesapla ve kaydet
+      const mainContent = document.querySelector('.main-content');
+      const containerRect = mainContent.getBoundingClientRect();
       const currentWidth = parseInt(elements.clipboardPanel.style.width);
-      if (currentWidth && window.api) {
+      if (currentWidth && containerRect.width && window.api) {
+        const ratio = currentWidth / containerRect.width;
+        window.api.saveSetting('leftPanelWidthRatio', String(ratio));
+        // Geriye dönük uyumluluk için piksel olarak da kaydet
         window.api.saveSetting('leftPanelWidth', String(currentWidth));
+      }
+    });
+
+    // Pencere yeniden boyutlandırıldığında panel oranını koru
+    window.addEventListener('resize', () => {
+      const widthRatio = App.settings && App.settings.leftPanelWidthRatio;
+      if (widthRatio) {
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+          const containerRect = mainContent.getBoundingClientRect();
+          const ratio = parseFloat(widthRatio);
+          if (ratio > 0.1 && ratio < 0.9 && containerRect.width > 0) {
+            elements.clipboardPanel.style.width = `${containerRect.width * ratio}px`;
+          }
+        }
       }
     });
   }
@@ -132,6 +152,19 @@ const App = (() => {
    * Kayıtlı sol panel genişliğini önbellekten yükler
    */
   function loadPanelWidthFromCache() {
+    const widthRatio = App.settings && App.settings.leftPanelWidthRatio;
+    if (widthRatio) {
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) {
+        const containerRect = mainContent.getBoundingClientRect();
+        const ratio = parseFloat(widthRatio);
+        if (ratio > 0.1 && ratio < 0.9 && containerRect.width > 0) {
+          elements.clipboardPanel.style.width = `${containerRect.width * ratio}px`;
+          return;
+        }
+      }
+    }
+
     const width = App.settings && App.settings.leftPanelWidth;
     if (width) {
       elements.clipboardPanel.style.width = `${width}px`;
@@ -139,34 +172,15 @@ const App = (() => {
   }
 
   /**
-   * Küresel arama kutusu dinleyicileri
+   * Panel bazlı arama dinleyicilerini kurar ve aktif paneli izler
    */
-  function setupGlobalSearch() {
-    const performSearch = Utils.debounce((query) => {
-      if (window.ClipboardPanel) window.ClipboardPanel.setSearch(query);
-      if (window.NotesPanel) window.NotesPanel.setSearch(query);
-    }, 250);
-
-    elements.globalSearch.addEventListener('input', (e) => {
-      const query = e.target.value;
-      
-      // Arama temizleme butonunun görünürlüğü
-      if (query.trim().length > 0) {
-        elements.searchClearBtn.classList.add('visible');
-      } else {
-        elements.searchClearBtn.classList.remove('visible');
-      }
-
-      performSearch(query);
+  function setupPanelSearch() {
+    // Tıklanan panele göre aktif paneli güncelle
+    elements.clipboardPanel.addEventListener('mousedown', () => {
+      lastActivePanel = 'clipboard';
     });
-
-    // Arama temizleme butonu
-    elements.searchClearBtn.addEventListener('click', () => {
-      elements.globalSearch.value = '';
-      elements.searchClearBtn.classList.remove('visible');
-      if (window.ClipboardPanel) window.ClipboardPanel.setSearch('');
-      if (window.NotesPanel) window.NotesPanel.setSearch('');
-      elements.globalSearch.focus();
+    elements.notesPanel.addEventListener('mousedown', () => {
+      lastActivePanel = 'notes';
     });
   }
 
@@ -229,11 +243,16 @@ const App = (() => {
    */
   function setupKeyboardShortcuts() {
     window.addEventListener('keydown', (e) => {
-      // Ctrl + F veya Cmd + F -> Arama çubuğuna odaklan
+      // Ctrl + F veya Cmd + F -> Aktif panel arama çubuğuna odaklan
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-        elements.globalSearch.focus();
-        elements.globalSearch.select();
+        const searchInput = lastActivePanel === 'clipboard'
+          ? document.getElementById('clipboard-search')
+          : document.getElementById('notes-search');
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
       }
       
       // ESC tuşu -> Açık modalleri kapat
@@ -387,6 +406,47 @@ const App = (() => {
       confirmResolve(value);
       confirmResolve = null;
     }
+  }
+
+  /**
+   * Sayfadaki tüm modalları dinler ve aktif bir modal varsa main process'e bildirir.
+   */
+  function setupModalObserver() {
+    if (!window.api || !window.api.setModalOpen) return;
+
+    const modalSelectors = [
+      '#settings-modal',
+      '#confirm-dialog',
+      '#note-editor-modal',
+      '#category-manager-modal',
+      '#note-detail-modal'
+    ];
+
+    const checkModals = () => {
+      let anyOpen = false;
+      modalSelectors.forEach(selector => {
+        const el = document.querySelector(selector);
+        if (el && el.classList.contains('active')) {
+          anyOpen = true;
+        }
+      });
+      window.api.setModalOpen(anyOpen);
+    };
+
+    // İlk kontrol
+    checkModals();
+
+    // Sınıf değişikliklerini gözlemle
+    const observer = new MutationObserver(() => {
+      checkModals();
+    });
+
+    modalSelectors.forEach(selector => {
+      const el = document.querySelector(selector);
+      if (el) {
+        observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+      }
+    });
   }
 
   return {

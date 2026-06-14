@@ -8,9 +8,11 @@ const NotesPanel = (() => {
   const elements = {
     list: document.getElementById('notes-list'),
     count: document.getElementById('notes-count'),
-    categoryFilter: document.getElementById('notes-category-filter'),
+    categoryFilter: document.getElementById('notes-category-filters'),
     manageCategoriesBtn: document.getElementById('manage-categories-btn'),
     newNoteBtn: document.getElementById('new-note-btn'),
+    search: document.getElementById('notes-search'),
+    searchClear: document.getElementById('notes-search-clear'),
     
     // Editor Modal
     editorModal: document.getElementById('note-editor-modal'),
@@ -66,10 +68,45 @@ const NotesPanel = (() => {
    * Olay dinleyicilerini kurar
    */
   function setupEventListeners() {
-    // Kategori filtre seçimi
-    elements.categoryFilter.addEventListener('change', (e) => {
-      activeCategoryFilter = e.target.value;
+    // Kategori filtre seçimi (Sekmeler)
+    elements.categoryFilter.addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-btn');
+      if (!btn) return;
+
+      elements.categoryFilter.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      activeCategoryFilter = btn.dataset.category || '';
       loadNotes();
+    });
+
+    // Kategori sekmelerinde fare tekerleğiyle yatay kaydırma (horizontal scroll)
+    elements.categoryFilter.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      elements.categoryFilter.scrollLeft += e.deltaY;
+    });
+
+    // Arama Girişi
+    const performSearch = Utils.debounce((query) => {
+      setSearch(query);
+    }, 250);
+
+    elements.search.addEventListener('input', (e) => {
+      const query = e.target.value;
+      if (query.trim().length > 0) {
+        elements.searchClear.classList.add('visible');
+      } else {
+        elements.searchClear.classList.remove('visible');
+      }
+      performSearch(query);
+    });
+
+    // Arama Temizleme
+    elements.searchClear.addEventListener('click', () => {
+      elements.search.value = '';
+      elements.searchClear.classList.remove('visible');
+      setSearch('');
+      elements.search.focus();
     });
 
     // Yeni Not butonu
@@ -155,7 +192,11 @@ const NotesPanel = (() => {
       };
 
       if (activeCategoryFilter) {
-        if (activeCategoryFilter === 'null') {
+        if (activeCategoryFilter === 'pinned') {
+          params.pinned = true;
+        } else if (activeCategoryFilter === 'favorites') {
+          params.favorite = true;
+        } else if (activeCategoryFilter === 'null') {
           params.category_id = null;
         } else {
           params.category_id = parseInt(activeCategoryFilter);
@@ -217,17 +258,49 @@ const NotesPanel = (() => {
    * Kategori dropdown seçim elemanlarını doldurur
    */
   function updateCategoryDropdowns() {
-    // 1. Filtre dropdown
-    const filterVal = elements.categoryFilter.value;
-    elements.categoryFilter.innerHTML = '<option value="">🏷️ Tüm Kategoriler</option>';
+    // 1. Filtre Sekmeleri (Paralel Sekme)
+    elements.categoryFilter.innerHTML = '';
+    
+    // "Tüm Kategoriler" butonu
+    const allBtn = document.createElement('button');
+    allBtn.className = `filter-btn${activeCategoryFilter === '' ? ' active' : ''}`;
+    allBtn.dataset.category = '';
+    allBtn.innerHTML = `<span class="filter-emoji">${Utils.Icons.tag}</span> Tüm Kategoriler`;
+    elements.categoryFilter.appendChild(allBtn);
+
+    // "Sabitler" butonu
+    const pinnedBtn = document.createElement('button');
+    pinnedBtn.className = `filter-btn${activeCategoryFilter === 'pinned' ? ' active' : ''}`;
+    pinnedBtn.dataset.category = 'pinned';
+    pinnedBtn.innerHTML = `<span class="filter-emoji">${Utils.Icons.pin}</span> Sabitler`;
+    elements.categoryFilter.appendChild(pinnedBtn);
+
+    // "Favoriler" butonu
+    const favBtn = document.createElement('button');
+    favBtn.className = `filter-btn${activeCategoryFilter === 'favorites' ? ' active' : ''}`;
+    favBtn.dataset.category = 'favorites';
+    favBtn.innerHTML = `<span class="filter-emoji">${Utils.Icons.star}</span> Favoriler`;
+    elements.categoryFilter.appendChild(favBtn);
+
+    // Separatör çizgi
+    const separator = document.createElement('div');
+    separator.className = 'filter-separator';
+    elements.categoryFilter.appendChild(separator);
+
+    // Kategori butonları
     categoriesList.forEach((cat) => {
-      const opt = document.createElement('option');
-      opt.value = cat.id;
-      opt.textContent = `🏷️ ${cat.name}`;
-      elements.categoryFilter.appendChild(opt);
+      const btn = document.createElement('button');
+      btn.className = `filter-btn${activeCategoryFilter === String(cat.id) ? ' active' : ''}`;
+      btn.dataset.category = cat.id;
+      
+      const iconColor = cat.color || 'var(--text-secondary)';
+      const rawIcon = Utils.Icons[cat.icon] || Utils.Icons.folder;
+      // İkona renk ekleme
+      const iconSvg = rawIcon.replace('class="icon-svg"', `class="icon-svg" style="color: ${iconColor};"`);
+      
+      btn.innerHTML = `<span class="filter-emoji">${iconSvg}</span> ${Utils.escapeHtml(cat.name)}`;
+      elements.categoryFilter.appendChild(btn);
     });
-    elements.categoryFilter.value = filterVal; // Seçimi koru
-    activeCategoryFilter = elements.categoryFilter.value; // JS durumunu gerçek seçili değerle senkronize et
 
     // 2. Editor modal dropdown
     elements.editCategory.innerHTML = '<option value="">(Kategorisiz)</option>';
@@ -258,9 +331,23 @@ const NotesPanel = (() => {
       return;
     }
 
+    let lastGroup = null;
     const fragment = document.createDocumentFragment();
 
     notesList.forEach((note) => {
+      // Arama yoksa tarihsel gruplama yap
+      if (!searchQuery) {
+        const dateStr = note.updated_at || note.created_at;
+        const group = Utils.getDateGroup(dateStr);
+        if (group !== lastGroup) {
+          lastGroup = group;
+          const groupHeader = document.createElement('div');
+          groupHeader.className = 'date-group-header';
+          groupHeader.textContent = group;
+          fragment.appendChild(groupHeader);
+        }
+      }
+
       const el = document.createElement('div');
       el.className = `note-item ${note.is_pinned ? 'pinned' : ''}`;
       el.dataset.id = note.id;
@@ -279,18 +366,31 @@ const NotesPanel = (() => {
         ? Utils.highlightText(Utils.truncate(contentText, 150), searchQuery)
         : Utils.escapeHtml(Utils.truncate(contentText, 150));
 
+      const highlightedFullContent = searchQuery
+        ? Utils.highlightText(contentText, searchQuery)
+        : Utils.escapeHtml(contentText);
+
       const dateLabel = Utils.formatDate(note.updated_at || note.created_at);
 
-      // Durum rozetleri (pin badge) - Madde 11
+      // Durum rozetleri (pin ve favorite badge)
       let badgeHTML = '';
-      if (note.is_pinned) {
-        badgeHTML = `
-          <div class="note-status-badges">
+      if (note.is_pinned || note.is_favorite) {
+        badgeHTML = `<div class="note-status-badges">`;
+        if (note.is_pinned) {
+          badgeHTML += `
             <div class="status-badge pin-badge" data-tooltip="Sabitlendi">
               ${Utils.Icons.pin}
             </div>
-          </div>
-        `;
+          `;
+        }
+        if (note.is_favorite) {
+          badgeHTML += `
+            <div class="status-badge fav-badge" data-tooltip="Favori">
+              ${Utils.Icons.star}
+            </div>
+          `;
+        }
+        badgeHTML += `</div>`;
       }
 
       el.innerHTML = `
@@ -300,13 +400,14 @@ const NotesPanel = (() => {
             <button class="note-action-btn detail-btn" data-tooltip="Detayları Göster" aria-label="Detayları göster">${Utils.Icons.eye}</button>
             <button class="note-action-btn copy-btn" data-tooltip="Kopyala" aria-label="Kopyala">${Utils.Icons.copy}</button>
             <button class="note-action-btn edit-btn" data-tooltip="Düzenle" aria-label="Düzenle">${Utils.Icons.edit}</button>
+            <button class="note-action-btn fav-btn ${note.is_favorite ? 'fav-active' : ''}" data-tooltip="${note.is_favorite ? 'Favorilerden Kaldır' : 'Favorilere Ekle'}" aria-label="${note.is_favorite ? 'Favorilerden kaldır' : 'Favorilere ekle'}">${Utils.Icons.star}</button>
             <button class="note-action-btn pin-btn ${note.is_pinned ? 'pin-active' : ''}" data-tooltip="${note.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}" aria-label="${note.is_pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}">${Utils.Icons.pin}</button>
             <button class="note-action-btn delete-btn" data-tooltip="Sil" aria-label="Sil">${Utils.Icons.trash}</button>
           </div>
         </div>
         <div class="note-item-content">${highlightedContent.replace(/\n/g, '<br>')}</div>
         <div class="note-item-accordion">
-          <div class="note-item-accordion-content">${Utils.escapeHtml(contentText)}</div>
+          <div class="note-item-accordion-content">${highlightedFullContent}</div>
         </div>
         <div class="note-item-footer">
           <div style="display: flex; align-items: center; gap: 8px;">
@@ -324,22 +425,22 @@ const NotesPanel = (() => {
     elements.list.appendChild(fragment);
   }
 
-  async function handleNoteReorder(draggedId, targetId, isPinned) {
-    if (searchQuery || activeCategoryFilter) {
-      Utils.showToast('Arama veya filtreleme etkinken sıralama değiştirilemez', 'warning');
+  async function handleNoteReorder(draggedId, targetId) {
+    if (searchQuery || activeCategoryFilter === '') {
+      Utils.showToast('Arama veya genel görünüm etkinken sıralama değiştirilemez', 'warning');
       return;
     }
-    const groupNotes = notesList.filter(n => n.is_pinned === isPinned);
-    const draggedIndex = groupNotes.findIndex(n => n.id === draggedId);
-    const targetIndex = groupNotes.findIndex(n => n.id === targetId);
+
+    const draggedIndex = notesList.findIndex(n => n.id === draggedId);
+    const targetIndex = notesList.findIndex(n => n.id === targetId);
 
     if (draggedIndex !== -1 && targetIndex !== -1) {
       // Yeniden sırala
-      const [draggedNote] = groupNotes.splice(draggedIndex, 1);
-      groupNotes.splice(targetIndex, 0, draggedNote);
+      const [draggedNote] = notesList.splice(draggedIndex, 1);
+      notesList.splice(targetIndex, 0, draggedNote);
 
       // Yeni sort_order değerlerini ata
-      const orderedIds = groupNotes.map((n, idx) => ({
+      const orderedIds = notesList.map((n, idx) => ({
         id: n.id,
         sort_order: idx + 1
       }));
@@ -399,8 +500,21 @@ const NotesPanel = (() => {
       }
     });
 
-    // Arama veya filtre aktifse sürüklemeyi engelle
-    const isDraggable = (!searchQuery && !activeCategoryFilter) ? 'true' : 'false';
+    // Akordiyon içeriğine tıklayınca da kapatılabilsin/açılabilsin
+    const accordionEl = el.querySelector('.note-item-accordion');
+    if (accordionEl) {
+      accordionEl.addEventListener('click', (e) => {
+        // Seçim yapılmaya çalışılıyorsa kapatma (Kullanıcı deneyimi için)
+        const selection = window.getSelection().toString();
+        if (selection) return;
+
+        e.stopPropagation();
+        el.classList.toggle('accordion-open');
+      });
+    }
+
+    // Arama veya filtre aktifse sürüklemeyi engelle (Sadece sekmelerde izin ver)
+    const isDraggable = (!searchQuery && activeCategoryFilter !== '') ? 'true' : 'false';
     el.setAttribute('draggable', isDraggable);
     
     el.addEventListener('dragstart', (e) => {
@@ -427,12 +541,8 @@ const NotesPanel = (() => {
 
     el.addEventListener('dragover', (e) => {
       if (draggedNoteId !== null && draggedNoteId !== note.id) {
-        const draggedNote = notesList.find(n => n.id === draggedNoteId);
-        // Sadece aynı sabitleme durumundaki (her ikisi de pinned veya her ikisi de unpinned) öğelerin üzerine bırakılabilir
-        if (draggedNote && draggedNote.is_pinned === note.is_pinned) {
-          e.preventDefault();
-          el.classList.add('drag-over');
-        }
+        e.preventDefault();
+        el.classList.add('drag-over');
       }
     });
 
@@ -443,13 +553,10 @@ const NotesPanel = (() => {
     el.addEventListener('drop', async (e) => {
       e.preventDefault();
       el.classList.remove('drag-over');
-      console.log('Bırakıldı (Drop) - Kaynak ID:', draggedNoteId, 'Hedef ID:', note.id);
-      if (draggedNoteId !== null && draggedNoteId !== note.id) {
-        const draggedNote = notesList.find(n => n.id === draggedNoteId);
-        if (draggedNote && draggedNote.is_pinned === note.is_pinned) {
-          await handleNoteReorder(draggedNoteId, note.id, note.is_pinned);
-        }
-      }
+      
+      if (draggedNoteId === null || draggedNoteId === note.id) return;
+      
+      await handleNoteReorder(draggedNoteId, note.id);
     });
 
     // Çift tıklama ile detay modalını aç
@@ -487,25 +594,38 @@ const NotesPanel = (() => {
       openEditorModal(note);
     });
 
+    // Favori butonu
+    const favBtn = el.querySelector('.fav-btn');
+    if (favBtn) {
+      favBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+          const response = await window.api.toggleFavoriteNote(note.id);
+          if (response && response.success) {
+            const isFav = response.data.is_favorite;
+            Utils.showToast(isFav ? 'Favorilere eklendi' : 'Favorilerden kaldırıldı', 'success');
+            loadNotes();
+          }
+        } catch (err) {
+          console.error(err);
+          Utils.showToast('Favori işlemi sırasında bir hata oluştu. Lütfen uygulamayı tepsiden tamamen kapatıp yeniden başlatın.', 'error');
+        }
+      });
+    }
+
     // Sabitle butonu
     el.querySelector('.pin-btn').addEventListener('click', async (e) => {
       e.stopPropagation();
       try {
-        const updatedNote = {
-          id: note.id,
-          title: note.title,
-          content: note.content,
-          category_id: note.category_id,
-          color: note.color,
-          is_pinned: note.is_pinned ? 0 : 1,
-        };
-        const response = await window.api.saveNote(updatedNote);
+        const response = await window.api.togglePinNote(note.id);
         if (response && response.success) {
-          Utils.showToast(updatedNote.is_pinned ? 'Not sabitlendi' : 'Sabitleme kaldırıldı', 'success');
+          const isPinned = response.data.is_pinned;
+          Utils.showToast(isPinned ? 'Not sabitlendi' : 'Sabitleme kaldırıldı', 'success');
           loadNotes();
         }
       } catch (err) {
         console.error(err);
+        Utils.showToast('Sabitleme işlemi sırasında bir hata oluştu. Lütfen uygulamayı tepsiden tamamen kapatıp yeniden başlatın.', 'error');
       }
     });
 
@@ -531,6 +651,7 @@ const NotesPanel = (() => {
         }
       } catch (err) {
         console.error(err);
+        Utils.showToast('Silme işlemi sırasında bir hata oluştu.', 'error');
       }
     });
   }
@@ -738,7 +859,13 @@ const NotesPanel = (() => {
     elements.categoryList.innerHTML = '';
 
     if (categoriesList.length === 0) {
-      elements.categoryList.innerHTML = '<p style="text-align:center;padding:12px;color:var(--text-muted);">Henüz kategori oluşturmadınız.</p>';
+      elements.categoryList.innerHTML = `
+        <div class="empty-state" style="padding: 20px 12px; background: transparent; border: none; min-height: auto;">
+          <span class="empty-state-icon" style="font-size: 18px; width: 36px; height: 36px; margin-bottom: 6px;">${Utils.Icons.folder}</span>
+          <p class="empty-state-title" style="font-size: 12px; margin-bottom: 2px;">Kategori Bulunmuyor</p>
+          <p class="empty-state-text" style="font-size: 10.5px;">Yukarıdan yeni bir kategori oluşturabilirsiniz.</p>
+        </div>
+      `;
       return;
     }
 
@@ -778,6 +905,12 @@ const NotesPanel = (() => {
           const response = await window.api.deleteCategory(id);
           if (response && response.success) {
             Utils.showToast('Kategori silindi', 'success');
+            
+            // Eğer silinen kategori şu an seçili filtre kategorisi ise sıfırla
+            if (activeCategoryFilter === String(id)) {
+              activeCategoryFilter = '';
+            }
+
             await loadCategories();
             loadNotes(); // Notlar listesini de güncelle (kategorisi kalkmış olabilir)
           } else {

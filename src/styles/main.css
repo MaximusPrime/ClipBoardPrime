@@ -514,11 +514,31 @@ img { max-width: 100%; display: block; }
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 16px;
+  padding: 0 16px;
+  height: 44px;
   border-bottom: 1px solid var(--border-primary);
   background: var(--bg-secondary);
   flex-shrink: 0;
   overflow-x: auto;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--border-primary) transparent; /* Firefox */
+}
+
+#clipboard-filters::-webkit-scrollbar {
+  height: 3px; /* Chrome, Safari, Opera */
+}
+
+#clipboard-filters::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#clipboard-filters::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 3px;
+}
+
+#clipboard-filters::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 .filter-btn {
@@ -722,7 +742,7 @@ img { max-width: 100%; display: block; }
 }
 
 
-.clip-item-preview .highlight {
+.highlight {
   background: var(--accent-subtle);
   color: var(--accent-primary);
   padding: 0 2px;
@@ -938,6 +958,10 @@ img { max-width: 100%; display: block; }
   color: var(--accent-primary);
 }
 
+.note-action-btn.fav-active {
+  color: var(--warning);
+}
+
 .note-action-btn.delete-btn:hover {
   color: var(--danger);
   background: var(--danger-bg);
@@ -988,10 +1012,40 @@ img { max-width: 100%; display: block; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 0;
+  height: 44px;
   border-bottom: 1px solid var(--border-primary);
   background: var(--bg-secondary);
   flex-shrink: 0;
+}
+
+#notes-category-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 16px;
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-primary) transparent;
+}
+
+#notes-category-filters::-webkit-scrollbar {
+  height: 3px;
+}
+
+#notes-category-filters::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#notes-category-filters::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 3px;
+}
+
+#notes-category-filters::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 #notes-toolbar .category-select {
@@ -2226,3 +2280,107 @@ body.resizing * {
 .clip-item.collapse-highlight {
   animation: collapseGlow 0.8s ease;
 }
+
+/* ── Aydınlık Tema / Modal Taşma Düzeltmeleri ──────────────── */
+[data-theme="light"] .developer-profile-card {
+  background: var(--bg-tertiary);
+  border-color: var(--border-primary);
+}
+[data-theme="light"] .developer-profile-card:hover {
+  background: var(--bg-primary);
+}
+
+#settings-modal .modal-body {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* Tooltip aydınlık mod renk düzeltmesi */
+[data-theme="light"] .global-tooltip {
+  color: #ffffff !important;
+  background: #212529;
+  border-color: #2b3035;
+}
+
+/* ── Erişilebilirlik ve Odaklanma Stilleri (a11y) ──────────── */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent-primary) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--accent-subtle) !important;
+}
+
+/* Modalleri açınca butonların focus outline'ı taşmasın */
+.modal-close:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ── Panel İçi Arama Stilleri ─────────────────────────────── */
+.panel-search-wrapper {
+  position: relative;
+  margin: 8px 16px 12px 16px;
+}
+
+.panel-search-wrapper .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color var(--transition-fast);
+  display: flex;
+  align-items: center;
+}
+
+.panel-search-wrapper .search-icon .icon-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.panel-search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 36px 0 36px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: 12px;
+  transition: all var(--transition-fast);
+}
+
+.panel-search-input:focus {
+  background: var(--bg-input-focus);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.panel-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  transition: all var(--transition-fast);
+  border: none;
+  cursor: pointer;
+}
+.search-clear-btn:hover { color: var(--text-primary); background: var(--border-hover); }
+.search-clear-btn.visible { display: flex; }
