@@ -136,9 +136,11 @@ Uygulamanın ikinci modülü; bağımsız, tam özellikli bir not alma sistemidi
 - Tek bir toggle ile etkinleştirilir/devre dışı bırakılır.
 
 ### 🚀 Windows ile Birlikte Başlat
-- Electron'un `app.setLoginItemSettings()` API'si üzerinden Windows Başlangıç'a (Startup) eklenir.
-- **Varsayılan Olarak Etkin**: Hem Setup (kurulum) hem de Portable (taşınabilir) sürüm ilk çalıştırıldığında Windows başlangıcında otomatik olarak (arka planda tray modunda) başlayacak şekilde yapılandırılmıştır.
-- Ayarlar menüsünden her iki sürüm için de otomatik başlangıç durumu dinamik olarak yönetilebilir. Portable modda çalıştırılabilir `.exe` dosya yolu dinamik olarak algılanarak Startup kaydı oluşturulur.
+
+Uygulama, sistem başlangıcında otomatik olarak çalışacak şekilde yapılandırılabilir:
+- **Kayıt Defteri (Registry) Entegrasyonu**: Windows Başlangıç ayarı, doğrudan Windows Registry (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) manipüle edilerek gerçekleştirilir.
+- **Dinamik Yol Tespiti**: Taşınabilir (Portable) modda çalışırken, uygulamanın konumu değişse bile `PORTABLE_EXECUTABLE_DIR` ortam değişkeni kullanılarak güncel çalıştırılabilir dosya yolu otomatik olarak tespit edilir ve Registry kaydı her açılışta güncellenir.
+- **Ayarlar Paneli**: Kullanıcılar bu özelliği arayüzdeki ayarlar menüsünden diledikleri zaman aktif veya pasif hale getirebilirler.
 
 ### ⌨️ Global Kısayol (Özelleştirilebilir)
 - Odaklanılınca klavyeye basmak yeterli; kombinasyon otomatik okunur ve kaydedilir.
