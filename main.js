@@ -23,7 +23,7 @@ const {
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 
 // Geliştirme modu ve Portable mod tespiti
 const isDev = process.argv.includes('--dev');
@@ -67,6 +67,47 @@ function getOrCreateEncryptionKey() {
 
 const encryptionKey = getOrCreateEncryptionKey();
 const db = require('./database/db');
+
+/**
+ * config.json'dan özel veri konumunu okur.
+ * Bu dosya her zaman userData dizininde bulunur ve DB'den bağımsızdır.
+ */
+function getCustomDataLocation() {
+  const configPath = path.join(app.getPath('userData'), 'config.json');
+  try {
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      return config.dataLocation || '';
+    }
+  } catch (err) {
+    console.error('Config dosyasından dataLocation okunamadı:', err);
+  }
+  return '';
+}
+
+/**
+ * config.json'a özel veri konumunu yazar.
+ * Yeniden başlatmada doğru konum okunabilsin diye DB'den bağımsız saklanır.
+ */
+function saveCustomDataLocation(location) {
+  const configPath = path.join(app.getPath('userData'), 'config.json');
+  let config = {};
+  try {
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    }
+  } catch (err) {}
+  config.dataLocation = location || '';
+  try {
+    const dir = path.dirname(configPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Config dosyasına dataLocation yazılamadı:', err);
+  }
+}
 
 let isWritingToClipboard = false;
 
@@ -151,7 +192,8 @@ const startHidden = process.argv.includes('--hidden') || process.argv.includes('
  */
 function getApplicationExePath() {
   if (isPortable) {
-    return process.env.PORTABLE_EXECUTABLE_PATH ||
+    return process.env.PORTABLE_EXECUTABLE_FILE ||
+      process.env.PORTABLE_EXECUTABLE_PATH ||
       (process.env.PORTABLE_EXECUTABLE_DIR
         ? path.join(process.env.PORTABLE_EXECUTABLE_DIR, path.basename(app.getPath('exe')))
         : app.getPath('exe'));
@@ -168,13 +210,21 @@ function setWindowsAutostart(enabled) {
   const valName = 'ClipBoardPro';
 
   if (enabled) {
-    // Çift tırnakları doğru kaçış karakterleriyle ekle
-    const cmd = `reg add "${regKey}" /v "${valName}" /t REG_SZ /d "\\"${exePath}\\" --hidden" /f`;
-    exec(cmd, (err) => {
+    const regValue = `"${exePath}" --hidden`;
+    execFile('reg', ['add', regKey, '/v', valName, '/t', 'REG_SZ', '/d', regValue, '/f'], (err) => {
       if (err) {
         console.error('Registry autostart ekleme hatası:', err);
       } else {
         console.log(`Registry autostart başarıyla eklendi. Path: ${exePath}`);
+      }
+    });
+  } else {
+    // Başlangıçta aç devre dışı bırakıldığında registry'den kaldır
+    execFile('reg', ['delete', regKey, '/v', valName, '/f'], (err) => {
+      if (err && !err.message.includes('bulunamadı') && !err.message.includes('not find')) {
+        console.error('Registry autostart kaldırma hatası:', err);
+      } else {
+        console.log('Registry autostart başarıyla kaldırıldı.');
       }
     });
   }
@@ -332,9 +382,11 @@ function createWindow() {
         try {
           tray.displayBalloon({
             title: 'ClipBoardPro',
-            content: 'Uygulama sistem tepsisinde çalışmaya devam ediyor. Açmak için çift tıklayabilir veya Ctrl+Shift+V kısayolunu kullanabilirsiniz.',
+            content: 'Uygulama sistem tepsisinde çalışmaya devam ediyor. Açmak için sistem tepsisi simgesine tıklayabilir veya Ctrl+Shift+V kısayolunu kullanabilirsiniz.',
           });
           trayBalloonShown = true;
+          // DB'ye kalıcı olarak kaydet ki sonraki açılışlarda gösterilmesin
+          try { db.saveSetting('trayBalloonShown', 'true'); } catch (e) {}
         } catch (balloonErr) {
           console.error('Tray balon bildirimi gösterilemedi:', balloonErr);
         }
@@ -1546,6 +1598,8 @@ function registerIPCHandlers() {
 
       const newLocation = result.filePaths[0];
       db.changeLocation(newLocation, app.getPath('userData'));
+      // config.json'a da kaydet ki yeniden başlatmada doğru konum okunabilsin
+      saveCustomDataLocation(newLocation);
 
       return { success: true, data: { path: newLocation } };
     } catch (err) {
@@ -1743,19 +1797,23 @@ app.whenReady().then(() => {
 
   try {
     // Veritabanını başlat
-    const customLocation = '';
     const dbOptions = { encrypt: encryptText, decrypt: decryptText };
-    db.initialize(app.getPath('userData'), customLocation, dbOptions);
 
-    // Özel veri konumu varsa ve portable modda değilsek yeniden aç
-    const savedLocation = db.getSetting('dataLocation');
-    if (savedLocation && savedLocation.length > 0 && !isPortable) {
-      try {
-        db.initialize(savedLocation, '', dbOptions);
-      } catch (err) {
-        console.error('Özel veri konumu açılamadı, varsayılan kullanılıyor:', err);
-        db.initialize(app.getPath('userData'), '', dbOptions);
-      }
+    // config.json'dan özel veri konumunu oku (DB'den bağımsız, kalıcı)
+    const savedCustomLocation = isPortable ? '' : getCustomDataLocation();
+    const effectiveLocation = savedCustomLocation || app.getPath('userData');
+
+    try {
+      db.initialize(effectiveLocation, '', dbOptions);
+    } catch (err) {
+      console.error('Veri konumunda DB açılamadı, varsayılan kullanılıyor:', err);
+      db.initialize(app.getPath('userData'), '', dbOptions);
+    }
+
+    // Tray balonu daha önce gösterilmişse tekrar gösterme
+    const savedBalloonShown = db.getSetting('trayBalloonShown');
+    if (savedBalloonShown === 'true') {
+      trayBalloonShown = true;
     }
 
     // ── Varsayılan ayarları ilk çalıştırmada kaydet ───────────
