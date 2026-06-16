@@ -20,7 +20,7 @@
 
 ---
 
-## ✨ Özellikler
+##   Özellikler
 
 ### 🗂️ Pano Geçmiş Yönetimi
 - **Sınırsız Geçmiş**: Tüm kopyalama geçmişi yerel SQLite veritabanında tutulur. `Ayarlar → Genel` kısmından maksimum kayıt sayısı belirlenebilir; `0` = sınırsız.
