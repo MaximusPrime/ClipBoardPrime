@@ -16,7 +16,7 @@
 
 ## 🌟 Proje Hakkında
 
-**ClipBoard Pro**, sadece bir pano geçmişi uygulaması değildir. Arka planda sessizce çalışarak kopyaladığınız her metni, URL'yi, kodu, e-postayı ve görseli yerel bir SQLite veritabanında güvenle depolar. Tek bir global kısayolla (`Ctrl+Shift+V`) anında erişebileceğiniz bu uygulama; sınırsız geçmiş, akıllı içerik algılama, not sistemi ve hassas veri maskeleme gibi kurumsal düzeyde özelliklerle donatılmıştır.
+**ClipBoard Pro**, sadece bir pano geçmişi uygulaması değildir. Arka planda sessizce çalışarak kopyaladığınız her metni, URL'yi, kodu, e-postayı ve görseli yerel bir SQLite veritabanında güvenle depolar. Tek bir global kısayolla (`Ctrl+Shift+V`) anında erişebileceğiniz bu uygulama; sınırsız geçmiş, akıllı içerik algılama, not sistemi ve hassas veri maskeleme gibi güçlü özelliklerle donatılmıştır.
 
 ---
 
