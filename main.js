@@ -96,7 +96,9 @@ function saveCustomDataLocation(location) {
     if (fs.existsSync(configPath)) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error('Config okuma hatası (saveCustomDataLocation):', err);
+  }
   config.dataLocation = location || '';
   try {
     const dir = path.dirname(configPath);
@@ -183,6 +185,9 @@ let lastClipboardImageHash = '';
 let lastFormats = [];
 let lastImageSize = { width: 0, height: 0 };
 let trayBalloonShown = false;
+// DB'nin gerçekte başlatıldığı dizin (effectiveLocation ile senkronize tutulur)
+// handleNewImage ve benzeri fonksiyonlar bunu kullanır — getDbPath() null kalsa da güvende oluruz.
+let activeDataDir = null;
 let isModalOpen = false;
 let lastBlurTime = 0;
 const startHidden = process.argv.includes('--hidden') || process.argv.includes('--startup');
@@ -214,17 +219,12 @@ function setWindowsAutostart(enabled) {
     execFile('reg', ['add', regKey, '/v', valName, '/t', 'REG_SZ', '/d', regValue, '/f'], (err) => {
       if (err) {
         console.error('Registry autostart ekleme hatası:', err);
-      } else {
-        console.log(`Registry autostart başarıyla eklendi. Path: ${exePath}`);
       }
     });
   } else {
-    // Başlangıçta aç devre dışı bırakıldığında registry'den kaldır
     execFile('reg', ['delete', regKey, '/v', valName, '/f'], (err) => {
       if (err && !err.message.includes('bulunamadı') && !err.message.includes('not find')) {
         console.error('Registry autostart kaldırma hatası:', err);
-      } else {
-        console.log('Registry autostart başarıyla kaldırıldı.');
       }
     });
   }
@@ -273,12 +273,10 @@ class Program {
           console.error('C# Helper derleme hatası:', err);
           helperExePath = null;
         } else {
-          console.log('C# Helper başarıyla derlendi:', helperExePath);
           try { fs.unlinkSync(csPath); } catch (e) {}
         }
       });
     } else {
-      console.warn('csc.exe bulunamadı, Win32 blur tespiti devredışı.');
       helperExePath = null;
     }
   } catch (err) {
@@ -394,45 +392,9 @@ function createWindow() {
     }
   });
 
-  // Pencere odak kaybedince tray'e gizle (blurToTray ayarı aktifse)
+  // Pencere odak kaybedince tray'e gizle — modül scope'taki debounced handler'a bağla
   mainWindow.on('blur', () => {
-    try {
-      if (!db.isReady()) return;
-      const blurToTray = db.getSetting('blurToTray');
-      if (blurToTray !== 'true') return;
-      // Modal açıksa veya uygulama çıkıyorsa kapatma
-      if (isModalOpen || isQuitting) return;
-      // Küçültülmüş veya zaten gizliyse tekrar gizleme
-      if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible()) return;
-
-      // Eğer Win32 Helper aktifse, o anki aktif pencereyi sorgula
-      if (helperExePath && fs.existsSync(helperExePath)) {
-        exec(`"${helperExePath}"`, { timeout: 100 }, (err, stdout) => {
-          if (!err && stdout) {
-            const activeClass = stdout.trim();
-            // Sadece masaüstü (Progman, WorkerW) veya görev çubuğuna (Shell_TrayWnd) tıklandıysa gizle
-            if (activeClass === 'Progman' || activeClass === 'WorkerW' || activeClass === 'Shell_TrayWnd') {
-              if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
-                mainWindow.hide();
-                lastBlurTime = Date.now();
-              }
-            }
-          } else {
-            // Hata durumunda fallback (normal gizle)
-            if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
-              mainWindow.hide();
-              lastBlurTime = Date.now();
-            }
-          }
-        });
-      } else {
-        // Helper yoksa varsayılan olarak her odak kaybında gizle (fallback)
-        mainWindow.hide();
-        lastBlurTime = Date.now();
-      }
-    } catch (err) {
-      // Sessizce geç
-    }
+    _blurHandlerDebounced();
   });
 
   // Pencere boyutu/konumu değişince kaydet
@@ -729,12 +691,47 @@ function stopClipboardWatcher() {
   }
 }
 
+// Blur handler hızlı tetiklenmeye karşı debounce - pencere focus dalgalanmalarını engeller
+const _blurHandlerDebounced = debounce(() => {
+  try {
+    if (!db.isReady()) return;
+    const blurToTray = db.getSetting('blurToTray');
+    if (blurToTray !== 'true') return;
+    if (isModalOpen || isQuitting) return;
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible()) return;
+
+    if (helperExePath && fs.existsSync(helperExePath)) {
+      exec(`"${helperExePath}"`, { timeout: 100 }, (err, stdout) => {
+        if (!err && stdout) {
+          const activeClass = stdout.trim();
+          if (activeClass === 'Progman' || activeClass === 'WorkerW' || activeClass === 'Shell_TrayWnd') {
+            if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+              mainWindow.hide();
+              lastBlurTime = Date.now();
+            }
+          }
+        } else {
+          if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+            mainWindow.hide();
+            lastBlurTime = Date.now();
+          }
+        }
+      });
+    } else {
+      mainWindow.hide();
+      lastBlurTime = Date.now();
+    }
+  } catch (err) {
+    // Sessizce geç
+  }
+}, 80);
+
 function areFormatsEqual(f1, f2) {
   if (f1.length !== f2.length) return false;
-  for (let i = 0; i < f1.length; i++) {
-    if (f1[i] !== f2[i]) return false;
-  }
-  return true;
+  // Sıra bağımsız karşılaştırma — [png, bitmap] === [bitmap, png] olmalı
+  const s1 = [...f1].sort();
+  const s2 = [...f2].sort();
+  return s1.every((v, i) => v === s2[i]);
 }
 
 function updateLastClipboardState() {
@@ -759,24 +756,16 @@ function checkClipboard() {
   const currentText = clipboard.readText() || '';
   const currentHtml = clipboard.readHTML() || '';
 
-  // Panoda görsel var mı?
+  // Panoda görsel var mı? Her poll'da hash'i yeniden hesapla —
+  // format listesi aynı kalsa bile görsel içeriği değişmiş olabilir (ard arda ekran görüntüsü).
   const hasImage = currentFormats.some(f => f.toLowerCase().includes('image') || f.toLowerCase().includes('bitmap'));
   let currentImage = null;
   let currentHash = lastClipboardImageHash;
 
-  // CPU Optimizasyonu: Resim hash'leme ve readImage() çağrısı sadece formatlar veya metin değiştiğinde ya da ilk kez görsel algılandığında yapılır.
-  const textOrFormatsChanged = (
-    currentText !== lastClipboardText ||
-    currentHtml !== lastClipboardHtml ||
-    !areFormatsEqual(currentFormats, lastFormats)
-  );
-
   if (hasImage) {
-    if (textOrFormatsChanged || !lastClipboardImageHash) {
-      currentImage = clipboard.readImage();
-      if (currentImage && !currentImage.isEmpty()) {
-        currentHash = hashImage(currentImage);
-      }
+    currentImage = clipboard.readImage();
+    if (currentImage && !currentImage.isEmpty()) {
+      currentHash = hashImage(currentImage);
     }
   } else {
     currentHash = '';
@@ -964,7 +953,6 @@ function isCodeContent(text) {
  * Yeni clipboard öğesini işler ve DB'ye kaydeder.
  */
 function handleNewClipboardItem(content, contentType) {
-  console.log('handleNewClipboardItem tetiklendi! content:', content ? content.substring(0, 50) : '', 'contentType:', contentType);
 
   // Otomatik içerik tipi algılama (Hem 'text' hem 'html' için)
   if (contentType === 'text' || contentType === 'html') {
@@ -1020,8 +1008,11 @@ function handleNewImage(image) {
   if (!db.isReady()) return;
 
   try {
-    // Görseli dosyaya kaydet
-    const imagesDir = path.join(app.getPath('userData'), 'images');
+    // Görseli dosyaya kaydet — DB ile aynı klasörü kullan (özel konum destekli)
+    // Öncelik: activeDataDir > getDbPath() > userData (her senaryoda doğru yere gider)
+    const dbFile = db.getDbPath();
+    const baseDir = activeDataDir || (dbFile ? path.dirname(dbFile) : app.getPath('userData'));
+    const imagesDir = path.join(baseDir, 'images');
     if (!fs.existsSync(imagesDir)) {
       fs.mkdirSync(imagesDir, { recursive: true });
     }
@@ -1049,12 +1040,17 @@ function handleNewImage(image) {
 
 /**
  * Görsel hash'ini hesaplar (değişiklik algılama için).
+ * 32x32 yeniden boyutlandırma + gerçek boyut bilgisi — çakışma riskini minimize eder.
  */
 function hashImage(image) {
   try {
-    const resized = image.resize({ width: 16, height: 16 });
+    const size = image.getSize();
+    const resized = image.resize({ width: 32, height: 32 });
     const buffer = resized.toBitmap();
-    return crypto.createHash('md5').update(buffer).digest('hex');
+    return crypto.createHash('md5')
+      .update(buffer)
+      .update(`${size.width}x${size.height}`)
+      .digest('hex');
   } catch (err) {
     return '';
   }
@@ -1246,7 +1242,6 @@ function registerIPCHandlers() {
   });
 
   ipcMain.handle('copy-to-clipboard', async (_event, { id, content, type, ignoreChange = true }) => {
-    console.log('copy-to-clipboard IPC tetiklendi! id:', id, 'content:', content ? content.substring(0, 50) : '', 'type:', type, 'ignoreChange:', ignoreChange);
     isWritingToClipboard = true;
     try {
       let actualContent = content;
@@ -1350,7 +1345,6 @@ function registerIPCHandlers() {
     } else {
       content = params;
     }
-    console.log('paste-to-active-window IPC tetiklendi! id:', id, 'content:', content ? content.substring(0, 50) : '');
     isWritingToClipboard = true;
     try {
       let actualContent = content;
@@ -1430,9 +1424,11 @@ function registerIPCHandlers() {
       console.error('paste-to-active-window hatası:', err);
       return { success: false, error: err.message };
     } finally {
+      // isWritingToClipboard VBScript callback'inde sıfırlanıyor (race condition önlendi)
+      // Ancak hata durumunda buradan da sıfırla
       setTimeout(() => {
         isWritingToClipboard = false;
-      }, 50);
+      }, 600);
     }
   });
 
@@ -1600,6 +1596,8 @@ function registerIPCHandlers() {
       db.changeLocation(newLocation, app.getPath('userData'));
       // config.json'a da kaydet ki yeniden başlatmada doğru konum okunabilsin
       saveCustomDataLocation(newLocation);
+      // Anlık olarak activeDataDir'i de güncelle — yeniden başlatma beklenmeden görseller doğru yere gider
+      activeDataDir = newLocation;
 
       return { success: true, data: { path: newLocation } };
     } catch (err) {
@@ -1782,11 +1780,23 @@ app.whenReady().then(() => {
       const decodedPath = decodeURIComponent(urlPath);
       if (fs.existsSync(decodedPath)) {
         const data = fs.readFileSync(decodedPath);
+        // Dosya uzantısından MIME tipini belirle
+        const ext = path.extname(decodedPath).toLowerCase();
+        const mimeTypes = {
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.webp': 'image/webp',
+          '.bmp': 'image/bmp',
+          '.ico': 'image/x-icon',
+          '.svg': 'image/svg+xml',
+        };
+        const contentType = mimeTypes[ext] || 'application/octet-stream';
         return new Response(data, {
-          headers: { 'Content-Type': 'image/png' }
+          headers: { 'Content-Type': contentType }
         });
       } else {
-        console.error('Dosya bulunamadı:', decodedPath);
         return new Response('Dosya bulunamadı', { status: 404 });
       }
     } catch (err) {
@@ -1803,11 +1813,22 @@ app.whenReady().then(() => {
     const savedCustomLocation = isPortable ? '' : getCustomDataLocation();
     const effectiveLocation = savedCustomLocation || app.getPath('userData');
 
+    let dbFallbackUsed = false;
     try {
       db.initialize(effectiveLocation, '', dbOptions);
+      activeDataDir = effectiveLocation; // ✅ gerçek konum kaydedildi
     } catch (err) {
       console.error('Veri konumunda DB açılamadı, varsayılan kullanılıyor:', err);
       db.initialize(app.getPath('userData'), '', dbOptions);
+      activeDataDir = app.getPath('userData'); // fallback konum
+      dbFallbackUsed = savedCustomLocation ? true : false; // özel konum varken düşüyorsa uyar
+      if (dbFallbackUsed) {
+        // Pencere hazır olmadan dialog.showErrorBox kullanabiliyoruz (native dialog)
+        dialog.showErrorBox(
+          'Veri Konumu Hatası',
+          `Seçili veri konumu açılamadı:\n${savedCustomLocation}\n\nVeriler geçici olarak varsayılan konuma (AppData) kaydedilecek.\nLütfen Ayarlar > Veri Konumu bölümünden konumu yeniden seçin.`
+        );
+      }
     }
 
     // Tray balonu daha önce gösterilmişse tekrar gösterme

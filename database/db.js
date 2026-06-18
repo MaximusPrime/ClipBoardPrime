@@ -16,6 +16,26 @@ let dbPath = null;
 let encryptFn = (text) => text;
 let decryptFn = (text) => text;
 
+// Şifreleme seçeneklerini sakla — changeLocation sonrası initialize'de tekrar kullanılır
+let currentDbOptions = {};
+
+// ─── Prepared Statement Cache ────────────────────────────────
+// addClipboardItem'da her çağrıda db.prepare() yapmak yerine önbelleğe alıyoruz.
+// DB yeniden açıldığında (changeLocation) null'a sıfırlanır ve otomatik yenilenir.
+let _stmtInsertClip = null;
+let _stmtCheckClipText = null;
+let _stmtCheckClipImage = null;
+let _stmtUpdateClipTime = null;
+let _stmtGetClipById = null;
+
+function _invalidateStatements() {
+  _stmtInsertClip = null;
+  _stmtCheckClipText = null;
+  _stmtCheckClipImage = null;
+  _stmtUpdateClipTime = null;
+  _stmtGetClipById = null;
+}
+
 // ─── Varsayılan Ayarlar ──────────────────────────────────────
 const DEFAULT_SETTINGS = {
   theme: 'dark',
@@ -48,8 +68,16 @@ const DEFAULT_CATEGORIES = [
  * @param {Object} [options] - Şifreleme/çözme fonksiyonları { encrypt, decrypt }
  */
 function initialize(userDataPath, customLocation, options = {}) {
-  if (options && typeof options.encrypt === 'function') encryptFn = options.encrypt;
-  if (options && typeof options.decrypt === 'function') decryptFn = options.decrypt;
+  // Seçenekleri sakla — changeLocation sonraki initialize çağrısı için kullanır
+  if (options && typeof options.encrypt === 'function') {
+    encryptFn = options.encrypt;
+    currentDbOptions = options;
+  }
+  if (options && typeof options.decrypt === 'function') {
+    decryptFn = options.decrypt;
+  }
+  // Prepared statement cache'i temizle (yeni DB bağlantısı için)
+  _invalidateStatements();
   try {
     // Veritabanı konumunu belirle
     const baseDir = customLocation && customLocation.length > 0
@@ -273,8 +301,6 @@ function isReady() {
  * @returns {Object} Eklenen öğe (id dahil)
  */
 function addClipboardItem(item) {
-  console.log('db.addClipboardItem çağrıldı! item:', JSON.stringify(item));
-  
   // Nesneyi klonlayıp şifreleme uygulayalım
   const dbItem = { ...item };
   if (dbItem.is_sensitive && dbItem.content_type !== 'image' && dbItem.content) {
@@ -285,28 +311,44 @@ function addClipboardItem(item) {
     }
   }
 
-  // Mükerrerlik Kontrolü
+  // Mükerrerlik Kontrolü — önbelleklenmiş prepared statements kullan
+  if (!_stmtCheckClipImage) {
+    _stmtCheckClipImage = db.prepare('SELECT id FROM clipboard_history WHERE image_path = ?');
+  }
+  if (!_stmtCheckClipText) {
+    _stmtCheckClipText = db.prepare('SELECT id FROM clipboard_history WHERE content = ? AND content_type = ?');
+  }
+  if (!_stmtUpdateClipTime) {
+    _stmtUpdateClipTime = db.prepare("UPDATE clipboard_history SET created_at = datetime('now','localtime') WHERE id = ?");
+  }
+  if (!_stmtGetClipById) {
+    _stmtGetClipById = db.prepare('SELECT * FROM clipboard_history WHERE id = ?');
+  }
+
   let existing = null;
   if (dbItem.content_type === 'image') {
     if (dbItem.image_path) {
-      existing = db.prepare('SELECT id FROM clipboard_history WHERE image_path = ?').get(dbItem.image_path);
+      existing = _stmtCheckClipImage.get(dbItem.image_path);
     }
   } else {
-    existing = db.prepare('SELECT id FROM clipboard_history WHERE content = ? AND content_type = ?').get(
+    existing = _stmtCheckClipText.get(
       dbItem.content,
       dbItem.content_type || 'text'
     );
   }
 
   if (existing) {
-    db.prepare("UPDATE clipboard_history SET created_at = datetime('now','localtime') WHERE id = ?").run(existing.id);
+    _stmtUpdateClipTime.run(existing.id);
     return getClipboardItemById(existing.id);
   }
 
-  const stmt = db.prepare(`
-    INSERT INTO clipboard_history (content, content_type, preview, image_path, is_sensitive, source_app, char_count)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
+  if (!_stmtInsertClip) {
+    _stmtInsertClip = db.prepare(`
+      INSERT INTO clipboard_history (content, content_type, preview, image_path, is_sensitive, source_app, char_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+  }
+  const stmt = _stmtInsertClip;
 
   let preview = dbItem.preview || (
     dbItem.content_type === 'text'
@@ -820,40 +862,47 @@ function getAllSettings() {
  * Uygulama istatistiklerini getirir.
  */
 function getStats() {
-  const clipTotal = db.prepare('SELECT COUNT(*) as count FROM clipboard_history').get().count;
-  const clipText = db.prepare("SELECT COUNT(*) as count FROM clipboard_history WHERE content_type = 'text'").get().count;
-  const clipHtml = db.prepare("SELECT COUNT(*) as count FROM clipboard_history WHERE content_type = 'html'").get().count;
-  const clipImage = db.prepare("SELECT COUNT(*) as count FROM clipboard_history WHERE content_type = 'image'").get().count;
-  const clipPinned = db.prepare('SELECT COUNT(*) as count FROM clipboard_history WHERE is_pinned = 1').get().count;
-  const clipFavorite = db.prepare('SELECT COUNT(*) as count FROM clipboard_history WHERE is_favorite = 1').get().count;
-  const notesTotal = db.prepare('SELECT COUNT(*) as count FROM notes').get().count;
-  const categoriesTotal = db.prepare('SELECT COUNT(*) as count FROM categories').get().count;
+  // Tüm COUNT sorguları tek transaction içinde — tutarlı anlık görünüm + performans
+  const statsTransaction = db.transaction(() => {
+    const row = db.prepare(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN content_type = 'text'  THEN 1 ELSE 0 END) AS text,
+        SUM(CASE WHEN content_type = 'html'  THEN 1 ELSE 0 END) AS html,
+        SUM(CASE WHEN content_type = 'image' THEN 1 ELSE 0 END) AS image,
+        SUM(CASE WHEN is_pinned = 1          THEN 1 ELSE 0 END) AS pinned,
+        SUM(CASE WHEN is_favorite = 1        THEN 1 ELSE 0 END) AS favorite,
+        SUM(CASE WHEN date(created_at) = date('now','localtime') THEN 1 ELSE 0 END) AS today
+      FROM clipboard_history
+    `).get();
 
-  // Veritabanı boyutu
+    const notesTotal      = db.prepare('SELECT COUNT(*) as count FROM notes').get().count;
+    const categoriesTotal = db.prepare('SELECT COUNT(*) as count FROM categories').get().count;
+
+    return { clip: row, notesTotal, categoriesTotal };
+  });
+
+  const { clip, notesTotal, categoriesTotal } = statsTransaction();
+
+  // Veritabanı boyutu (transaction dışı — dosya sistemi işlemi)
   let dbSize = 0;
   try {
     if (dbPath && fs.existsSync(dbPath)) {
-      const stat = fs.statSync(dbPath);
-      dbSize = stat.size;
+      dbSize = fs.statSync(dbPath).size;
     }
   } catch (err) {
     // Boyut alınamazsa 0 kal
   }
 
-  // Bugün eklenen öğeler
-  const todayCount = db.prepare(
-    "SELECT COUNT(*) as count FROM clipboard_history WHERE date(created_at) = date('now','localtime')"
-  ).get().count;
-
   return {
     clipboard: {
-      total: clipTotal,
-      text: clipText,
-      html: clipHtml,
-      image: clipImage,
-      pinned: clipPinned,
-      favorite: clipFavorite,
-      today: todayCount,
+      total:    clip.total    || 0,
+      text:     clip.text     || 0,
+      html:     clip.html     || 0,
+      image:    clip.image    || 0,
+      pinned:   clip.pinned   || 0,
+      favorite: clip.favorite || 0,
+      today:    clip.today    || 0,
     },
     notes: {
       total: notesTotal,
@@ -1239,26 +1288,19 @@ function importAll(data) {
 /**
  * Bir dosyayı kilitlenme veya meşguliyet durumlarına karşı yeniden deneme mekanizması ile kopyalar.
  */
-function copyFileWithRetry(src, dest, maxRetries = 3, delayMs = 150) {
-  let attempt = 0;
-  while (attempt < maxRetries) {
+function copyFileWithRetry(src, dest, maxRetries = 3) {
+  let lastErr;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       fs.copyFileSync(src, dest);
       return true;
     } catch (err) {
-      attempt++;
-      if (attempt >= maxRetries) {
-        console.error(`Dosya kopyalama hatası (${src} -> ${dest}) - Tüm denemeler başarısız:`, err);
-        throw err;
-      }
-      console.warn(`Dosya meşgul veya kilitli, yeniden deneniyor (${attempt}/${maxRetries}): ${src}`);
-      // Gecikme beklemesi (senkron)
-      const start = Date.now();
-      while (Date.now() - start < delayMs) {
-        // Bekle
-      }
+      lastErr = err;
+      // Busy-wait yerine sadece yeniden dene — senkron ortamda sleep mümkün değil
+      // Kısa bir dosya kopyasında WAL checkpoint sonrası kilit genellikle hemen kalkar
     }
   }
+  throw lastErr;
 }
 
 /**
@@ -1331,12 +1373,12 @@ function changeLocation(newLocation, userDataPath) {
     if (db) {
       try {
         db.pragma('wal_checkpoint(TRUNCATE)');
-        console.log('Veritabanı checkpoint (TRUNCATE) başarıyla gerçekleştirildi.');
       } catch (checkpointErr) {
         console.warn('Veritabanı checkpoint başarısız (kapatma işlemine devam ediliyor):', checkpointErr);
       }
       db.close();
       db = null;
+      _invalidateStatements();
     }
 
     // Dosyayı kopyala (varsa)
@@ -1384,8 +1426,8 @@ function changeLocation(newLocation, userDataPath) {
       }
     }
 
-    // Yeni konumda aç
-    initialize(newLocation);
+    // Yeni konumda aç — şifreleme seçeneklerini mutlaka geçir
+    initialize(newLocation, '', currentDbOptions);
 
     // SQLite bütünlük kontrolü yap
     const checkResult = db.pragma('integrity_check');
@@ -1467,10 +1509,10 @@ function changeLocation(newLocation, userDataPath) {
       console.warn('Geri dönüş temizliği başarısız:', cleanupErr);
     }
 
-    // Eski konumda tekrar aç ve yükle
+    // Eski konumda tekrar aç ve yükle — şifreleme seçeneklerini koru
     try {
       const oldLocationCustom = oldLocation === userDataPath ? '' : oldLocation;
-      initialize(userDataPath, oldLocationCustom);
+      initialize(userDataPath, oldLocationCustom, currentDbOptions);
     } catch (fallbackErr) {
       console.error('Fallback açma hatası:', fallbackErr);
     }
@@ -1576,9 +1618,7 @@ function cleanupOrphanImages() {
       }
     }
     
-    if (deletedCount > 0) {
-      console.log(`Yetim görsel temizleme tamamlandı: ${deletedCount} adet görsel silindi.`);
-    }
+    // Temizleme tamamlandı (debug log kaldırıldı — prod'da gereksiz)
   } catch (err) {
     console.error('Yetim görsel temizleme hatası:', err);
   }
