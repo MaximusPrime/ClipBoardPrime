@@ -284,11 +284,18 @@ Uygulamayı `.exe` olarak derlemek için `electron-builder` kullanılmaktadır:
 npm run build
 ```
 
-`dist/` klasöründe standart kurulum paketi oluşur:
+`dist/` klasöründe iki adet derleme çıktısı oluşur:
 
 | Çıktı | Açıklama |
 |:--|:--|
 | `ClipBoardPro Setup.exe` | Standart Windows kurulum paketi (NSIS) |
+| `ClipBoardPro Portable.exe` | Kurulum gerektirmeyen, hafifletilmiş taşınabilir sürüm (Veriler `.exe` yanındaki `/data` klasöründe saklanır) |
+
+> [!NOTE]
+> **Hafifletilmiş Taşınabilir (Portable) Mod Özellikleri:**
+> - Projeden geliştirici bağımlılıkları arındırılarak derlenmiştir. Bu sayede açılış hızı anlık olup geçici klasör yazma yükü minimuma indirilmiştir (çıkartılan boyut ~150-180 MB).
+> - Veri konumu taşınabilir modda değiştirilemez (her zaman `/data` klasöründe kalır).
+> - Şifreleme anahtarı da `/data/config.json` altında tutularak tam taşınabilirlik ve veri bağımsızlığı sağlanır.
 
 ---
 

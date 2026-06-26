@@ -25,8 +25,12 @@
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        "nsis"
+        "nsis",
+        "portable"
       ]
+    },
+    "portable": {
+      "artifactName": "${productName} Portable ${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -34,8 +38,15 @@
       "artifactName": "${productName} Setup ${version}.${ext}"
     },
     "files": [
-      "**/*",
-      "!dist/*"
+      "src/**/*",
+      "database/**/*",
+      "main.js",
+      "preload.js",
+      "package.json",
+      "!dist/**/*",
+      "!build/**/*",
+      "!.git/**/*",
+      "!.github/**/*"
     ],
     "asar": true,
     "asarUnpack": [
