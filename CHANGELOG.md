@@ -58,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Üç Tema**: Koyu (Obsidian), Açık (High Contrast), Sistem (otomatik OS takibi). Anlık geçiş, layout shift yok.
 - **Özelleştirilebilir Global Kısayol**: Ayarlar ekranına odaklanıp kombinasyon basılınca otomatik kaydedilir. Eski kısayol kaldırılır, yenisi anında aktif olur.
-- **Windows Başlangıç Entegrasyonu**: `app.setLoginItemSettings()` ile otomatik başlatma; portable modda devre dışıdır.
+- **Windows Başlangıç Entegrasyonu**: `app.setLoginItemSettings()` ile otomatik başlatma.
 - **Veri Konumu Taşıma**: Disk boş alan + yazma yetkisi kontrolü; WAL checkpoint ardından dosya kopyalama; bütünlük kontrolü; hata durumunda otomatik rollback ile eski konuma geri dönüş.
 - **Dışa / İçe Aktarma (JSON)**:
   - Dışa aktarırken görseller base64 olarak eklenir.
@@ -74,7 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tek Instance Kilidi**: Aynı anda yalnızca bir örnek çalışır; ikinci açılışta mevcut pencere öne getirilir.
 - **Pencere Hafızası & Off-Screen Detection**: Boyut/konum SQLite'a kaydedilir; pencerenin ekran dışında kalmaması kontrol edilir.
 - **Sistem Tepsisi**: Uygulama kapatılmadan tepsiye küçülür; ilk kapatmada balon bildirimi gösterilir.
-- **Taşınabilir (Portable) Mod**: `PORTABLE_EXECUTABLE_DIR` tespiti; `autostart` ve `changeLocation` otomatik kilitlenir; sıfır iz (zero-trace) prensibi.
 - **Hata Yönetimi**: `uncaughtException` ve `unhandledRejection` yakalanır; `will-quit`'te kısayollar, watcher ve veritabanı temiz şekilde kapatılır.
 - **Otomatik URL Migrasyonu**: Eski sürümlerde `text` olarak kaydedilmiş URL'ler başlangıçta `url` tipine dönüştürülür.
 - **Kategori İkon Migrasyonu**: Eski emoji ikonları premium SVG isimleriyle değiştirilir.

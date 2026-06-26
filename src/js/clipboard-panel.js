@@ -784,6 +784,8 @@ const ClipboardPanel = (() => {
       if (isAlreadyAtTop) {
         triggerFlash();
       } else {
+        let safetyTimeoutId = null;
+
         // Kaydırma (scroll) animasyonu tamamlandığında en üstteki öğeyi flaşlatmak için dinleyiciler ekliyoruz.
         const handleScrollEnd = () => {
           if (elements.list.scrollTop === 0) {
@@ -802,6 +804,10 @@ const ClipboardPanel = (() => {
         const cleanup = () => {
           elements.list.removeEventListener('scroll', handleScroll);
           elements.list.removeEventListener('scrollend', handleScrollEnd);
+          if (safetyTimeoutId) {
+            clearTimeout(safetyTimeoutId);
+            safetyTimeoutId = null;
+          }
         };
 
         elements.list.addEventListener('scroll', handleScroll);
@@ -811,7 +817,7 @@ const ClipboardPanel = (() => {
         elements.list.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Güvenlik önlemi: Eğer beklenmedik şekilde scroll 0'a tam oturmazsa, 800ms sonra zorla flaşlat ve temizle.
-        setTimeout(() => {
+        safetyTimeoutId = setTimeout(() => {
           cleanup();
           const newEl = elements.list.querySelector(`.clip-item[data-id="${item.id}"]`);
           if (newEl && !newEl.classList.contains('copy-flash')) {

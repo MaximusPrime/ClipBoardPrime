@@ -100,7 +100,7 @@
           </h2>
           <div class="panel-header-actions">
             <button class="panel-btn" id="manage-categories-btn" data-tooltip="Kategoriler" aria-label="Kategorileri yönet" type="button">
-              <svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+              <svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg> Kategori +
             </button>
             <button class="panel-btn primary" id="new-note-btn" aria-label="Yeni not oluştur" type="button">
               <svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Yeni Not
@@ -165,6 +165,22 @@
                     <option value="dark">Karanlık</option>
                     <option value="light">Aydınlık</option>
                     <option value="system">Sistem</option>
+                  </select>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Metin Boyutu</span>
+                  <small>Uygulama genel yazı boyutunu ayarlayın</small>
+                </div>
+                <div class="setting-value">
+                  <select class="setting-select" id="setting-app-font-size" aria-label="Uygulama metin boyutu seçimi">
+                    <option value="12px">12px (Küçük)</option>
+                    <option value="13px">13px (Varsayılan)</option>
+                    <option value="14px">14px (Orta)</option>
+                    <option value="15px">15px (Büyük)</option>
+                    <option value="16px">16px (Çok Büyük)</option>
+                    <option value="18px">18px (Ekstra Büyük)</option>
                   </select>
                 </div>
               </div>
@@ -352,19 +368,29 @@
               <label for="note-edit-content">İçerik</label>
               <textarea class="form-textarea" id="note-edit-content" placeholder="Notunuzu yazın..." aria-label="Not içeriği"></textarea>
             </div>
-            <div class="form-row" style="display:flex; gap:16px;">
-              <div class="form-group" style="flex:1;">
-                <label for="note-edit-category">Kategori / Etiket</label>
-                <select class="form-input" id="note-edit-category" style="cursor:pointer; width: 100%;" aria-label="Not kategorisi seçimi"></select>
-                <div id="note-edit-category-preview" style="margin-top: 8px; display: none;"></div>
+            <div class="form-group">
+              <label>Kategori / Etiket</label>
+              <div class="custom-select" id="note-edit-category-container">
+                <button class="custom-select-trigger" id="note-edit-category-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="selected-value-icon" id="note-edit-category-selected-icon" style="display:flex;align-items:center;"></span>
+                  <span class="selected-value-text" id="note-edit-category-selected-text">(Kategorisiz)</span>
+                  <svg class="icon-svg select-arrow" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+                <div class="custom-select-options hidden" id="note-edit-category-options" role="listbox"></div>
+                <input type="hidden" id="note-edit-category" value="">
               </div>
-              <div class="form-group" style="flex:1;">
-                <label id="note-edit-color-label">Not Rengi</label>
-                <div class="color-picker" id="note-edit-color-picker" style="display:flex; gap:8px; align-items:center; height:36px;" role="radiogroup" aria-labelledby="note-edit-color-label">
-                  <span class="color-swatch active" data-color="charcoal" style="background:var(--note-charcoal); width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid #fff; display:inline-block;" data-tooltip="Koyu Kömür (Koyu Gri)" role="radio" aria-checked="true" aria-label="Koyu Kömür" tabindex="0"></span>
-                  <span class="color-swatch" data-color="anthracite" style="background:var(--note-anthracite); width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:inline-block;" data-tooltip="Antrasit (Orta Gri)" role="radio" aria-checked="false" aria-label="Antrasit" tabindex="0"></span>
-                  <span class="color-swatch" data-color="silver" style="background:var(--note-silver); width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; display:inline-block;" data-tooltip="Gümüş (Açık Gri)" role="radio" aria-checked="false" aria-label="Gümüş" tabindex="0"></span>
-                </div>
+              <div id="note-edit-category-preview" style="margin-top: 8px; display: none;"></div>
+            </div>
+            <div class="form-group" style="display: none;">
+              <label id="note-edit-color-label">Not Rengi</label>
+              <div class="color-picker" id="note-edit-color-picker" role="radiogroup" aria-labelledby="note-edit-color-label">
+                <span class="color-swatch active" data-color="charcoal"></span>
+                <span class="color-swatch" data-color="blue"></span>
+                <span class="color-swatch" data-color="purple"></span>
+                <span class="color-swatch" data-color="green"></span>
+                <span class="color-swatch" data-color="orange"></span>
+                <span class="color-swatch" data-color="red"></span>
+                <span class="color-swatch" data-color="teal"></span>
               </div>
             </div>
           </form>
@@ -380,7 +406,7 @@
 
     <!-- ═══════ NOTE DETAIL MODAL ═══════ -->
     <div class="modal-overlay" id="note-detail-modal" role="dialog" aria-modal="true" aria-labelledby="note-detail-title-text">
-      <div class="modal" style="width: 480px;">
+      <div class="modal" style="width: 640px;">
         <div class="modal-header">
           <h3 id="note-detail-title">
             <span class="modal-title-icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span>
@@ -428,14 +454,14 @@
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
               <div style="display:flex; gap:6px;" id="new-category-color-picker" role="radiogroup" aria-label="Kategori Rengi Seçimi">
-                <span class="category-color-swatch active" data-color="#2c2c2c" style="background:#2c2c2c; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid #fff;" data-tooltip="Koyu Kömür" role="radio" aria-checked="true" aria-label="Koyu Kömür" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#3a3a3a" style="background:#3a3a3a; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Antrasit" role="radio" aria-checked="false" aria-label="Antrasit" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#4a4a4a" style="background:#4a4a4a; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Koyu Gri" role="radio" aria-checked="false" aria-label="Koyu Gri" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#5c5c5c" style="background:#5c5c5c; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Füme" role="radio" aria-checked="false" aria-label="Füme" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#707070" style="background:#707070; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Orta Gri" role="radio" aria-checked="false" aria-label="Orta Gri" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#8a8a8a" style="background:#8a8a8a; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Metalik Gri" role="radio" aria-checked="false" aria-label="Metalik Gri" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#a0a0a0" style="background:#a0a0a0; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Açık Gri" role="radio" aria-checked="false" aria-label="Açık Gri" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#b8b8b8" style="background:#b8b8b8; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Gümüş Gri" role="radio" aria-checked="false" aria-label="Gümüş Gri" tabindex="0"></span>
+                <span class="category-color-swatch active" data-color="#2563eb" style="background:#2563eb; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid #fff;" data-tooltip="Safir Mavi" role="radio" aria-checked="true" aria-label="Safir Mavi" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#8b5cf6" style="background:#8b5cf6; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Ametist Mor" role="radio" aria-checked="false" aria-label="Ametist Mor" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#10b981" style="background:#10b981; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Zümrüt Yeşil" role="radio" aria-checked="false" aria-label="Zümrüt Yeşil" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#f59e0b" style="background:#f59e0b; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Kehribar Altın" role="radio" aria-checked="false" aria-label="Kehribar Altın" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#ef4444" style="background:#ef4444; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Yakut Kırmızı" role="radio" aria-checked="false" aria-label="Yakut Kırmızı" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#06b6d4" style="background:#06b6d4; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Okyanus Turkuaz" role="radio" aria-checked="false" aria-label="Okyanus Turkuaz" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#ec4899" style="background:#ec4899; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Gül Pembe" role="radio" aria-checked="false" aria-label="Gül Pembe" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#475569" style="background:#475569; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Kömür" role="radio" aria-checked="false" aria-label="Kömür" tabindex="0"></span>
               </div>
               <button class="btn btn-primary" id="add-category-btn" style="height:32px;" aria-label="Yeni kategori ekle" type="button">Kategori Ekle</button>
             </div>

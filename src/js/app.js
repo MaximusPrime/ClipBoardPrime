@@ -264,7 +264,10 @@ const App = (() => {
           const catModal = document.getElementById('category-manager-modal');
           const detailModal = document.getElementById('note-detail-modal');
           if (editorModal.classList.contains('active')) {
-            editorModal.classList.remove('active');
+            const isNewNote = !document.getElementById('note-edit-id').value;
+            if (!isNewNote) {
+              editorModal.classList.remove('active');
+            }
           }
           if (catModal.classList.contains('active')) {
             catModal.classList.remove('active');

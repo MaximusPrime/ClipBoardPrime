@@ -25,12 +25,8 @@
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ]
-    },
-    "portable": {
-      "artifactName": "${productName} Portable ${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

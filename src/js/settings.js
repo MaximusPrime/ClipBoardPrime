@@ -20,6 +20,7 @@ const SettingsPanel = (() => {
     pollInterval: document.getElementById('setting-poll-interval'),
     shortcut: document.getElementById('setting-shortcut'),
     blurToTray: document.getElementById('setting-blur-to-tray'),
+    appFontSize: document.getElementById('setting-app-font-size'),
     
     // Data Actions
     locationPath: document.getElementById('data-location-path'),
@@ -73,6 +74,10 @@ const SettingsPanel = (() => {
     if (elements.blurToTray) {
       elements.blurToTray.addEventListener('change', (e) => saveSetting('blurToTray', String(e.target.checked)));
     }
+    elements.appFontSize.addEventListener('change', (e) => {
+      saveSetting('appFontSize', e.target.value);
+      applyFontSizes(e.target.value);
+    });
 
     // ─── Veri Ayarları Dinleyicileri ───
     elements.changeLocationBtn.addEventListener('click', () => changeDataLocation());
@@ -192,9 +197,11 @@ const SettingsPanel = (() => {
         if (elements.blurToTray) {
           elements.blurToTray.checked = currentSettings.blurToTray === 'true';
         }
+        elements.appFontSize.value = currentSettings.appFontSize || '13px';
 
         // Temayı uygula
         applyTheme(currentSettings.theme);
+        applyFontSizes(currentSettings.appFontSize);
 
         // Veritabanı konumunu ve istatistikleri al
         await refreshLocationPath();
@@ -292,6 +299,19 @@ const SettingsPanel = (() => {
     else if (key === 'pollingInterval') elements.pollInterval.value = value;
     else if (key === 'globalShortcut') elements.shortcut.value = value;
     else if (key === 'blurToTray' && elements.blurToTray) elements.blurToTray.checked = value === 'true';
+    else if (key === 'appFontSize') {
+      elements.appFontSize.value = value;
+      applyFontSizes(value);
+    }
+  }
+
+  /**
+   * Seçilen yazı boyutlarını HTML belgesine uygular
+   */
+  function applyFontSizes(size) {
+    const fSize = size || '13px';
+    document.documentElement.style.setProperty('--font-size-app', fSize);
+    document.documentElement.style.setProperty('--font-size-note', fSize);
   }
 
   /**

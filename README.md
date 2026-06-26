@@ -33,7 +33,7 @@
 
 ### 🔒 Hassas Veri Koruma (Otomatik Maskeleme & AES-256-GCM Şifreleme)
 - **Güçlü Şifreleme (AES-256-GCM)**: Hassas veri olarak algılanan veya kullanıcı tarafından işaretlenen içerikler veritabanında (`clipboard-pro.db`) düz metin olarak değil, cihaza özel üretilen benzersiz şifreleme anahtarı ile **AES-256-GCM** algoritması kullanılarak şifrelenmiş halde saklanır.
-- **Güvenli Anahtar Depolama**: Şifreleme anahtarı `config.json` dosyasında saklanır. Portable modda `/data/config.json` altında tutularak veri bütünlüğü ve taşınabilirlik korunur.
+- **Güvenli Anahtar Depolama**: Şifreleme anahtarı uygulamanın güvenli yerel kullanıcı dizinindeki `config.json` dosyasında saklanır.
 - **Otomatik Maskeleme**: Kopyalanan içerik otomatik olarak aşağıdaki kalıplar için taranır, veritabanına şifreli yazılır ve arayüzde `••••••••••••` şeklinde maskelenir:
   - **Kredi/Banka Kartı Numaraları** (Visa, Mastercard, Amex, Troy dahil 13–19 hane)
   - **API Anahtarları** (Google `AIzaSy`, GitHub `ghp_/github_pat_`, Slack `xox*`, SendGrid `SG.` formatları)
@@ -138,8 +138,7 @@ Uygulamanın ikinci modülü; bağımsız, tam özellikli bir not alma sistemidi
 ### 🚀 Windows ile Birlikte Başlat
 
 Uygulama, sistem başlangıcında otomatik olarak çalışacak şekilde yapılandırılabilir:
-- **Kayıt Defteri (Registry) Entegrasyonu**: Windows Başlangıç ayarı, doğrudan Windows Registry (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) manipüle edilerek gerçekleştirilir.
-- **Dinamik Yol Tespiti**: Taşınabilir (Portable) modda çalışırken, uygulamanın konumu değişse bile `PORTABLE_EXECUTABLE_FILE` veya `PORTABLE_EXECUTABLE_PATH` ortam değişkenleri kullanılarak güncel çalıştırılabilir dosya yolu otomatik olarak tespit edilir ve Registry kaydı her açılışta güncellenir.
+- **Windows Kayıt Defteri (Registry) Entegrasyonu**: Windows Başlangıç ayarı, doğrudan Windows Registry (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) manipüle edilerek gerçekleştirilir.
 - **Ayarlar Paneli**: Kullanıcılar bu özelliği arayüzdeki ayarlar menüsünden diledikleri zaman aktif veya pasif hale getirebilirler.
 
 ### ⌨️ Global Kısayol (Özelleştirilebilir)
@@ -285,19 +284,11 @@ Uygulamayı `.exe` olarak derlemek için `electron-builder` kullanılmaktadır:
 npm run build
 ```
 
-`dist/` klasöründe iki çıktı oluşur:
+`dist/` klasöründe standart kurulum paketi oluşur:
 
 | Çıktı | Açıklama |
 |:--|:--|
-| `ClipBoardPro Setup.exe` | Standart kurulum paketi |
-| `ClipBoardPro Portable.exe` | Kurulum gerektirmez; veriler `.exe` yanındaki `/data` klasöründe saklanır |
-
-> [!NOTE]
-> **Portable Mod** özellikleri:
-> - Otomatik başlatma varsayılan olarak etkindir ve ayarlardan kapatılıp açılabilir (asıl exe yolu dinamik tespit edilir)
-> - Veri konumu değiştirilemez (veriler her zaman `/data` klasöründe kalır)
-> - Şifreleme anahtarı da `/data/config.json` içinde tutularak tam taşınabilirlik korunur
-> - `PORTABLE_EXECUTABLE_FILE` ve `PORTABLE_EXECUTABLE_DIR` ortam değişkenleriyle tespit edilir
+| `ClipBoardPro Setup.exe` | Standart Windows kurulum paketi (NSIS) |
 
 ---
 

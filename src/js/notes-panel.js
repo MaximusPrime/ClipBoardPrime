@@ -128,9 +128,66 @@ const NotesPanel = (() => {
     });
     elements.editorSaveBtn.addEventListener('click', () => saveNote());
 
-    elements.editCategory.addEventListener('change', () => {
-      updateCategoryPreview();
+    // Custom select event listeners
+    const triggerBtn = document.getElementById('note-edit-category-trigger');
+    const selectOptions = document.getElementById('note-edit-category-options');
+    const selectContainer = document.getElementById('note-edit-category-container');
+
+    if (triggerBtn && selectOptions) {
+      triggerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isActive = selectContainer.classList.contains('active');
+        const modalBody = elements.editorModal.querySelector('.modal-body');
+        if (isActive) {
+          selectContainer.classList.remove('active');
+          selectOptions.classList.add('hidden');
+          if (modalBody) {
+            modalBody.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        } else {
+          selectContainer.classList.add('active');
+          selectOptions.classList.remove('hidden');
+          if (modalBody) {
+            setTimeout(() => {
+              modalBody.scrollTo({ top: modalBody.scrollHeight, behavior: 'smooth' });
+            }, 80);
+          }
+        }
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (selectContainer && !selectContainer.contains(e.target)) {
+        if (selectContainer.classList.contains('active')) {
+          selectContainer.classList.remove('active');
+          if (selectOptions) selectOptions.classList.add('hidden');
+          const modalBody = elements.editorModal.querySelector('.modal-body');
+          if (modalBody) {
+            modalBody.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        }
+      }
     });
+
+    if (selectOptions) {
+      selectOptions.addEventListener('click', (e) => {
+        const opt = e.target.closest('.custom-select-option');
+        if (!opt) return;
+        
+        const val = opt.dataset.value;
+        setEditCategoryValue(val);
+        
+        selectContainer.classList.remove('active');
+        selectOptions.classList.add('hidden');
+        
+        const modalBody = elements.editorModal.querySelector('.modal-body');
+        if (modalBody) {
+          modalBody.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        updateCategoryPreview();
+      });
+    }
 
     elements.noteColorPicker.addEventListener('click', (e) => {
       const swatch = e.target.closest('.color-swatch');
@@ -170,7 +227,11 @@ const NotesPanel = (() => {
 
     // ─── Boşluğa tıklayarak kapatma ───
     elements.editorModal.addEventListener('click', (e) => {
-      if (e.target === elements.editorModal) closeEditorModal();
+      if (e.target === elements.editorModal) {
+        const isNewNote = !elements.editId.value;
+        if (isNewNote) return; // Yeni not oluştururken dışarı tıklamayla kapanmasın
+        closeEditorModal();
+      }
     });
     
     elements.detailModal.addEventListener('click', (e) => {
@@ -302,14 +363,40 @@ const NotesPanel = (() => {
       elements.categoryFilter.appendChild(btn);
     });
 
-    // 2. Editor modal dropdown
-    elements.editCategory.innerHTML = '<option value="">(Kategorisiz)</option>';
-    categoriesList.forEach((cat) => {
-      const opt = document.createElement('option');
-      opt.value = cat.id;
-      opt.textContent = `🏷️ ${cat.name}`;
-      elements.editCategory.appendChild(opt);
-    });
+    // 2. Editor modal custom dropdown options
+    const optionsContainer = document.getElementById('note-edit-category-options');
+    if (optionsContainer) {
+      optionsContainer.innerHTML = '';
+      
+      // Add "(Kategorisiz)" option
+      const nullOpt = document.createElement('div');
+      nullOpt.className = 'custom-select-option';
+      nullOpt.dataset.value = '';
+      nullOpt.innerHTML = `
+        <span class="icon-svg" style="opacity: 0;"></span>
+        <span>(Kategorisiz)</span>
+      `;
+      optionsContainer.appendChild(nullOpt);
+
+      categoriesList.forEach((cat) => {
+        const opt = document.createElement('div');
+        opt.className = 'custom-select-option';
+        opt.dataset.value = cat.id;
+        
+        const iconColor = cat.color || 'var(--text-secondary)';
+        const rawIcon = Utils.Icons[cat.icon] || Utils.Icons.folder;
+        const iconSvg = rawIcon.replace('class="icon-svg"', `class="icon-svg" style="color: ${iconColor};"`);
+        
+        opt.innerHTML = `
+          <span class="icon-svg" style="display:flex;align-items:center;">${iconSvg}</span>
+          <span>${Utils.escapeHtml(cat.name)}</span>
+        `;
+        optionsContainer.appendChild(opt);
+      });
+      
+      // Update custom select UI value to match current state
+      updateCustomCategorySelectUI(elements.editCategory.value);
+    }
   }
 
   let draggedNoteId = null;
@@ -351,8 +438,43 @@ const NotesPanel = (() => {
       const el = document.createElement('div');
       el.className = `note-item ${note.is_pinned ? 'pinned' : ''}`;
       el.dataset.id = note.id;
-      el.dataset.color = note.color || 'charcoal';
       el.setAttribute('tabindex', '0');
+
+      // Kategori/Not renk eşleme
+      const colorNameMap = {
+        blue: '#2563eb',
+        purple: '#8b5cf6',
+        green: '#10b981',
+        orange: '#f59e0b',
+        red: '#ef4444',
+        teal: '#06b6d4',
+        charcoal: '#475569',
+        anthracite: '#1e293b',
+        silver: '#94a3b8',
+        pink: '#ec4899',
+        gray: '#94a3b8'
+      };
+
+      let noteColor = note.category_color;
+      if (!noteColor) {
+        const rawColor = note.color || 'charcoal';
+        noteColor = rawColor.startsWith('#') ? rawColor : (colorNameMap[rawColor] || '#475569');
+      }
+
+      el.style.setProperty('--note-accent', noteColor);
+      
+      const hexToRgb = (hex) => {
+        let c = hex.substring(1);
+        if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+        const num = parseInt(c, 16);
+        return `${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}`;
+      };
+      
+      try {
+        el.style.setProperty('--note-glow', `rgba(${hexToRgb(noteColor)}, 0.15)`);
+      } catch (e) {
+        el.style.setProperty('--note-glow', 'rgba(71, 85, 105, 0.15)');
+      }
 
       // Arama vurgulaması
       const titleText = note.title || 'Başlıksız Not';
@@ -405,7 +527,6 @@ const NotesPanel = (() => {
             <button class="note-action-btn delete-btn" data-tooltip="Sil" aria-label="Sil">${Utils.Icons.trash}</button>
           </div>
         </div>
-        <div class="note-item-content">${highlightedContent.replace(/\n/g, '<br>')}</div>
         <div class="note-item-accordion">
           <div class="note-item-accordion-content">${highlightedFullContent}</div>
         </div>
@@ -704,9 +825,33 @@ const NotesPanel = (() => {
     Utils.destroyFocusTrap(elements.detailModal);
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // Not Editör Modalı Yönetimi
-  // ═══════════════════════════════════════════════════════════════
+  function updateCustomCategorySelectUI(val) {
+    const triggerIcon = document.getElementById('note-edit-category-selected-icon');
+    const triggerText = document.getElementById('note-edit-category-selected-text');
+    if (!triggerIcon || !triggerText) return;
+
+    if (!val) {
+      triggerIcon.innerHTML = '';
+      triggerText.textContent = '(Kategorisiz)';
+      return;
+    }
+
+    const cat = categoriesList.find(c => c.id === parseInt(val));
+    if (cat) {
+      const iconColor = cat.color || 'var(--text-secondary)';
+      const rawIcon = Utils.Icons[cat.icon] || Utils.Icons.folder;
+      triggerIcon.innerHTML = rawIcon.replace('class="icon-svg"', `class="icon-svg" style="color: ${iconColor};"`);
+      triggerText.textContent = cat.name;
+    } else {
+      triggerIcon.innerHTML = '';
+      triggerText.textContent = '(Kategorisiz)';
+    }
+  }
+
+  function setEditCategoryValue(val) {
+    elements.editCategory.value = val || '';
+    updateCustomCategorySelectUI(val);
+  }
 
   function openEditorModal(note = null) {
     const iconSpan = elements.editorModal.querySelector('.modal-title-icon');
@@ -719,7 +864,7 @@ const NotesPanel = (() => {
       elements.editId.value = note.id;
       elements.editTitle.value = note.title || '';
       elements.editContent.value = note.content || '';
-      elements.editCategory.value = note.category_id || '';
+      setEditCategoryValue(note.category_id || '');
       selectedColor = note.color || 'charcoal';
     } else {
       // Yeni not ekleme modu
@@ -730,12 +875,12 @@ const NotesPanel = (() => {
       elements.editContent.value = '';
       // Varsayılan olarak aktif kategori filtresini seç
       if (activeCategoryFilter && activeCategoryFilter !== 'null') {
-        elements.editCategory.value = activeCategoryFilter;
+        setEditCategoryValue(activeCategoryFilter);
       } else {
         if (categoriesList.length > 0) {
-          elements.editCategory.value = categoriesList[0].id;
+          setEditCategoryValue(categoriesList[0].id);
         } else {
-          elements.editCategory.value = '';
+          setEditCategoryValue('');
         }
       }
       selectedColor = 'charcoal';
@@ -762,6 +907,7 @@ const NotesPanel = (() => {
     elements.editorModal.classList.remove('active');
     Utils.destroyFocusTrap(elements.editorModal);
     elements.editorForm.reset();
+    updateCustomCategorySelectUI('');
     elements.categoryPreview.style.display = 'none';
     selectedColor = 'charcoal';
   }
@@ -797,11 +943,18 @@ const NotesPanel = (() => {
     }
 
     try {
+      // Kategori rengini bul
+      let noteColor = '#475569';
+      if (categoryId) {
+        const cat = categoriesList.find(c => c.id === categoryId);
+        if (cat) noteColor = cat.color;
+      }
+
       const noteData = {
         title: title || 'Başlıksız Not',
         content: content,
         category_id: categoryId,
-        color: selectedColor,
+        color: noteColor,
       };
 
       if (id) {

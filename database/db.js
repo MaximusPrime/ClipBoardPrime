@@ -51,10 +51,10 @@ const DEFAULT_SETTINGS = {
 
 // ─── Varsayılan Kategoriler ──────────────────────────────────
 const DEFAULT_CATEGORIES = [
-  { name: 'Genel', icon: 'folder', color: '#6b7280', sort_order: 0 },
-  { name: 'İş', icon: 'briefcase', color: '#6b7280', sort_order: 1 },
-  { name: 'Kod', icon: 'code', color: '#6b7280', sort_order: 2 },
-  { name: 'Kişisel', icon: 'user', color: '#6b7280', sort_order: 3 },
+  { name: 'Genel', icon: 'folder', color: '#2563eb', sort_order: 0 },
+  { name: 'İş', icon: 'briefcase', color: '#f59e0b', sort_order: 1 },
+  { name: 'Kod', icon: 'code', color: '#10b981', sort_order: 2 },
+  { name: 'Kişisel', icon: 'user', color: '#8b5cf6', sort_order: 3 },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -247,8 +247,15 @@ function migrateCategoryIcons() {
       updateIcon.run('code', '💻');
       updateIcon.run('user', '🏠');
     })();
-    // Tüm kategorileri gri yap
-    db.prepare("UPDATE categories SET color = '#6b7280'").run();
+    
+    // Gri renkte kalmış varsayılan kategorileri premium renklere taşı
+    const updateCatColor = db.prepare("UPDATE categories SET color = ? WHERE name = ? AND color = '#6b7280'");
+    db.transaction(() => {
+      updateCatColor.run('#2563eb', 'Genel');
+      updateCatColor.run('#f59e0b', 'İş');
+      updateCatColor.run('#10b981', 'Kod');
+      updateCatColor.run('#8b5cf6', 'Kişisel');
+    })();
   } catch (err) {
     console.error('Kategori ikon migrasyon hatası:', err);
   }

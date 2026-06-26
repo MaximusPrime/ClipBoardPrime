@@ -3,6 +3,10 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
+  /* Font Sizes */
+  --font-size-app: 13px;
+  --font-size-note: 14px;
+
   /* ── Obsidian Dark Theme (Default) ────────────────────────── */
 
   /* Backgrounds */
@@ -68,19 +72,19 @@
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2);
   --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.35);
 
-  /* Note Colors (Mavi ve Gri Tonları) */
-  --note-charcoal: #2a2e35;   /* Koyu Mavi-Gri */
-  --note-anthracite: #2563eb; /* Kraliyet Mavisi */
-  --note-silver: #475569;     /* Slate Mavi-Gri */
+  /* Note Colors (Premium Vibrant Tones) */
+  --note-charcoal: #2d3748;   /* Slate Grayish Dark */
+  --note-anthracite: #1e293b; /* Very Dark Blue Gray */
+  --note-silver: #475569;     /* Slate Gray */
+  --note-blue: #3b82f6;       /* Sapphire Blue */
+  --note-purple: #8b5cf6;     /* Amethyst Purple */
+  --note-green: #10b981;      /* Emerald Green */
+  --note-orange: #f59e0b;     /* Amber Gold */
+  --note-red: #ef4444;        /* Ruby Red */
+  --note-teal: #06b6d4;       /* Ocean Teal */
   
   /* Fallback aliases for backward compatibility */
-  --note-blue: var(--note-charcoal);
-  --note-purple: var(--note-charcoal);
-  --note-green: var(--note-anthracite);
-  --note-orange: var(--note-anthracite);
-  --note-red: var(--note-anthracite);
-  --note-pink: var(--note-silver);
-  --note-teal: var(--note-silver);
+  --note-pink: #ec4899;
   --note-gray: var(--note-silver);
 
   /* Content Type Colors (Kraliyet Mavisi, Mavi ve Gri Tonları) */
@@ -158,16 +162,16 @@
   --type-image: #9ca3af;
 
   /* Note Colors (Light Mode) - Soft, high contrast pastel tones */
-  --note-charcoal: #f1f5f9;   /* Light Slate */
-  --note-anthracite: #dbeafe; /* Light Blue */
-  --note-silver: #f8fafc;     /* Clean Gray */
+  --note-charcoal: #f1f5f9;
+  --note-anthracite: #e2e8f0;
+  --note-silver: #cbd5e1;
+  --note-blue: #dbeafe;       /* Soft Sapphire Blue */
+  --note-purple: #f3e8ff;     /* Soft Amethyst Purple */
+  --note-green: #d1fae5;      /* Soft Emerald Green */
+  --note-orange: #fef3c7;     /* Soft Amber Gold */
+  --note-red: #fee2e2;        /* Soft Ruby Red */
+  --note-teal: #ccfbf1;       /* Soft Ocean Teal */
   
-  --note-blue: var(--note-charcoal);
-  --note-purple: var(--note-charcoal);
-  --note-green: var(--note-anthracite);
-  --note-orange: var(--note-anthracite);
-  --note-red: var(--note-anthracite);
-  --note-pink: var(--note-silver);
-  --note-teal: var(--note-silver);
+  --note-pink: #fce7f3;
   --note-gray: var(--note-silver);
 }
