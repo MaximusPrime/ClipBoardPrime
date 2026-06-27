@@ -331,7 +331,7 @@ function createWindow() {
     minHeight: 600,
     frame: true,
     show: false, // ready-to-show ile göster (flicker engelleme)
-    icon: getTrayIconPath(),
+    icon: getAppIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -421,6 +421,25 @@ function createWindow() {
 // ═══════════════════════════════════════════════════════════════
 // System Tray
 // ═══════════════════════════════════════════════════════════════
+
+/**
+ * Uygulama (pencere ve görev çubuğu) ikonu yolunu döner.
+ */
+function getAppIconPath() {
+  const icoPath = path.join(__dirname, 'assets', 'icon.ico');
+  if (fs.existsSync(icoPath)) {
+    return icoPath;
+  }
+  const buildIcoPath = path.join(__dirname, 'build', 'icon.ico');
+  if (fs.existsSync(buildIcoPath)) {
+    return buildIcoPath;
+  }
+  const pngPath = path.join(__dirname, 'assets', 'icon.png');
+  if (fs.existsSync(pngPath)) {
+    return pngPath;
+  }
+  return getTrayIconPath();
+}
 
 /**
  * Tray ikonu yolunu döner. Windows uyumluluğu için öncelikle .ico dosyalarını kontrol eder.

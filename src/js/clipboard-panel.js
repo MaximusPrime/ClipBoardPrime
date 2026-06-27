@@ -280,7 +280,7 @@ const ClipboardPanel = (() => {
       // Windows dosya yollarını local-file URL'ine çevir (güvenle yüklenmesi için)
       const fileUrl = 'local-file:///' + item.image_path.replace(/\\/g, '/');
       contentHTML = `
-        <img class="clip-item-image-preview" src="${fileUrl}" alt="Görsel Pano" onerror="this.src='./assets/image-error.png';">
+        <img class="clip-item-image-preview" src="${fileUrl}" alt="Görsel Pano" onerror="this.src='../assets/image-error.png';">
       `;
     } else {
       // Arama yapılmışsa eşleşen kısımları vurgula
