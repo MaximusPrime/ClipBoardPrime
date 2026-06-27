@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="assets/icon.png" alt="ClipBoardPrime Logo" width="96" height="96">
+  <img src="assets/logo.png" alt="ClipBoardPrime Logo" width="96" height="96">
 
   # ClipBoardPrime
 
