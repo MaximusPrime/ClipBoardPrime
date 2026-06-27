@@ -423,14 +423,9 @@ function createWindow() {
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Tray ikonu yolunu döner. Her başlatmada güncel ikonu programatik oluşturur.
+ * Tray ikonu yolunu döner. Windows uyumluluğu için öncelikle .ico dosyalarını kontrol eder.
  */
 function getTrayIconPath() {
-  const pngPath = path.join(__dirname, 'assets', 'icon.png');
-  if (fs.existsSync(pngPath)) {
-    return pngPath;
-  }
-
   const trayIcoPath = path.join(__dirname, 'assets', 'tray-icon.ico');
   if (fs.existsSync(trayIcoPath)) {
     return trayIcoPath;
@@ -444,6 +439,11 @@ function getTrayIconPath() {
   const buildIcoPath = path.join(__dirname, 'build', 'icon.ico');
   if (fs.existsSync(buildIcoPath)) {
     return buildIcoPath;
+  }
+
+  const pngPath = path.join(__dirname, 'assets', 'icon.png');
+  if (fs.existsSync(pngPath)) {
+    return pngPath;
   }
 
   return null;
@@ -472,14 +472,16 @@ function createTrayIcon() {
  */
 function createTray() {
   const iconPath = getTrayIconPath();
+  let trayIcon;
 
   if (iconPath && fs.existsSync(iconPath)) {
-    tray = new Tray(iconPath);
+    trayIcon = nativeImage.createFromPath(iconPath);
   } else {
-    let trayIcon = createTrayIcon();
-    trayIcon = trayIcon.resize({ width: 16, height: 16 });
-    tray = new Tray(trayIcon);
+    trayIcon = createTrayIcon();
   }
+
+  trayIcon = trayIcon.resize({ width: 16, height: 16 });
+  tray = new Tray(trayIcon);
   
   tray.setToolTip('ClipBoardPrime');
 
