@@ -461,92 +461,13 @@ function isPointOnSquareBorder(x, y, x1, y1, x2, y2, w) {
   return left || right || top || bottom;
 }
 
-/**
- * Programatik olarak premium 64x64 mavi copy/clipboard ikonu oluşturur.
- */
 function createTrayIcon() {
-  const size = 64;
-  const canvas = Buffer.alloc(size * size * 4);
-
-  // Background rounded rect params
-  const rx1 = 4, ry1 = 4, rx2 = 59, ry2 = 59;
-  const R = 14;
-  const cx1 = rx1 + R, cx2 = rx2 - R;
-  const cy1 = ry1 + R, cy2 = ry2 - R;
-
-  // Square params
-  const w = 2.5; // thickness
-  // Back square: top-left
-  const bx1 = 18, by1 = 18, bx2 = 39, by2 = 39;
-  // Front square: bottom-right
-  const fx1 = 25, fy1 = 25, fx2 = 46, fy2 = 46;
-  const gap = 2.0;
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const idx = (y * size + x) * 4;
-
-      // Check if point is inside the rounded rect
-      let insideRoundedRect = false;
-      if (x >= rx1 && x <= rx2 && y >= ry1 && y <= ry2) {
-        if (x < cx1 && y < cy1) {
-          insideRoundedRect = (x - cx1)**2 + (y - cy1)**2 <= R**2;
-        } else if (x > cx2 && y < cy1) {
-          insideRoundedRect = (x - cx2)**2 + (y - cy1)**2 <= R**2;
-        } else if (x < cx1 && y > cy2) {
-          insideRoundedRect = (x - cx1)**2 + (y - cy2)**2 <= R**2;
-        } else if (x > cx2 && y > cy2) {
-          insideRoundedRect = (x - cx2)**2 + (y - cy2)**2 <= R**2;
-        } else {
-          insideRoundedRect = true;
-        }
-      }
-
-      if (insideRoundedRect) {
-        // Draw the overlapping squares
-        const onFrontBorder = isPointOnSquareBorder(x, y, fx1, fy1, fx2, fy2, w);
-        const insideFrontMask = x >= (fx1 - gap) && x <= (fx2 + gap) && y >= (fy1 - gap) && y <= (fy2 + gap);
-        const onBackBorder = isPointOnSquareBorder(x, y, bx1, by1, bx2, by2, w);
-
-        if (onFrontBorder) {
-          // White front square border
-          canvas[idx] = 255;
-          canvas[idx + 1] = 255;
-          canvas[idx + 2] = 255;
-          canvas[idx + 3] = 255;
-        } else if (insideFrontMask) {
-          // Blue gap/interior of front square (Royal Blue #2563eb)
-          canvas[idx] = 37;
-          canvas[idx + 1] = 99;
-          canvas[idx + 2] = 235;
-          canvas[idx + 3] = 255;
-        } else if (onBackBorder) {
-          // White back square border
-          canvas[idx] = 255;
-          canvas[idx + 1] = 255;
-          canvas[idx + 2] = 255;
-          canvas[idx + 3] = 255;
-        } else {
-          // Blue background (Royal Blue #2563eb)
-          canvas[idx] = 37;
-          canvas[idx + 1] = 99;
-          canvas[idx + 2] = 235;
-          canvas[idx + 3] = 255;
-        }
-      } else {
-        // Transparent
-        canvas[idx] = 0;
-        canvas[idx + 1] = 0;
-        canvas[idx + 2] = 0;
-        canvas[idx + 3] = 0;
-      }
-    }
+  const iconPath = getTrayIconPath();
+  if (iconPath && fs.existsSync(iconPath)) {
+    return nativeImage.createFromPath(iconPath);
   }
-
-  return nativeImage.createFromBuffer(canvas, {
-    width: size,
-    height: size,
-  });
+  const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2563eb"/><g transform="translate(8, 8) scale(2)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></g></svg>`;
+  return nativeImage.createFromBuffer(Buffer.from(svgContent));
 }
 
 /**
