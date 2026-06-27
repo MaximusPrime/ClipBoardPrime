@@ -326,21 +326,21 @@ const NotesPanel = (() => {
     const allBtn = document.createElement('button');
     allBtn.className = `filter-btn${activeCategoryFilter === '' ? ' active' : ''}`;
     allBtn.dataset.category = '';
-    allBtn.innerHTML = `<span class="filter-emoji">${Utils.Icons.tag}</span> Tüm Kategoriler`;
+    allBtn.innerHTML = `<span class="filter-emoji" style="color: #6366f1;">${Utils.Icons.tag}</span> Tüm Kategoriler`;
     elements.categoryFilter.appendChild(allBtn);
 
     // "Sabitler" butonu
     const pinnedBtn = document.createElement('button');
     pinnedBtn.className = `filter-btn${activeCategoryFilter === 'pinned' ? ' active' : ''}`;
     pinnedBtn.dataset.category = 'pinned';
-    pinnedBtn.innerHTML = `<span class="filter-emoji">${Utils.Icons.pin}</span> Sabitler`;
+    pinnedBtn.innerHTML = `<span class="filter-emoji" style="color: #2563eb;">${Utils.Icons.pin}</span> Sabitler`;
     elements.categoryFilter.appendChild(pinnedBtn);
 
     // "Favoriler" butonu
     const favBtn = document.createElement('button');
     favBtn.className = `filter-btn${activeCategoryFilter === 'favorites' ? ' active' : ''}`;
     favBtn.dataset.category = 'favorites';
-    favBtn.innerHTML = `<span class="filter-emoji">${Utils.Icons.star}</span> Favoriler`;
+    favBtn.innerHTML = `<span class="filter-emoji" style="color: #eab308;">${Utils.Icons.star}</span> Favoriler`;
     elements.categoryFilter.appendChild(favBtn);
 
     // Separatör çizgi

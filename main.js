@@ -1,5 +1,5 @@
 /**
- * ClipBoard Pro — Electron Main Process
+ * ClipBoard Prime — Electron Main Process
  * ========================================
  * Uygulama penceresi, system tray, clipboard izleme,
  * ve tüm IPC handler'ları.
@@ -212,7 +212,7 @@ function getApplicationExePath() {
 function setWindowsAutostart(enabled) {
   const exePath = getApplicationExePath();
   const regKey = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
-  const valName = 'ClipBoardPro';
+  const valName = 'ClipBoardPrime';
 
   if (enabled) {
     const regValue = `"${exePath}" --hidden`;
@@ -379,7 +379,7 @@ function createWindow() {
       if (!trayBalloonShown && tray) {
         try {
           tray.displayBalloon({
-            title: 'ClipBoardPro',
+            title: 'ClipBoardPrime',
             content: 'Uygulama sistem tepsisinde çalışmaya devam ediyor. Açmak için sistem tepsisi simgesine tıklayabilir veya Ctrl+Shift+V kısayolunu kullanabilirsiniz.',
           });
           trayBalloonShown = true;
@@ -556,7 +556,6 @@ function createTray() {
   const iconPath = getTrayIconPath();
 
   if (iconPath && fs.existsSync(iconPath)) {
-    // Windows'ta doğrudan dosya yolu vermek işletim sisteminin ikonu en kaliteli (DPI-aware) şekilde ölçeklemesini sağlar
     tray = new Tray(iconPath);
   } else {
     let trayIcon = createTrayIcon();
@@ -564,7 +563,7 @@ function createTray() {
     tray = new Tray(trayIcon);
   }
   
-  tray.setToolTip('ClipBoardPro');
+  tray.setToolTip('ClipBoardPrime');
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -1152,7 +1151,7 @@ function registerIPCHandlers() {
           version: app.getVersion(),
           isDev: isDev,
           isPortable: isPortable,
-          author: 'ClipBoardPro',
+          author: 'ClipBoardPrime',
         }
       };
     } catch (err) {
@@ -1395,7 +1394,7 @@ function registerIPCHandlers() {
         }
       }
 
-      // Aktif pencereye yapıştırmak için ClipBoardPro'nun odağı kaybetmesi (gizlenmesi) şarttır.
+      // Aktif pencereye yapıştırmak için ClipBoardPrime'ın odağı kaybetmesi (gizlenmesi) şarttır.
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.hide();
       }

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   ClipBoard Pro — Settings Module
+   ClipBoard Prime — Settings Module
    ═══════════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -223,7 +223,7 @@ const SettingsPanel = (() => {
             if (versionEl) versionEl.textContent = `Sürüm ${appInfo.version}`;
             if (authorEl) authorEl.textContent = `${appInfo.author}`;
             if (devLinkEl) devLinkEl.dataset.url = 'https://github.com/MaximusPrime77';
-            if (sourceLinkEl) sourceLinkEl.dataset.url = 'https://github.com/MaximusPrime77/ClipBoardPro';
+            if (sourceLinkEl) sourceLinkEl.dataset.url = 'https://github.com/MaximusPrime77/ClipBoardPrime';
 
             // Taşınabilir (Portable) Sürüm
             if (isPortableMode) {

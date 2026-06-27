@@ -1,5 +1,5 @@
 {
-  "name": "clipboard-pro-app",
+  "name": "clipboard-prime-app",
   "version": "1.0.1",
   "description": "Profesyonel Clipboard Manager + Not Paneli",
   "main": "main.js",
@@ -17,11 +17,11 @@
     "electron": "^33.0.0",
     "electron-builder": "^26.15.3"
   },
-  "author": "ClipBoardPro",
+  "author": "ClipBoardPrime",
   "license": "MIT",
   "build": {
-    "appId": "com.clipboardpro.app",
-    "productName": "ClipBoardPro",
+    "appId": "com.clipboardprime.app",
+    "productName": "ClipBoardPrime",
     "win": {
       "icon": "build/icon.ico",
       "target": [

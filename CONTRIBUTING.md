@@ -57,8 +57,8 @@ Kod yazarak katkıda bulunmak istiyorsanız, lütfen aşağıdaki adımları tak
 ### 1. Depoyu Çatallayın (Fork) ve Yerel Olarak Klonlayın
 Projeyi kendi GitHub hesabınıza forklayın ve ardından yerel bilgisayarınıza klonlayın:
 ```bash
-git clone https://github.com/KULLANICI_ADINIZ/ClipBoardPro.git
-cd ClipBoardPro
+git clone https://github.com/KULLANICI_ADINIZ/ClipBoardPrime.git
+cd ClipBoardPrime
 ```
 
 ### 2. Bağımlılıkları Yükleyin
@@ -115,4 +115,4 @@ Sorularınız veya işbirliği önerileriniz için aşağıdaki kanallardan bize
 
 *   **Proje Yöneticisi**: Maximus Decimus Meridius ([MaximusPrime77](https://github.com/MaximusPrime77))
 *   **E-posta**: [b.maximus.prime@gmail.com](mailto:b.maximus.prime@gmail.com)
-*   **Depo Bağlantısı**: [https://github.com/MaximusPrime77/ClipBoardPro](https://github.com/MaximusPrime77/ClipBoardPro)
+*   **Depo Bağlantısı**: [https://github.com/MaximusPrime77/ClipBoardPrime](https://github.com/MaximusPrime77/ClipBoardPrime)

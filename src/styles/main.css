@@ -570,6 +570,38 @@ img { max-width: 100%; display: block; }
 
 .filter-btn .filter-emoji {
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Sekme & Kategori Canlı İkon Renkleri */
+.filter-btn[data-filter="all"] .filter-emoji,
+.filter-btn[data-category=""] .filter-emoji {
+  color: #6366f1;
+}
+.filter-btn[data-filter="pinned"] .filter-emoji,
+.filter-btn[data-category="pinned"] .filter-emoji {
+  color: #2563eb;
+}
+.filter-btn[data-filter="favorites"] .filter-emoji,
+.filter-btn[data-category="favorites"] .filter-emoji {
+  color: #eab308;
+}
+.filter-btn[data-filter="text"] .filter-emoji {
+  color: #3b82f6;
+}
+.filter-btn[data-filter="image"] .filter-emoji {
+  color: #ec4899;
+}
+.filter-btn[data-filter="url"] .filter-emoji {
+  color: #10b981;
+}
+.filter-btn[data-filter="email"] .filter-emoji {
+  color: #f97316;
+}
+.filter-btn[data-filter="code"] .filter-emoji {
+  color: #06b6d4;
 }
 
 .filter-separator {

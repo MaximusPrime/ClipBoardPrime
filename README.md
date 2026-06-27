@@ -32,7 +32,7 @@
   - 🖼️ **Görsel** — Ekran görüntüsü veya kopyalanan görseller PNG olarak yerel diske kaydedilir
 
 ### 🔒 Hassas Veri Koruma (Otomatik Maskeleme & AES-256-GCM Şifreleme)
-- **Güçlü Şifreleme (AES-256-GCM)**: Hassas veri olarak algılanan veya kullanıcı tarafından işaretlenen içerikler veritabanında (`clipboard-pro.db`) düz metin olarak değil, cihaza özel üretilen benzersiz şifreleme anahtarı ile **AES-256-GCM** algoritması kullanılarak şifrelenmiş halde saklanır.
+- **Güçlü Şifreleme (AES-256-GCM)**: Hassas veri olarak algılanan veya kullanıcı tarafından işaretlenen içerikler veritabanında (`clipboard-prime.db`) düz metin olarak değil, cihaza özel üretilen benzersiz şifreleme anahtarı ile **AES-256-GCM** algoritması kullanılarak şifrelenmiş halde saklanır.
 - **Güvenli Anahtar Depolama**: Şifreleme anahtarı uygulamanın güvenli yerel kullanıcı dizinindeki `config.json` dosyasında saklanır.
 - **Otomatik Maskeleme**: Kopyalanan içerik otomatik olarak aşağıdaki kalıplar için taranır, veritabanına şifreli yazılır ve arayüzde `••••••••••••` şeklinde maskelenir:
   - **Kredi/Banka Kartı Numaraları** (Visa, Mastercard, Amex, Troy dahil 13–19 hane)
@@ -253,8 +253,8 @@ erDiagram
 
 ### 1. Depoyu Klonlayın
 ```bash
-git clone https://github.com/MaximusPrime77/ClipBoardPro.git
-cd ClipBoardPro
+git clone https://github.com/MaximusPrime77/ClipBoardPrime.git
+cd ClipBoardPrime
 ```
 
 ### 2. Bağımlılıkları Yükleyin
@@ -272,7 +272,7 @@ npm install
 ```bash
 npm run dev
 ```
-Geliştirme modunda DevTools otomatik olarak açılır ve veriler `%AppData%/clipboard-pro-app-dev` konumuna yazılır.
+Geliştirme modunda DevTools otomatik olarak açılır ve veriler `%AppData%/clipboard-prime-app-dev` konumuna yazılır.
 
 ---
 
@@ -288,8 +288,8 @@ npm run build
 
 | Çıktı | Açıklama |
 |:--|:--|
-| `ClipBoardPro Setup.exe` | Standart Windows kurulum paketi (NSIS) |
-| `ClipBoardPro Portable.exe` | Kurulum gerektirmeyen, hafifletilmiş taşınabilir sürüm (Veriler `.exe` yanındaki `/data` klasöründe saklanır) |
+| `ClipBoardPrime Setup.exe` | Standart Windows kurulum paketi (NSIS) |
+| `ClipBoardPrime Portable.exe` | Kurulum gerektirmeyen, hafifletilmiş taşınabilir sürüm (Veriler `.exe` yanındaki `/data` klasöründe saklanır) |
 
 > [!NOTE]
 > **Hafifletilmiş Taşınabilir (Portable) Mod Özellikleri:**
@@ -303,9 +303,9 @@ npm run build
 
 Projeye katkıda bulunmak ister misiniz? Lütfen önce [CONTRIBUTING.md](CONTRIBUTING.md) dosyasını inceleyin.
 
-- 🐛 Hata bildirin → [GitHub Issues](https://github.com/MaximusPrime77/ClipBoardPro/issues)
-- ✨ Özellik önerin → [GitHub Issues](https://github.com/MaximusPrime77/ClipBoardPro/issues)
-- 🔧 Kod katkısı → [Pull Request](https://github.com/MaximusPrime77/ClipBoardPro/pulls)
+- 🐛 Hata bildirin → [GitHub Issues](https://github.com/MaximusPrime77/ClipBoardPrime/issues)
+- ✨ Özellik önerin → [GitHub Issues](https://github.com/MaximusPrime77/ClipBoardPrime/issues)
+- 🔧 Kod katkısı → [Pull Request](https://github.com/MaximusPrime77/ClipBoardPrime/pulls)
 
 ---
 
@@ -323,6 +323,6 @@ Bu proje **MIT Lisansı** altında dağıtılmaktadır. Ayrıntılar için [LICE
 
 [![GitHub](https://img.shields.io/badge/GitHub-MaximusPrime77-181717?style=for-the-badge&logo=github)](https://github.com/MaximusPrime77)
 [![Email](https://img.shields.io/badge/Email-b.maximus.prime%40gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:b.maximus.prime@gmail.com)
-[![Project](https://img.shields.io/badge/Proje-ClipBoardPro-2563eb?style=for-the-badge&logo=github)](https://github.com/MaximusPrime77/ClipBoardPro)
+[![Project](https://img.shields.io/badge/Proje-ClipBoardPrime-2563eb?style=for-the-badge&logo=github)](https://github.com/MaximusPrime77/ClipBoardPrime)
 
 </div>
