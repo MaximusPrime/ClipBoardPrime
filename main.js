@@ -426,13 +426,16 @@ function createWindow() {
  * Tray ikonu yolunu döner. Her başlatmada güncel ikonu programatik oluşturur.
  */
 function getTrayIconPath() {
-  // Windows için öncelikle kırpılmış ve kaliteli tray-icon.ico dosyasını tercih et
+  const pngPath = path.join(__dirname, 'assets', 'icon.png');
+  if (fs.existsSync(pngPath)) {
+    return pngPath;
+  }
+
   const trayIcoPath = path.join(__dirname, 'assets', 'tray-icon.ico');
   if (fs.existsSync(trayIcoPath)) {
     return trayIcoPath;
   }
 
-  // Fallback olarak normal .ico dosyasını tercih et
   const icoPath = path.join(__dirname, 'assets', 'icon.ico');
   if (fs.existsSync(icoPath)) {
     return icoPath;
@@ -441,12 +444,6 @@ function getTrayIconPath() {
   const buildIcoPath = path.join(__dirname, 'build', 'icon.ico');
   if (fs.existsSync(buildIcoPath)) {
     return buildIcoPath;
-  }
-
-  // Fallback olarak png
-  const pngPath = path.join(__dirname, 'assets', 'tray-icon.png');
-  if (fs.existsSync(pngPath)) {
-    return pngPath;
   }
 
   return null;
