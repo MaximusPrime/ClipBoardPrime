@@ -39,6 +39,7 @@
     },
     "files": [
       "src/**/*",
+      "assets/**/*",
       "database/**/*",
       "main.js",
       "preload.js",

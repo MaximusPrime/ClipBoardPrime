@@ -449,22 +449,17 @@ function getTrayIconPath() {
   return null;
 }
 
-function isPointOnSquareBorder(x, y, x1, y1, x2, y2, w) {
-  const halfW = w / 2;
-  const left = Math.abs(x - x1) <= halfW && y >= y1 - halfW && y <= y2 + halfW;
-  const right = Math.abs(x - x2) <= halfW && y >= y1 - halfW && y <= y2 + halfW;
-  const top = Math.abs(y - y1) <= halfW && x >= x1 - halfW && x <= x2 + halfW;
-  const bottom = Math.abs(y - y2) <= halfW && x >= x1 - halfW && x <= x2 + halfW;
-  return left || right || top || bottom;
-}
-
 function createTrayIcon() {
   const iconPath = getTrayIconPath();
   if (iconPath && fs.existsSync(iconPath)) {
-    return nativeImage.createFromPath(iconPath);
+    if (iconPath.endsWith('.ico')) {
+      return iconPath;
+    }
+    return nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   }
-  const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2563eb"/><g transform="translate(8, 8) scale(2)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></g></svg>`;
-  return nativeImage.createFromBuffer(Buffer.from(svgContent));
+  // Acil durum yedeği (PNG Data URL - SVG Electron nativeImage tarafından desteklenmez)
+  const fallbackDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABCSURBVDhPY2AYBaNgFIwEAAAXAAEBHmU3AAAAAElFTkSuQmCC';
+  return nativeImage.createFromDataURL(fallbackDataUrl);
 }
 
 /**
@@ -475,12 +470,15 @@ function createTray() {
   let trayIcon;
 
   if (iconPath && fs.existsSync(iconPath)) {
-    trayIcon = nativeImage.createFromPath(iconPath);
+    if (iconPath.endsWith('.ico')) {
+      trayIcon = iconPath;
+    } else {
+      trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+    }
   } else {
     trayIcon = createTrayIcon();
   }
 
-  trayIcon = trayIcon.resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);
   
   tray.setToolTip('ClipBoardPrime');
