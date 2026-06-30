@@ -579,6 +579,20 @@ const NotesPanel = (() => {
     }
   }
 
+  /**
+   * Not kartının draggable durumunu akordiyonun açık olup olmamasına göre günceller.
+   * Akordiyon açıkken (not genişletilmişken) metin seçilebilmesi için draggable 'false' yapılır.
+   */
+  function updateNoteDraggableState(el) {
+    const isAccordionOpen = el.classList.contains('accordion-open');
+    if (isAccordionOpen) {
+      el.setAttribute('draggable', 'false');
+    } else {
+      const isDraggable = (!searchQuery && activeCategoryFilter !== '') ? 'true' : 'false';
+      el.setAttribute('draggable', isDraggable);
+    }
+  }
+
   function bindNoteEvents(el, note) {
     // Klavye navigasyonu (Ok tuşları ile odaklanma, Enter/Space ile detayı açma)
     el.addEventListener('keydown', (e) => {
@@ -612,12 +626,15 @@ const NotesPanel = (() => {
       const isOpen = el.classList.contains('accordion-open');
       if (isOpen) {
         el.classList.remove('accordion-open');
+        updateNoteDraggableState(el);
       } else {
         // İsteğe bağlı: diğer tüm açık akordiyonları kapat
         document.querySelectorAll('.note-item.accordion-open').forEach(item => {
           item.classList.remove('accordion-open');
+          updateNoteDraggableState(item);
         });
         el.classList.add('accordion-open');
+        updateNoteDraggableState(el);
       }
     });
 
@@ -631,12 +648,12 @@ const NotesPanel = (() => {
 
         e.stopPropagation();
         el.classList.toggle('accordion-open');
+        updateNoteDraggableState(el);
       });
     }
 
     // Arama veya filtre aktifse sürüklemeyi engelle (Sadece sekmelerde izin ver)
-    const isDraggable = (!searchQuery && activeCategoryFilter !== '') ? 'true' : 'false';
-    el.setAttribute('draggable', isDraggable);
+    updateNoteDraggableState(el);
     
     el.addEventListener('dragstart', (e) => {
       console.log('Drag başlatıldı - Not ID:', note.id, 'Pinned:', note.is_pinned);
