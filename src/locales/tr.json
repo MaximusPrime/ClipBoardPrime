@@ -218,7 +218,11 @@
     "colorRuby": "Yakut Kırmızı",
     "colorTeal": "Okyanus Turkuaz",
     "colorRose": "Gül Pembe",
-    "colorCharcoal": "Kömür"
+    "colorCharcoal": "Kömür",
+    "defaultGenel": "Genel",
+    "defaultWork": "İş",
+    "defaultCode": "Kod",
+    "defaultPersonal": "Kişisel"
   },
   "status": {
     "items": "öğe",

@@ -218,7 +218,11 @@
     "colorRuby": "Ruby Red",
     "colorTeal": "Ocean Teal",
     "colorRose": "Rose Pink",
-    "colorCharcoal": "Charcoal"
+    "colorCharcoal": "Charcoal",
+    "defaultGenel": "General",
+    "defaultWork": "Work",
+    "defaultCode": "Code",
+    "defaultPersonal": "Personal"
   },
   "status": {
     "items": "items",

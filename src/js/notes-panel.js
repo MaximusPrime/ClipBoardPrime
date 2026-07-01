@@ -56,6 +56,24 @@ const NotesPanel = (() => {
   let isDraggingGlobal = false;
 
   /**
+   * Varsayılan kategorilerin isimlerini seçili dile göre yerelleştirir
+   */
+  function getLocalizedCategoryName(name) {
+    if (!name) return '';
+    const mapping = {
+      'Genel': 'category.defaultGenel',
+      'İş': 'category.defaultWork',
+      'Kod': 'category.defaultCode',
+      'Kişisel': 'category.defaultPersonal'
+    };
+    const key = mapping[name];
+    if (key && window.i18n) {
+      return window.i18n.t(key);
+    }
+    return name;
+  }
+
+  /**
    * Modülü başlatır ve olay dinleyicilerini tanımlar
    */
   function init() {
@@ -359,7 +377,7 @@ const NotesPanel = (() => {
       // İkona renk ekleme
       const iconSvg = rawIcon.replace('class="icon-svg"', `class="icon-svg" style="color: ${iconColor};"`);
       
-      btn.innerHTML = `<span class="filter-emoji">${iconSvg}</span> ${Utils.escapeHtml(cat.name)}`;
+      btn.innerHTML = `<span class="filter-emoji">${iconSvg}</span> ${Utils.escapeHtml(getLocalizedCategoryName(cat.name))}`;
       elements.categoryFilter.appendChild(btn);
     });
 
@@ -389,7 +407,7 @@ const NotesPanel = (() => {
         
         opt.innerHTML = `
           <span class="icon-svg" style="display:flex;align-items:center;">${iconSvg}</span>
-          <span>${Utils.escapeHtml(cat.name)}</span>
+          <span>${Utils.escapeHtml(getLocalizedCategoryName(cat.name))}</span>
         `;
         optionsContainer.appendChild(opt);
       });
@@ -504,7 +522,7 @@ const NotesPanel = (() => {
       }
       
       const categoryTagHTML = note.category_name
-        ? `<span class="note-category-tag" style="background: ${note.category_color}22; color: ${note.category_color}; border-color: ${note.category_color}44;">${note.category_icon_svg || ''} ${Utils.escapeHtml(note.category_name)}</span>`
+        ? `<span class="note-category-tag" style="background: ${note.category_color}22; color: ${note.category_color}; border-color: ${note.category_color}44;">${note.category_icon_svg || ''} ${Utils.escapeHtml(getLocalizedCategoryName(note.category_name))}</span>`
         : `<span class="note-category-tag uncategorized">${window.i18n ? window.i18n.t('note.noCategory') : 'Kategorisiz'}</span>`;
 
       el.innerHTML = `
@@ -798,7 +816,7 @@ const NotesPanel = (() => {
       elements.detailCategory.style.display = 'block';
       elements.detailCategory.innerHTML = `
         <span class="note-category-tag">
-          ${Utils.Icons[note.category_icon] || Utils.Icons.folder} ${note.category_name}
+          ${Utils.Icons[note.category_icon] || Utils.Icons.folder} ${getLocalizedCategoryName(note.category_name)}
         </span>
       `;
     } else {
@@ -850,7 +868,7 @@ const NotesPanel = (() => {
       const iconColor = cat.color || 'var(--text-secondary)';
       const rawIcon = Utils.Icons[cat.icon] || Utils.Icons.folder;
       triggerIcon.innerHTML = rawIcon.replace('class="icon-svg"', `class="icon-svg" style="color: ${iconColor};"`);
-      triggerText.textContent = cat.name;
+      triggerText.textContent = getLocalizedCategoryName(cat.name);
     } else {
       triggerIcon.innerHTML = '';
       triggerText.textContent = window.i18n ? window.i18n.t('note.noCategoryOption') : '(Kategorisiz)';
@@ -929,7 +947,7 @@ const NotesPanel = (() => {
         elements.categoryPreview.style.display = 'block';
         elements.categoryPreview.innerHTML = `
           <span class="note-category-tag" style="font-size: 11px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-full); margin-top: 4px;">
-            ${Utils.Icons[cat.icon] || Utils.Icons.folder} ${cat.name}
+            ${Utils.Icons[cat.icon] || Utils.Icons.folder} ${getLocalizedCategoryName(cat.name)}
           </span>
         `;
       } else {
@@ -1046,7 +1064,7 @@ const NotesPanel = (() => {
       row.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:14px;display:flex;align-items:center;color:${cat.color || 'var(--text-secondary)'}">${Utils.Icons[cat.icon] || Utils.Icons.folder}</span>
-          <span style="font-weight:500;color:var(--text-primary)">${Utils.escapeHtml(cat.name)}</span>
+          <span style="font-weight:500;color:var(--text-primary)">${Utils.escapeHtml(getLocalizedCategoryName(cat.name))}</span>
         </div>
         <button class="btn-delete-cat" data-id="${cat.id}" style="color:var(--text-muted);cursor:pointer;font-size:11px;transition:color var(--transition-fast);padding:4px 8px;" aria-label="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}">${window.i18n ? window.i18n.t('category.deleteBtn') : '✕ Sil'}</button>
       `;
@@ -1057,7 +1075,7 @@ const NotesPanel = (() => {
         
         const confirmed = await window.App.confirm(
           window.i18n ? window.i18n.t('confirm.deleteCategoryTitle') : 'Kategoriyi Sil',
-          window.i18n ? window.i18n.t('confirm.deleteCategoryMsg', { name: cat.name }) : `"${cat.name}" kategorisini silmek istediğinize emin misiniz? Bu kategoriye bağlı notlar silinmez, "Kategorisiz" olarak güncellenir.`,
+          window.i18n ? window.i18n.t('confirm.deleteCategoryMsg', { name: getLocalizedCategoryName(cat.name) }) : `"${cat.name}" kategorisini silmek istediğinize emin misiniz? Bu kategoriye bağlı notlar silinmez, "Kategorisiz" olarak güncellenir.`,
           Utils.Icons.alertTriangle
         );
 

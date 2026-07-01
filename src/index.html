@@ -201,11 +201,11 @@
             </div>
 
             <div class="setting-group">
-              <div class="setting-group-title">Davranış</div>
+              <div class="setting-group-title" data-i18n="settings.groupBehavior">Davranış</div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span>Windows ile Başlat</span>
-                  <small>Bilgisayar açıldığında otomatik başlat</small>
+                  <span data-i18n="settings.autostartLabel">Windows ile Başlat</span>
+                  <small data-i18n="settings.autostartDesc">Bilgisayar açıldığında otomatik başlat</small>
                 </div>
                 <div class="setting-value">
                   <label class="toggle-switch">
@@ -216,8 +216,8 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span>Hassas Veri Algılama</span>
-                  <small>Şifre ve kredi kartı gibi verileri algıla</small>
+                  <span data-i18n="settings.sensitiveLabel">Hassas Veri Algılama</span>
+                  <small data-i18n="settings.sensitiveDesc">Şifre ve kredi kartı gibi verileri algıla</small>
                 </div>
                 <div class="setting-value">
                   <label class="toggle-switch">
@@ -228,8 +228,8 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span>Masaüstüne Tıklayınca Kapat</span>
-                  <small>Pencere odağını kaybettiğinde sistem tepsisine küçült</small>
+                  <span data-i18n="settings.blurToTrayLabel">Masaüstüne Tıklayınca Kapat</span>
+                  <small data-i18n="settings.blurToTrayDesc">Pencere odağını kaybettiğinde sistem tepsisine küçült</small>
                 </div>
                 <div class="setting-value">
                   <label class="toggle-switch">
@@ -240,12 +240,12 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span>Geçmiş Limiti</span>
-                  <small>Maksimum saklanan öğe sayısı</small>
+                  <span data-i18n="settings.historyLimitLabel">Geçmiş Limiti</span>
+                  <small data-i18n="settings.historyLimitDesc">Maksimum saklanan öğe sayısı</small>
                 </div>
                 <div class="setting-value">
                   <select class="setting-select" id="setting-history-limit" aria-label="Maksimum geçmiş limiti">
-                    <option value="0">Sınırsız</option>
+                    <option value="0" data-i18n="settings.historyLimitUnlimited">Sınırsız</option>
                     <option value="500">500</option>
                     <option value="1000">1.000</option>
                     <option value="5000">5.000</option>
@@ -255,8 +255,8 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span>Pano İzleme Aralığı</span>
-                  <small>Pano kontrolü arasındaki süre</small>
+                  <span data-i18n="settings.pollIntervalLabel">Pano İzleme Aralığı</span>
+                  <small data-i18n="settings.pollIntervalDesc">Pano kontrolü arasındaki süre</small>
                 </div>
                 <div class="setting-value">
                   <select class="setting-select" id="setting-poll-interval" aria-label="Pano izleme periyodu">
@@ -268,11 +268,11 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span>Global Kısayol</span>
-                  <small>Uygulamayı açmak/gizlemek için kısayol</small>
+                  <span data-i18n="settings.shortcutLabel">Global Kısayol</span>
+                  <small data-i18n="settings.shortcutDesc">Uygulamayı açmak/gizlemek için kısayol</small>
                 </div>
                 <div class="setting-value">
-                  <input type="text" id="setting-shortcut" readonly placeholder="Kısayola bas..." style="width: 140px; text-align: center; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 11.5px; cursor: pointer; color: var(--text-primary); transition: all var(--transition-fast);" aria-label="Uygulamayı açıp kapatmak için global klavye kısayolu">
+                  <input type="text" id="setting-shortcut" readonly placeholder="Kısayola bas..." data-i18n="[placeholder]settings.shortcutListening" style="width: 140px; text-align: center; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 11.5px; cursor: pointer; color: var(--text-primary); transition: all var(--transition-fast);" aria-label="Uygulamayı açıp kapatmak için global klavye kısayolu">
                 </div>
               </div>
             </div>

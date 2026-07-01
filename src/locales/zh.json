@@ -41,7 +41,7 @@
     "clipboardText": "您复制的内容将显示在这里。",
     "clipboardSearch": "没有找到匹配的内容。",
     "notesTitle": "未找到笔记",
-    "notesText": "点击右上角的"+"按钮添加新笔记。",
+    "notesText": "点击右上角的\"+\"按钮添加新笔记。",
     "notesSearch": "没有找到匹配的笔记。",
     "categoriesTitle": "暂无分类",
     "categoriesText": "您可以在上方创建新分类。"
@@ -99,11 +99,11 @@
     "clearHistoryTitle": "清除历史",
     "clearHistoryMsg": "确定要删除所有未固定的剪贴板历史吗？固定的条目将被保留。",
     "deleteItemTitle": "删除条目",
-    "deleteItemMsg": "确定要删除剪贴板条目"{{preview}}"吗？",
+    "deleteItemMsg": "确定要删除剪贴板条目\"{{preview}}\"吗？",
     "deleteNoteTitle": "删除笔记",
-    "deleteNoteMsg": "确定要删除笔记"{{title}}"吗？",
+    "deleteNoteMsg": "确定要删除笔记\"{{title}}\"吗？",
     "deleteCategoryTitle": "删除分类",
-    "deleteCategoryMsg": "确定要删除"{{name}}"分类吗？该分类下的笔记不会被删除，将更新为"未分类"。",
+    "deleteCategoryMsg": "确定要删除\"{{name}}\"分类吗？该分类下的笔记不会被删除，将更新为\"未分类\"。",
     "changeLocationTitle": "迁移数据位置",
     "changeLocationMsg": "确定要更改数据库位置并将当前数据复制到新位置吗？",
     "importDataTitle": "导入数据",
@@ -218,7 +218,11 @@
     "colorRuby": "红宝石红",
     "colorTeal": "海洋蓝绿",
     "colorRose": "玫瑰粉",
-    "colorCharcoal": "炭灰色"
+    "colorCharcoal": "炭灰色",
+    "defaultGenel": "通用",
+    "defaultWork": "工作",
+    "defaultCode": "代码",
+    "defaultPersonal": "个人"
   },
   "status": {
     "items": "条",
