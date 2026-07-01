@@ -1410,6 +1410,7 @@ function registerIPCHandlers() {
 
             // Sanal klavye kodları ve modifikatörler
             const VK_SHIFT = 0x10;
+            const VK_CONTROL = 0x11;
             const VK_MENU = 0x12;
             const VK_LWIN = 0x5B;
             const VK_RWIN = 0x5C;
@@ -1420,7 +1421,7 @@ function registerIPCHandlers() {
             // 1. Modifikatörleri serbest bırak (Ctrl, Shift, Alt, Win)
             const releaseInputs = [
               { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
-              { type: 1, u: { ki: { wVk: 0x11, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
               { type: 1, u: { ki: { wVk: VK_SHIFT, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
               { type: 1, u: { ki: { wVk: VK_MENU, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
               { type: 1, u: { ki: { wVk: VK_LWIN, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
