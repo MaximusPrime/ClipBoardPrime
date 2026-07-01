@@ -1417,8 +1417,10 @@ function registerIPCHandlers() {
             const VK_V = 0x56;
             const KEYEVENTF_KEYUP = 0x0002;
 
-            // 1. Modifikatörleri serbest bırak (Shift, Alt, Win)
+            // 1. Modifikatörleri serbest bırak (Ctrl, Shift, Alt, Win)
             const releaseInputs = [
+              { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: 0x11, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
               { type: 1, u: { ki: { wVk: VK_SHIFT, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
               { type: 1, u: { ki: { wVk: VK_MENU, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
               { type: 1, u: { ki: { wVk: VK_LWIN, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
