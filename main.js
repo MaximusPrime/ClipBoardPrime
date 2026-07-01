@@ -95,6 +95,33 @@ function getActiveWindowClassName() {
   }
 }
 
+function isValidTargetWindow(hwnd) {
+  if (!hwnd) return false;
+  if (!GetClassNameA) return true;
+  try {
+    const buf = Buffer.alloc(256);
+    const len = GetClassNameA(hwnd, buf, 256);
+    const className = buf.toString('ascii', 0, len).trim();
+    
+    // Masaüstü, Görev çubuğu ve bildirim pencereleri geçersiz yapıştırma hedefleridir
+    if (className === 'Progman' || className === 'WorkerW' || className === 'Shell_TrayWnd' || className === 'NotifyIconOverflowWindow') {
+      return false;
+    }
+    
+    // ClipBoardPrime'ın kendi penceresini de hedef yapıştırma penceresi olarak kaydetmiyoruz
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const mainHandle = mainWindow.getNativeWindowHandle();
+      if (mainHandle && Buffer.isBuffer(hwnd) && Buffer.compare(mainHandle, hwnd) === 0) {
+        return false;
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error('isValidTargetWindow hatası:', err);
+    return true;
+  }
+}
+
 // Geliştirme modu ve Portable mod tespiti
 const isDev = process.argv.includes('--dev');
 const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
@@ -564,7 +591,10 @@ function showWindow() {
     return;
   }
   if (!mainWindow.isVisible() && GetForegroundWindow) {
-    lastActiveWindowHwnd = GetForegroundWindow();
+    const activeHwnd = GetForegroundWindow();
+    if (isValidTargetWindow(activeHwnd)) {
+      lastActiveWindowHwnd = activeHwnd;
+    }
   }
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
@@ -592,7 +622,10 @@ function toggleWindow() {
     hideWindow();
   } else {
     if (GetForegroundWindow) {
-      lastActiveWindowHwnd = GetForegroundWindow();
+      const activeHwnd = GetForegroundWindow();
+      if (isValidTargetWindow(activeHwnd)) {
+        lastActiveWindowHwnd = activeHwnd;
+      }
     }
     showWindow();
   }
