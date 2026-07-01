@@ -1405,8 +1405,8 @@ function registerIPCHandlers() {
               console.log('SetForegroundWindow sonucu:', setFocusResult);
             }
 
-            // İşletim sisteminin odağı tamamen o pencereye geçirmesi için asenkron gecikme
-            await new Promise(resolve => setTimeout(resolve, 150));
+            // İşletim sisteminin odağı tamamen o pencereye geçirmesi için asenkron gecikme (350ms)
+            await new Promise(resolve => setTimeout(resolve, 350));
 
             // Sanal klavye kodları ve modifikatörler
             const VK_SHIFT = 0x10;
