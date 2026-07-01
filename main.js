@@ -33,6 +33,7 @@ let GetClassNameA = null;
 let SendInput = null;
 let INPUT = null;
 let lastActiveWindowHwnd = null;
+let GetLastError = null;
 
 if (process.platform === 'win32') {
   try {
@@ -77,6 +78,9 @@ if (process.platform === 'win32') {
     SetForegroundWindow = user32.func('bool SetForegroundWindow(void *hWnd)');
     GetClassNameA = user32.func('int GetClassNameA(void *hWnd, char *lpClassName, int nMaxCount)');
     SendInput = user32.func('uint32_t SendInput(uint32_t cInputs, INPUT *pInputs, int cbSize)');
+
+    const kernel32 = koffi.load('kernel32.dll');
+    GetLastError = kernel32.func('uint32_t GetLastError()');
   } catch (err) {
     console.error('Koffi loading or Win32 API initialization failed:', err);
   }
@@ -1417,7 +1421,8 @@ function registerIPCHandlers() {
               { type: 1, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
             ];
 
-            SendInput(inputs.length, inputs, koffi.sizeof(INPUT));
+            const res = SendInput(inputs.length, inputs, koffi.sizeof(INPUT));
+            console.log('SendInput yerel cagri sonucu:', res, 'GetLastError:', GetLastError ? GetLastError() : 'N/A');
           } catch (sendErr) {
             console.error('SendInput yapıştırma hatası:', sendErr);
           } finally {
