@@ -1391,13 +1391,22 @@ function registerIPCHandlers() {
       if (SendInput && INPUT) {
         setTimeout(async () => {
           try {
+            // Hedef pencereyi ve sınıfını logla
+            if (lastActiveWindowHwnd && GetClassNameA) {
+              const buf = Buffer.alloc(256);
+              const len = GetClassNameA(lastActiveWindowHwnd, buf, 256);
+              const className = buf.toString('ascii', 0, len).trim();
+              console.log('Odak geri yukleniyor, Hedef Pencere Sınıfı:', className);
+            }
+
             // Hedef pencereyi öne getir
             if (lastActiveWindowHwnd && SetForegroundWindow) {
-              SetForegroundWindow(lastActiveWindowHwnd);
+              const setFocusResult = SetForegroundWindow(lastActiveWindowHwnd);
+              console.log('SetForegroundWindow sonucu:', setFocusResult);
             }
 
             // İşletim sisteminin odağı tamamen o pencereye geçirmesi için asenkron gecikme
-            await new Promise(resolve => setTimeout(resolve, 80));
+            await new Promise(resolve => setTimeout(resolve, 100));
 
             // Sanal klavye kodları ve modifikatörler
             const VK_SHIFT = 0x10;
@@ -1408,20 +1417,39 @@ function registerIPCHandlers() {
             const VK_V = 0x56;
             const KEYEVENTF_KEYUP = 0x0002;
 
-            // Giriş simülasyonu dizisi (8 tuş olayı)
-            // Önce basılı kalmış olabilecek Shift, Alt, Win tuşlarını serbest bırakıyoruz
-            const inputs = [
+            // 1. Modifikatörleri serbest bırak (Shift, Alt, Win)
+            const releaseInputs = [
               { type: 1, u: { ki: { wVk: VK_SHIFT, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
               { type: 1, u: { ki: { wVk: VK_MENU, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
               { type: 1, u: { ki: { wVk: VK_LWIN, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
-              { type: 1, u: { ki: { wVk: VK_RWIN, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
-              { type: 1, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_RWIN, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
+            ];
+            SendInput(releaseInputs.length, releaseInputs, koffi.sizeof(INPUT));
+
+            await new Promise(resolve => setTimeout(resolve, 15));
+
+            // 2. Ctrl tuşuna bas (Down)
+            const ctrlDown = [
+              { type: 1, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } }
+            ];
+            SendInput(ctrlDown.length, ctrlDown, koffi.sizeof(INPUT));
+
+            await new Promise(resolve => setTimeout(resolve, 15));
+
+            // 3. V tuşuna bas ve bırak (Down -> Up)
+            const vKeys = [
               { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
-              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
+            ];
+            SendInput(vKeys.length, vKeys, koffi.sizeof(INPUT));
+
+            await new Promise(resolve => setTimeout(resolve, 15));
+
+            // 4. Ctrl tuşunu bırak (Up)
+            const ctrlUp = [
               { type: 1, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
             ];
-
-            const res = SendInput(inputs.length, inputs, koffi.sizeof(INPUT));
+            const res = SendInput(ctrlUp.length, ctrlUp, koffi.sizeof(INPUT));
             console.log('SendInput yerel cagri sonucu:', res, 'GetLastError:', GetLastError ? GetLastError() : 'N/A');
           } catch (sendErr) {
             console.error('SendInput yapıştırma hatası:', sendErr);
