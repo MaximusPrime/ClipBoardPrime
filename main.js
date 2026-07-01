@@ -1406,7 +1406,7 @@ function registerIPCHandlers() {
             }
 
             // İşletim sisteminin odağı tamamen o pencereye geçirmesi için asenkron gecikme
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 150));
 
             // Sanal klavye kodları ve modifikatörler
             const VK_SHIFT = 0x10;
@@ -1447,7 +1447,7 @@ function registerIPCHandlers() {
               isWritingToClipboard = false;
             }, 50);
           }
-        }, 100);
+        }, 200);
       } else {
         // Fallback: mshta yöntemi (koffi yüklenemezse yedek olarak çalışır)
         setTimeout(() => {
