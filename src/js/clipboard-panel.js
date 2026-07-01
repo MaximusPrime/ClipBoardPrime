@@ -343,6 +343,7 @@ const ClipboardPanel = (() => {
       </div>
       <div class="clip-item-actions">
         ${sensitiveBtnHTML}
+        <button class="clip-action-btn paste-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.paste') : 'Yapıştır'}" aria-label="${window.i18n ? window.i18n.t('tooltip.paste') : 'Yapıştır'}">${Utils.Icons.paste}</button>
         <button class="clip-action-btn copy-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}">${Utils.Icons.copy}</button>
         <button class="clip-action-btn pin-btn ${item.is_pinned ? 'pin-active' : ''}" data-tooltip="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi Kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}" aria-label="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}">${Utils.Icons.pin}</button>
         <button class="clip-action-btn fav-btn ${item.is_favorite ? 'fav-active' : ''}" data-tooltip="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden Çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere Ekle')}" aria-label="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere ekle')}">${Utils.Icons.star}</button>
@@ -357,7 +358,7 @@ const ClipboardPanel = (() => {
   }
 
   /**
-   * Pano öğesi üzerindeki olayları bağlar
+   * Pano geçmişi üzerindeki olayları bağlar
    */
   function bindItemEvents(el, item) {
     // Klavye navigasyonu (Ok tuşları ile odaklanma, Enter ile yapıştırma, Space ile kopyalama)
@@ -367,7 +368,7 @@ const ClipboardPanel = (() => {
         if (item.content_type === 'image' && item.image_path) {
           openImageViewer(item.image_path);
         } else {
-          await copyToSystemClipboard(item, el);
+          await pasteToActiveWindow(item);
         }
       } else if (e.key === ' ') {
         e.preventDefault();
@@ -449,11 +450,11 @@ const ClipboardPanel = (() => {
       }, 200);
     });
 
-    // Çift tıklama: Görseller hariç öğeyi doğrudan kopyalar
+    // Çift tıklama: Görseller hariç öğeyi doğrudan aktif pencereye yapıştırır
     el.addEventListener('dblclick', async (e) => {
       if (e.target.closest('.clip-action-btn')) return;
       if (item.content_type === 'image') return;
-      await copyToSystemClipboard(item, el);
+      await pasteToActiveWindow(item);
     });
 
     // Genişlet/Daralt butonu olayını bağla
@@ -522,6 +523,15 @@ const ClipboardPanel = (() => {
 
 
 
+
+    // Yapıştır butonu
+    const pasteBtn = el.querySelector('.paste-btn');
+    if (pasteBtn) {
+      pasteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await pasteToActiveWindow(item);
+      });
+    }
 
     // Kopyala butonu
     el.querySelector('.copy-btn').addEventListener('click', async (e) => {

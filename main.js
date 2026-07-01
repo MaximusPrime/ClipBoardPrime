@@ -26,6 +26,7 @@ const crypto = require('crypto');
 const { exec, execFile } = require('child_process');
 
 // ─── Win32 API ve koffi Tanımlamaları ──────────────────────────
+let koffi = null;
 let GetForegroundWindow = null;
 let SetForegroundWindow = null;
 let GetClassNameA = null;
@@ -35,7 +36,7 @@ let lastActiveWindowHwnd = null;
 
 if (process.platform === 'win32') {
   try {
-    const koffi = require('koffi');
+    koffi = require('koffi');
     const user32 = koffi.load('user32.dll');
 
     const MOUSEINPUT = koffi.struct('MOUSEINPUT', {
