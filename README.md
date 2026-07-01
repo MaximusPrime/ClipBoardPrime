@@ -1,330 +1,180 @@
 <div align="center">
 
-  <img src="assets/logo.png" alt="ClipBoardPrime Logo" width="96" height="96">
+  <img src="assets/logo.png" alt="ClipBoardPrime Logo" width="112" height="112">
 
   # ClipBoardPrime
 
-**Masaüstünüz için ultra hızlı, akıllı ve güvenli bir pano yöneticisi**
+  **An ultra-fast, intelligent, and highly secure clipboard manager for your desktop.**
 
-[![Electron](https://img.shields.io/badge/Electron-v33-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
-[![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![License](https://img.shields.io/badge/Lisans-MIT-22c55e?style=for-the-badge)](LICENSE)
-[![Developer](https://img.shields.io/badge/Geliştirici-MaximusPrime77-f97316?style=for-the-badge&logo=github)](https://github.com/MaximusPrime77)
+  [![Electron](https://img.shields.io/badge/Electron-v33-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
+  [![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+  [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+  [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
+  [![Developer](https://img.shields.io/badge/Developer-MaximusPrime77-f97316?style=for-the-badge&logo=github)](https://github.com/MaximusPrime77)
 
 </div>
 
 ---
 
-## 🌟 Proje Hakkında
+## 🌟 Overview
 
-**ClipBoardPrime**, sadece bir pano geçmişi uygulaması değildir. Arka planda sessizce çalışarak kopyaladığınız her metni, URL'yi, kodu, e-postayı ve görseli yerel bir SQLite veritabanında güvenle depolar. Tek bir global kısayolla (`Ctrl+Shift+V`) anında erişebileceğiniz bu uygulama; sınırsız geçmiş, akıllı içerik algılama, not sistemi ve hassas veri maskeleme gibi güçlü özelliklerle donatılmıştır.
+**ClipBoardPrime** is a premium, lightweight desktop clipboard companion. Operating silently in the system tray, it monitors and securely archives your copied texts, URLs, code snippets, emails, and images into a highly optimized, encrypted local SQLite database. 
 
----
-
-##   Özellikler
-
-### 🗂️ Pano Geçmiş Yönetimi
-- **Sınırsız Geçmiş**: Tüm kopyalama geçmişi yerel SQLite veritabanında tutulur. `Ayarlar → Genel` kısmından maksimum kayıt sayısı belirlenebilir; `0` = sınırsız.
-- **Anlık İçerik Algılama**: Her yeni kopyalama anında aşağıdaki türlere otomatik olarak sınıflandırılır:
-  - 📄 **Metin** — Düz metin
-  - 🔗 **URL** — `http://`, `https://` veya `www.` ile başlayan bağlantılar
-  - 📧 **E-posta** — Geçerli e-posta adresi formatı
-  - 💻 **Kod** — JSON, HTML, CSS, SQL, JS/TS, Python, Rust, Go, PHP ve 15+ dil/komut satırı formatlarını algılayan gelişmiş regex motoru
-  - 🖼️ **Görsel** — Ekran görüntüsü veya kopyalanan görseller PNG olarak yerel diske kaydedilir
-
-### 🔒 Hassas Veri Koruma (Otomatik Maskeleme & AES-256-GCM Şifreleme)
-- **Güçlü Şifreleme (AES-256-GCM)**: Hassas veri olarak algılanan veya kullanıcı tarafından işaretlenen içerikler veritabanında (`clipboard-prime.db`) düz metin olarak değil, cihaza özel üretilen benzersiz şifreleme anahtarı ile **AES-256-GCM** algoritması kullanılarak şifrelenmiş halde saklanır.
-- **Güvenli Anahtar Depolama**: Şifreleme anahtarı uygulamanın güvenli yerel kullanıcı dizinindeki `config.json` dosyasında saklanır.
-- **Otomatik Maskeleme**: Kopyalanan içerik otomatik olarak aşağıdaki kalıplar için taranır, veritabanına şifreli yazılır ve arayüzde `••••••••••••` şeklinde maskelenir:
-  - **Kredi/Banka Kartı Numaraları** (Visa, Mastercard, Amex, Troy dahil 13–19 hane)
-  - **API Anahtarları** (Google `AIzaSy`, GitHub `ghp_/github_pat_`, Slack `xox*`, SendGrid `SG.` formatları)
-  - **JWT Tokenları** (`eyJ...` formatı)
-  - **Şifre Eşleşmeleri** (`password:`, `şifre=` gibi anahtar kelimeler)
-  - **PEM Private Key** (`-----BEGIN PRIVATE KEY-----`)
-  - **T.C. Kimlik Numarası** (Checksum doğrulamasıyla yanlış pozitifler engellenir)
-- Maskelenmiş içerik, göz simgesine tıklanarak geçici olarak görünür hale getirilebilir.
-
-### 🎨 Akıllı Çift Tıklama ile Kopyalama
-- **Metin / URL / E-posta / Kod**: Karta **çift tıklanınca** panoya kopyalanır. Tek tıklama kartı genişletir/daraltır.
-- **Görseller**: Çift tıklamada kopyalama çalışmaz; görsel büyük modal'da açılır.
-- **200ms Debounce**: Çift tıklama sırasında kartın boyutu değişmez (layout shift yok); kopyalama hiçbir aksama olmadan gerçekleşir.
-- **Metin Seçimi Koruması**: Üzerinde metin seçiliyken tek tık daraltma tetiklenmez.
-
-### 📌 Sabitleme & Favori Sistemi
-- Her öğe tek tıkla **sabitlenebilir** (listede her zaman üstte kalır) veya **favorilere eklenebilir**.
-- **Filtreler**: `Tümü`, `Metin`, `URL`, `Kod`, `E-posta`, `Görsel`, `Sabitlenmiş`, `Favoriler`
-- Sabitlenmiş öğeler, geçmiş temizleme işleminden etkilenmez.
-
-### ♾️ Sonsuz Kaydırma (Infinite Scroll)
-- Liste 50'şer öğe yükler; listenin alt kısmına 50px mesafeye gelindiğinde otomatik olarak bir sonraki sayfa çekilir.
-- İlk yüklemede animasyonlu **skeleton** ekranı ile titreme (flicker) önlenir.
-- `replaceChildren()` API'si kullanılarak DOM yenileme titremesi ortadan kaldırılmıştır.
-
-### 🗓️ Tarihsel Gruplama
-- Arama veya özel filtre aktif değilken öğeler; **Bugün**, **Dün**, **Bu Hafta**, **Geçen Hafta** ve **[Ay Adı]** başlıkları altında otomatik gruplanır.
-
-### 🔍 Anlık Arama & Vurgulama
-- Yazıldığı anda eşleşmeleri filtreleyen gerçek zamanlı arama.
-- Eşleşen karakterler `<mark>` ile **sarı vurgu** olarak gösterilir.
-
-### 📐 Genişlet / Daralt (Uzun Metinler)
-- 120 karakterden uzun metinler veya çok satırlı içerikler varsayılan olarak kırpılmış gösterilir.
-- Kartın alt-orta köşesindeki **chevron (▼) okuna** tıklanarak tam içerik genişletilir.
-- Kart daraltıldığında:
-  - `requestAnimationFrame` × 2 senkronizasyonu ile tarayıcı yeni boyutu hesapladıktan sonra `scrollIntoView` çağrılır.
-  - `smooth` kaydırmayla kart görüş alanında tutulur.
-  - 0.8 saniyelik yumuşak mavi **parlama (collapse-highlight glow)** efektiyle göz yönlendirilir.
-
-### ⚡ Aktif Pencereye Yapıştır
-- **Yapıştır** butonu veya `Enter` tuşuna basınca uygulama gizlenir ve içerik `mshta VBScript` aracılığıyla önceki aktif uygulamaya (`Ctrl+V`) otomatik gönderilir.
-
-### 📎 Panoya Kopyala → Nota Dönüştür
-- Her pano öğesi yanındaki **📄 Not Olarak Kaydet** butonuyla Not Paneline doğrudan not olarak aktarılabilir.
+With a customizable global hotkey (`Ctrl + Shift + V`), the panel slides into focus instantly, allowing you to search, filter, preview, organize, and directly paste any historical clipboard item back into your active window.
 
 ---
 
-## 📝 Not Paneli
+## 📸 Screenshots Showcase
 
-Uygulamanın ikinci modülü; bağımsız, tam özellikli bir not alma sistemidir.
+Here is a look at the ClipBoardPrime interface in action:
 
-### ✏️ Not Düzenleme
-- Modal tabanlı editör: Başlık, içerik, kategori ve renk seçimi.
-- Yeni not oluştururken aktif kategori filtresi otomatik seçilir.
-
-### 🏷️ Kategori Sistemi
-- Notlar kullanıcı tanımlı kategorilere atanabilir.
-- Her kategorinin özel **rengi** ve **SVG ikonu** (folder, briefcase, code, user vb.) vardır.
-- Kategori silindiğinde bağlı notlar kaybolmaz; "Kategorisiz" olarak güncellenir.
-- Kategori filtresi ile notlar anlık filtrelenebilir.
-- Başlık ve içerik boyunca **arama vurgulama** desteklenir.
-
-### 🎨 Renk Etiketi
-- Her nota renk etiketi (charcoal, mavi, yeşil, sarı vb.) atanabilir; kartlarda soldaki renkli çizgi olarak gösterilir.
-
-### 📌 Sabitleme & Sıralama
-- Notlar sabitlenebilir; sabitlenenler listenin üstünde ayrı grupta yer alır.
-- **Sürükle-Bırak (Drag & Drop)** ile not sıralaması değiştirilebilir.
-  - Sıralama yalnızca aynı gruptaki (sabitlenmiş↔sabitlenmiş, sıradan↔sıradan) notlar arasında geçerlidir.
-  - Arama veya kategori filtresi aktifken sürükleme devre dışıdır.
-
-### 🔎 Detay Modalı
-- Notların tam içeriğini, kategorisini ve güncelleme tarihini gösteren büyük görüntüleme modalı.
-- Modal içinden doğrudan düzenleme veya kopyalama yapılabilir.
-
-### ⌨️ Klavye Navigasyonu
-- `↑` / `↓` ile not kartları arasında gezinme.
-- `Enter` veya `Space` ile detay modalını açma.
+<div align="center">
+  <table>
+    <tr>
+      <td width="50%" align="center">
+        <b>Main Clipboard History Panel</b><br/>
+        <img src="screenshort/2026-07-01-11-29-03-4bd8.png" alt="ClipBoardPrime History Panel" width="100%">
+      </td>
+      <td width="50%" align="center">
+        <b>Notes & Categories Manager</b><br/>
+        <img src="screenshort/2026-07-01-11-29-32-65a0.png" alt="ClipBoardPrime Notes Management" width="100%">
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" align="center">
+        <b>Settings & Shortcut Customization</b><br/>
+        <img src="screenshort/2026-07-01-11-29-41-0b8b.png" alt="ClipBoardPrime Settings Configuration" width="100%">
+      </td>
+      <td width="50%" align="center">
+        <b>Compact View & Tray Integration</b><br/>
+        <img src="screenshort/2026-07-01-11-28-33-b1af.png" alt="ClipBoardPrime Compact Mode" width="100%">
+      </td>
+    </tr>
+  </table>
+</div>
 
 ---
 
-## ⚙️ Ayarlar
+## ✨ Key Features
 
-### 🎨 Tema
-| Seçenek | Açıklama |
-|:--|:--|
-| **Koyu (Obsidian)** | Varsayılan; göz yormayan derin koyu renk paleti |
-| **Açık** | Yüksek kontrastlı beyaz tema |
-| **Sistem** | İşletim sistemi tercihini otomatik takip eder (`prefers-color-scheme`) |
+### 🗂️ Advanced Clipboard Archiving
+*   **Infinite Clipboard History:** Keep track of everything you copy. Maximum log limits can be customized under `Settings → General` (set to `0` for unlimited history).
+*   **Smart Content Detection:** Incoming clipboard events are automatically parsed, categorized, and tagged:
+    *   📄 **Text:** Plain text entries.
+    *   🔗 **URL:** Links starting with `http://`, `https://`, or `www.`
+    *   📧 **Email:** Valid email address structures.
+    *   💻 **Code:** Dynamic regex matching identifies functions, tags, imports, and variables across 15+ programming and markup languages (JS/TS, Python, C++, HTML, SQL, etc.).
+    *   🖼️ **Image:** Images or screenshots copied to your clipboard are compressed and saved directly as PNGs on disk.
 
-- Tema değişikliği **anlık** (layout shift veya sayfa yenilemesi olmadan) uygulanır.
-- `window.matchMedia` ile sistem teması değiştiğinde uygulama otomatik güncellenir.
+### 🔒 Enterprise-Grade Local Security (AES-256-GCM)
+*   **Encrypted Storage:** Sensitive contents (such as bank cards or tokens) are encrypted on-the-fly using the **AES-256-GCM** algorithm prior to database serialization.
+*   **Auto-Masking Engine:** The app monitors your clipboard and automatically masks + encrypts sensitive matches in real-time, including:
+    *   **Credit/Debit Cards:** Visa, Mastercard, American Express, Troy (13-19 digits).
+    *   **API Credentials:** Google (`AIzaSy`), GitHub tokens (`ghp_`, `github_pat_`), Slack secrets (`xox*`), SendGrid keys (`SG.`).
+    *   **JSON Web Tokens (JWT):** Strings starting with `eyJ...`
+    *   **System Credentials:** Key-value pairs containing keywords like `password:`, `şifre=`, etc.
+    *   **PEM Private Keys:** Cryptographic blocks starting with `-----BEGIN PRIVATE KEY-----`.
+    *   **National ID Numbers:** Turkish T.C. Identification Numbers (validated with checksum verification to prevent false positives).
+*   **Temporary Reveal:** Click the eye/eye-off icon to toggle visibility of masked text.
 
-### ⏱️ Clipboard İzleme Aralığı
-- 200ms – 5000ms arasında özelleştirilebilir polling aralığı.
-- Ayar kaydedilince watcher yeniden başlatılarak anlık devreye girer.
+### ⚡ Native Paste-to-Active-Window
+*   **Instant Simulation:** Select any card and click the dedicated **Paste** button, double-click the item, or press **Enter**. The application will instantly yield focus, bring the previous application to the foreground, and type the content natively using the Windows `SendInput` API.
+*   **State Cleansing:** Releases any stuck modifier keys (Ctrl, Shift, Alt, Win) from the OS input stream before typing, preventing key conflicts.
+*   **Dynamic Focus Tracking:** If you switch to another target application while ClipBoardPrime is open, the app automatically tracks your active window focus, ensuring pasting goes to the right place.
 
-### 🛡️ Hassas Veri Algılama
-- Tek bir toggle ile etkinleştirilir/devre dışı bırakılır.
+### 📌 Organization & Categorization
+*   **Pinning & Favorites:** Pin important clips to keep them at the top of your feed, or star them for quick filtering. Pinned clips are protected from bulk history clearing.
+*   **Smart Date Grouping:** Natural timeline categories such as **Today**, **Yesterday**, **This Week**, **Last Week**, and **[Month Name]**.
+*   **Live Search with Highlighting:** Instant full-text search. Matched characters are highlighted in yellow using HTML `<mark>` tags.
 
-### 🚀 Windows ile Birlikte Başlat
-
-Uygulama, sistem başlangıcında otomatik olarak çalışacak şekilde yapılandırılabilir:
-- **Windows Kayıt Defteri (Registry) Entegrasyonu**: Windows Başlangıç ayarı, doğrudan Windows Registry (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`) manipüle edilerek gerçekleştirilir.
-- **Ayarlar Paneli**: Kullanıcılar bu özelliği arayüzdeki ayarlar menüsünden diledikleri zaman aktif veya pasif hale getirebilirler.
-
-### ⌨️ Global Kısayol (Özelleştirilebilir)
-- Odaklanılınca klavyeye basmak yeterli; kombinasyon otomatik okunur ve kaydedilir.
-- `Ctrl`, `Alt`, `Shift`, `Meta` + herhangi bir tuş kombinasyonu desteklenir.
-- Kayıt sonrası eski kısayol kaldırılır, yenisi anında aktif olur.
-
-### 💾 Veri Yönetimi
-| İşlev | Açıklama |
-|:--|:--|
-| **Veri Konumu Değiştir** | Veritabanı başka bir klasöre taşınır. Disk boş alan + yazma yetkisi kontrolü yapılır; hata durumunda otomatik rollback mevcuttur |
-| **Veriyi Dışa Aktar** | Tüm pano geçmişi, notlar, kategoriler ve ayarlar tek bir JSON dosyasına aktarılır. Görseller **base64** olarak dahil edilir |
-| **Veriyi İçe Aktar** | JSON yedek dosyası şema doğrulamasından geçirilir; mükerrer kayıtlar atlanır, kategoriler otomatik eşleştirilir |
-
----
-
-## 🖥️ Uygulama Altyapısı
-
-### 🔒 Güvenlik Mimarisi
-- **Context Isolation** ve **Sandbox** açık, `nodeIntegration` kapalıdır.
-- `contextBridge` üzerinden `preload.js`'te beyaz listeli IPC kanalları aracılığıyla işlem köprüsü kurulur.
-- İzin verilmeyen kanallara yapılan çağrılar hata fırlatır.
-- Görsel dosyaları özel `local-file://` protokolü üzerinden CSP atlatmadan güvenle yüklenir.
-
-### 📦 Tek Instance Kilidi
-- İkinci bir uygulama açılmaya çalışıldığında mevcut pencere öne getirilir (`requestSingleInstanceLock`).
-
-### 🗂️ Sistem Tepsisi (System Tray)
-- Pencere kapatıldığında arka planda çalışmaya devam eder, sistem tepsisinde ikonla görünür.
-- İlk kapatmada **balon bildirimi** ile kullanıcı bilgilendirilir (yalnızca bir kez).
-- Tepsi menüsünden: Göster, Ayarlar, Çıkış.
-
-### 🪟 Pencere Hafızası
-- Pencere boyut ve konumu SQLite'a yazılır; yeniden açılışta tam olarak geri yüklenir.
-- Pencerenin görünür monitörlerin dışında kalmaması için **off-screen detection** kontrolü mevcuttur.
-
-### ♻️ Yetim Görsel Temizleme
-- Uygulama başlangıcında veritabanında kaydı olmayan görsel dosyaları diskten otomatik silinir.
-
-### 🗄️ Veritabanı Performansı
-- `WAL` (Write-Ahead Logging) modu aktif → eş zamanlı okuma/yazma performansı yüksek.
-- `SYNCHRONOUS = NORMAL` ve `8MB cache` ile optimize edilmiştir.
-- Tüm sorgular `Prepared Statement` kullanır → SQL enjeksiyonuna karşı güvenli.
-- Tarih, tür, pin ve favori alanlarına **SQL indeksleri** tanımlıdır.
+### ✏️ Built-in Notes Board
+*   **Quick Note Creation:** Copy a clipboard card directly into a new note with a single click.
+*   **Category Tags & Styling:** Group notes into categories with custom SVG icons (folder, briefcase, user, code, etc.) and color-coded labels.
+*   **Drag-and-Drop Reordering:** Change the sequence of your notes using drag-and-drop.
+*   **Detailed Viewer Modal:** View and edit full notes in a dedicated layout.
 
 ---
 
-## 📐 Veritabanı Şeması
+## ⌨️ Global Shortcuts
 
-```mermaid
-erDiagram
-    CLIPBOARD_HISTORY {
-        INTEGER id PK
-        TEXT content
-        TEXT content_type "text | url | email | code | image | html"
-        TEXT preview
-        TEXT image_path "PNG görsel dosya yolu"
-        INTEGER is_pinned "0 | 1"
-        INTEGER is_favorite "0 | 1"
-        INTEGER is_sensitive "0 | 1"
-        TEXT source_app
-        INTEGER char_count
-        DATETIME created_at
-    }
-    NOTES {
-        INTEGER id PK
-        TEXT title
-        TEXT content
-        INTEGER category_id FK
-        TEXT color "renk etiketi"
-        INTEGER is_pinned "0 | 1"
-        INTEGER sort_order "drag-drop sırası"
-        DATETIME created_at
-        DATETIME updated_at
-    }
-    CATEGORIES {
-        INTEGER id PK
-        TEXT name UNIQUE
-        TEXT color
-        TEXT icon "svg ikon adı"
-        INTEGER sort_order
-    }
-    SETTINGS {
-        TEXT key PK
-        TEXT value
-    }
-    NOTES ||--o{ CATEGORIES : "category_id"
-```
+| Shortcut | Context | Description |
+|:---|:---|:---|
+| `Ctrl + Shift + V` *(customizable)* | System-Wide | Show / Hide the Clipboard Panel |
+| `Double Click` | Clipboard List | Paste item to active window (excluding images) |
+| `Single Click` | Long Text Cards | Expand / Collapse card with smooth scroll and highlight |
+| `Enter` | Clipboard List | Paste item to active window / Open full view |
+| `Space` | Clipboard List | Copy item back to system clipboard |
+| `↑ / ↓` Arrow Keys | General | Navigate between list items |
+| `Escape` | Modals | Close the active modal |
 
 ---
 
-## ⌨️ Klavye Kısayolları
+## 🚀 Installation & Developer Setup
 
-| Kısayol | Ekran | Açıklama |
-|:--|:--|:--|
-| `Ctrl+Shift+V` *(özelleştirilebilir)* | Global | Paneli göster / gizle |
-| `Çift Tık` | Pano Listesi | Öğeyi panoya kopyala (görseller hariç) |
-| `Tek Tık` | Uzun Kart | Kartı genişlet / daralt |
-| `Enter` | Pano Listesi | Öğeyi aktif pencereye yapıştır (görsel ise aç) |
-| `Space` | Pano Listesi | Öğeyi panoya kopyala (görsel ise aç) |
-| `↑ / ↓` | Pano & Not Listesi | Öğeler arasında klavye ile gezin |
-| `Escape` | Modallar | Açık modalı kapat |
-| `Enter / Space` | Not Listesi | Notun detay modalını aç |
+### Prerequisites
+*   [Node.js](https://nodejs.org/) (v18 or higher)
+*   npm
 
----
-
-## 🚀 Geliştirici Kurulumu
-
-### Gereksinimler
-- [Node.js](https://nodejs.org/) (v18 veya üzeri)
-- npm
-
-### 1. Depoyu Klonlayın
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/MaximusPrime77/ClipBoardPrime.git
 cd ClipBoardPrime
 ```
 
-### 2. Bağımlılıkları Yükleyin
+### 2. Install Dependencies
 ```bash
 npm install
 ```
 
 > [!IMPORTANT]
-> Bu projede yerel C++ bağlantısı olan `better-sqlite3` modülü kullanılmaktadır. Electron sürümü değiştirildiğinde veya veritabanı hatası alındığında şu komutla yeniden derleyin:
+> This project uses the `better-sqlite3` module, which contains native C++ bindings. If you switch Electron versions or encounter binary issues, rebuild the native modules using:
 > ```bash
 > npm run rebuild
 > ```
 
-### 3. Geliştirme Modunda Çalıştırın
+### 3. Run in Development Mode
 ```bash
 npm run dev
 ```
-Geliştirme modunda DevTools otomatik olarak açılır ve veriler `%AppData%/clipboard-prime-app-dev` konumuna yazılır.
+In development mode, Electron DevTools will open automatically, and persistent app data will be stored under the `%AppData%/clipboard-prime-app-dev` directory.
 
 ---
 
-## 📦 Derleme (Build)
+## 📦 Building & Packaging
 
-Uygulamayı `.exe` olarak derlemek için `electron-builder` kullanılmaktadır:
+To compile and package the app for distribution:
 
 ```bash
 npm run build
 ```
 
-`dist/` klasöründe iki adet derleme çıktısı oluşur:
+This generates two output files inside the `dist/` directory:
 
-| Çıktı | Açıklama |
-|:--|:--|
-| `ClipBoardPrime Setup.exe` | Standart Windows kurulum paketi (NSIS) |
-| `ClipBoardPrime Portable.exe` | Kurulum gerektirmeyen, hafifletilmiş taşınabilir sürüm (Veriler `.exe` yanındaki `/data` klasöründe saklanır) |
-
-> [!NOTE]
-> **Hafifletilmiş Taşınabilir (Portable) Mod Özellikleri:**
-> - Projeden geliştirici bağımlılıkları arındırılarak derlenmiştir. Bu sayede açılış hızı anlık olup geçici klasör yazma yükü minimuma indirilmiştir (çıkartılan boyut ~150-180 MB).
-> - Veri konumu taşınabilir modda değiştirilemez (her zaman `/data` klasöründe kalır).
-> - Şifreleme anahtarı da `/data/config.json` altında tutularak tam taşınabilirlik ve veri bağımsızlığı sağlanır.
+| Build Output | Description |
+|:---|:---|
+| `ClipBoardPrime Setup.exe` | Standard Windows NSIS installer |
+| `ClipBoardPrime Portable.exe` | Lightweight, portable version. All database files and configurations are kept in the `/data` folder adjacent to the executable |
 
 ---
 
-## 🤝 Katkıda Bulunma
-
-Projeye katkıda bulunmak ister misiniz? Lütfen önce [CONTRIBUTING.md](CONTRIBUTING.md) dosyasını inceleyin.
-
-- 🐛 Hata bildirin → [GitHub Issues](https://github.com/MaximusPrime77/ClipBoardPrime/issues)
-- ✨ Özellik önerin → [GitHub Issues](https://github.com/MaximusPrime77/ClipBoardPrime/issues)
-- 🔧 Kod katkısı → [Pull Request](https://github.com/MaximusPrime77/ClipBoardPrime/pulls)
+## 🛡️ Database & Performance
+*   **SQLite WAL Mode:** Utilizes Write-Ahead Logging for high-concurrency read/write operations.
+*   **SQL Indexes:** Custom indexes defined on timestamp, type, pin, and favorite fields for lightning-fast querying.
+*   **Prepared Statements:** All SQLite queries are prepared, eliminating the risk of SQL injection.
+*   **Window State Memory:** Remembers window dimensions, position, and active monitor configurations.
 
 ---
 
-## 📄 Lisans
+## 📄 License
 
-Bu proje **MIT Lisansı** altında dağıtılmaktadır. Ayrıntılar için [LICENSE](LICENSE) dosyasına bakın.
+This project is licensed under the **MIT License**. For more details, see the [LICENSE](LICENSE) file.
 
 ---
 
-## 📧 İletişim
-
-<div align="center">
+## 📧 Contact & Support
 
 **Maximus Decimus Meridius**
 
-[![GitHub](https://img.shields.io/badge/GitHub-MaximusPrime77-181717?style=for-the-badge&logo=github)](https://github.com/MaximusPrime77)
-[![Email](https://img.shields.io/badge/Email-b.maximus.prime%40gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:b.maximus.prime@gmail.com)
-[![Project](https://img.shields.io/badge/Proje-ClipBoardPrime-2563eb?style=for-the-badge&logo=github)](https://github.com/MaximusPrime77/ClipBoardPrime)
-
-</div>
+*   **GitHub:** [MaximusPrime77](https://github.com/MaximusPrime77)
+*   **Email:** [b.maximus.prime@gmail.com](mailto:b.maximus.prime@gmail.com)
+*   **Project Repository:** [ClipBoardPrime](https://github.com/MaximusPrime77/ClipBoardPrime)
