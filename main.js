@@ -25,6 +25,76 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { exec, execFile } = require('child_process');
 
+// ─── Win32 API ve koffi Tanımlamaları ──────────────────────────
+let GetForegroundWindow = null;
+let SetForegroundWindow = null;
+let GetClassNameA = null;
+let SendInput = null;
+let INPUT = null;
+let lastActiveWindowHwnd = null;
+
+if (process.platform === 'win32') {
+  try {
+    const koffi = require('koffi');
+    const user32 = koffi.load('user32.dll');
+
+    const MOUSEINPUT = koffi.struct('MOUSEINPUT', {
+      dx: 'long',
+      dy: 'long',
+      mouseData: 'uint32_t',
+      dwFlags: 'uint32_t',
+      time: 'uint32_t',
+      dwExtraInfo: 'uintptr_t'
+    });
+
+    const KEYBDINPUT = koffi.struct('KEYBDINPUT', {
+      wVk: 'uint16_t',
+      wScan: 'uint16_t',
+      dwFlags: 'uint32_t',
+      time: 'uint32_t',
+      dwExtraInfo: 'uintptr_t'
+    });
+
+    const HARDWAREINPUT = koffi.struct('HARDWAREINPUT', {
+      uMsg: 'uint32_t',
+      wParamL: 'uint16_t',
+      wParamH: 'uint16_t'
+    });
+
+    const INPUT_UNION = koffi.union('INPUT_UNION', {
+      mi: MOUSEINPUT,
+      ki: KEYBDINPUT,
+      hi: HARDWAREINPUT
+    });
+
+    INPUT = koffi.struct('INPUT', {
+      type: 'uint32_t',
+      u: INPUT_UNION
+    });
+
+    GetForegroundWindow = user32.func('void *GetForegroundWindow()');
+    SetForegroundWindow = user32.func('bool SetForegroundWindow(void *hWnd)');
+    GetClassNameA = user32.func('int GetClassNameA(void *hWnd, char *lpClassName, int nMaxCount)');
+    SendInput = user32.func('uint32_t SendInput(uint32_t cInputs, INPUT *pInputs, int cbSize)');
+  } catch (err) {
+    console.error('Koffi loading or Win32 API initialization failed:', err);
+  }
+}
+
+function getActiveWindowClassName() {
+  if (!GetForegroundWindow || !GetClassNameA) return '';
+  try {
+    const hwnd = GetForegroundWindow();
+    if (!hwnd) return '';
+    const buf = Buffer.alloc(256);
+    const len = GetClassNameA(hwnd, buf, 256);
+    return buf.toString('ascii', 0, len).trim();
+  } catch (e) {
+    console.error('getActiveWindowClassName hatası:', e);
+    return '';
+  }
+}
+
 // Geliştirme modu ve Portable mod tespiti
 const isDev = process.argv.includes('--dev');
 const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
@@ -230,60 +300,7 @@ function setWindowsAutostart(enabled) {
   }
 }
 
-let helperExePath = null;
 
-/**
- * Windows aktif pencere tespit aracını derler.
- */
-function compileActiveWinHelper() {
-  const userData = app.getPath('userData');
-  const csPath = path.join(userData, 'active_win_helper.cs');
-  helperExePath = path.join(userData, 'active_win_helper.exe');
-
-  // Zaten derlenmişse tekrar derleme
-  if (fs.existsSync(helperExePath)) {
-    return;
-  }
-
-  const csCode = `using System;
-using System.Runtime.InteropServices;
-using System.Text;
-class Program {
-    [DllImport("user32.dll")]
-    static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")]
-    static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
-    static void Main() {
-        IntPtr hwnd = GetForegroundWindow();
-        StringBuilder className = new StringBuilder(256);
-        GetClassName(hwnd, className, 256);
-        Console.WriteLine(className.ToString());
-    }
-}`;
-
-  try {
-    fs.writeFileSync(csPath, csCode, 'utf8');
-    const winDir = process.env.windir || 'C:\\\\Windows';
-    const cscPath = path.join(winDir, 'Microsoft.NET', 'Framework', 'v4.0.30319', 'csc.exe');
-    
-    if (fs.existsSync(cscPath)) {
-      const compileCmd = `"${cscPath}" /out:"${helperExePath}" /target:exe "${csPath}"`;
-      exec(compileCmd, (err) => {
-        if (err) {
-          console.error('C# Helper derleme hatası:', err);
-          helperExePath = null;
-        } else {
-          try { fs.unlinkSync(csPath); } catch (e) {}
-        }
-      });
-    } else {
-      helperExePath = null;
-    }
-  } catch (err) {
-    console.error('Helper hazırlama hatası:', err);
-    helperExePath = null;
-  }
-}
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -546,6 +563,9 @@ function showWindow() {
     createWindow();
     return;
   }
+  if (!mainWindow.isVisible() && GetForegroundWindow) {
+    lastActiveWindowHwnd = GetForegroundWindow();
+  }
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
   mainWindow.focus();
@@ -571,6 +591,9 @@ function toggleWindow() {
   if (mainWindow.isVisible()) {
     hideWindow();
   } else {
+    if (GetForegroundWindow) {
+      lastActiveWindowHwnd = GetForegroundWindow();
+    }
     showWindow();
   }
 }
@@ -636,23 +659,14 @@ const _blurHandlerDebounced = debounce(() => {
     if (isModalOpen || isQuitting) return;
     if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible()) return;
 
-    if (helperExePath && fs.existsSync(helperExePath)) {
-      exec(`"${helperExePath}"`, { timeout: 100 }, (err, stdout) => {
-        if (!err && stdout) {
-          const activeClass = stdout.trim();
-          if (activeClass === 'Progman' || activeClass === 'WorkerW' || activeClass === 'Shell_TrayWnd') {
-            if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
-              mainWindow.hide();
-              lastBlurTime = Date.now();
-            }
-          }
-        } else {
-          if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
-            mainWindow.hide();
-            lastBlurTime = Date.now();
-          }
+    if (GetForegroundWindow && GetClassNameA) {
+      const activeClass = getActiveWindowClassName();
+      if (activeClass === 'Progman' || activeClass === 'WorkerW' || activeClass === 'Shell_TrayWnd') {
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+          mainWindow.hide();
+          lastBlurTime = Date.now();
         }
-      });
+      }
     } else {
       mainWindow.hide();
       lastBlurTime = Date.now();
@@ -1336,35 +1350,67 @@ function registerIPCHandlers() {
         mainWindow.hide();
       }
 
-      // VBScript/WScript.Shell tabanlı tuş simülasyonu (PowerShell'den çok daha hızlı ve hafiftir)
-      setTimeout(() => {
-        const tempVbsPath = path.join(app.getPath('temp'), `paste_${Date.now()}.vbs`);
-        try {
-          fs.writeFileSync(tempVbsPath, 'Set WshShell = WScript.CreateObject("WScript.Shell")\nWScript.Sleep 50\nWshShell.SendKeys "^v"');
-          exec(`wscript.exe "${tempVbsPath}"`, (err) => {
-            if (err) {
-              console.error('VBScript yapıştırma hatası, fallback uygulanıyor:', err);
-              // Fallback: mshta yöntemi
-              exec('mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))');
+      if (SendInput && INPUT) {
+        setTimeout(async () => {
+          try {
+            // Hedef pencereyi öne getir
+            if (lastActiveWindowHwnd && SetForegroundWindow) {
+              SetForegroundWindow(lastActiveWindowHwnd);
             }
-            try { fs.unlinkSync(tempVbsPath); } catch (e) {}
-          });
-        } catch (vbsErr) {
-          console.error('VBScript oluşturma hatası, fallback uygulanıyor:', vbsErr);
-          exec('mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))');
-        }
-      }, 150);
+
+            // İşletim sisteminin odağı tamamen o pencereye geçirmesi için asenkron gecikme
+            await new Promise(resolve => setTimeout(resolve, 80));
+
+            // Sanal klavye kodları ve modifikatörler
+            const VK_SHIFT = 0x10;
+            const VK_CONTROL = 0x11;
+            const VK_MENU = 0x12;
+            const VK_LWIN = 0x5B;
+            const VK_RWIN = 0x5C;
+            const VK_V = 0x56;
+            const KEYEVENTF_KEYUP = 0x0002;
+
+            // Giriş simülasyonu dizisi (8 tuş olayı)
+            // Önce basılı kalmış olabilecek Shift, Alt, Win tuşlarını serbest bırakıyoruz
+            const inputs = [
+              { type: 1, u: { ki: { wVk: VK_SHIFT, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_MENU, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_LWIN, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_RWIN, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
+            ];
+
+            SendInput(inputs.length, inputs, koffi.sizeof(INPUT));
+          } catch (sendErr) {
+            console.error('SendInput yapıştırma hatası:', sendErr);
+          } finally {
+            // isWritingToClipboard bayrağını klavye simülasyonu sonrasında kaldır
+            setTimeout(() => {
+              isWritingToClipboard = false;
+            }, 50);
+          }
+        }, 100);
+      } else {
+        // Fallback: mshta yöntemi (koffi yüklenemezse yedek olarak çalışır)
+        setTimeout(() => {
+          try {
+            exec('mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))');
+          } catch (e) {
+            console.error('mshta fallback hatası:', e);
+          } finally {
+            isWritingToClipboard = false;
+          }
+        }, 150);
+      }
 
       return { success: true };
     } catch (err) {
       console.error('paste-to-active-window hatası:', err);
+      isWritingToClipboard = false;
       return { success: false, error: err.message };
-    } finally {
-      // isWritingToClipboard VBScript callback'inde sıfırlanıyor (race condition önlendi)
-      // Ancak hata durumunda buradan da sıfırla
-      setTimeout(() => {
-        isWritingToClipboard = false;
-      }, 600);
     }
   });
 
@@ -1700,9 +1746,6 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(() => {
-  // C# aktif pencere tespit aracını derle
-  compileActiveWinHelper();
-
   // Varsayılan üst menü çubuğunu (File, Edit, View vb.) kaldırır
   Menu.setApplicationMenu(null);
 
