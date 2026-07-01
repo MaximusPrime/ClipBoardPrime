@@ -321,10 +321,11 @@ img { max-width: 100%; display: block; }
   transition: all var(--transition-fast);
 }
 
-#global-search:focus {
+#global-search:focus,
+#global-search:not(:placeholder-shown) {
   background: var(--bg-input-focus);
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px var(--accent-subtle);
+  box-shadow: 0 0 0 3px var(--accent-subtle), var(--accent-glow-strong);
 }
 
 #global-search::placeholder {
@@ -2413,10 +2414,16 @@ body.resizing * {
   transition: all var(--transition-fast);
 }
 
-.panel-search-input:focus {
+.panel-search-input:focus,
+.panel-search-input:not(:placeholder-shown) {
   background: var(--bg-input-focus);
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px var(--accent-subtle);
+  box-shadow: 0 0 0 3px var(--accent-subtle), var(--accent-glow-strong);
+}
+
+.panel-search-wrapper:has(.panel-search-input:focus) .search-icon,
+.panel-search-wrapper:has(.panel-search-input:not(:placeholder-shown)) .search-icon {
+  color: var(--accent-primary);
 }
 
 .panel-search-input::placeholder {
