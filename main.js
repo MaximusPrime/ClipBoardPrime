@@ -1410,12 +1410,17 @@ function registerIPCHandlers() {
 
             // Sanal klavye kodları ve modifikatörler
             const VK_SHIFT = 0x10;
-            const VK_CONTROL = 0x11;
             const VK_MENU = 0x12;
             const VK_LWIN = 0x5B;
             const VK_RWIN = 0x5C;
+            const VK_LCONTROL = 0xA2;
             const VK_V = 0x56;
             const KEYEVENTF_KEYUP = 0x0002;
+            const KEYEVENTF_SCANCODE = 0x0008;
+
+            // Donanım tarama (scan) kodları (Not defteri gibi düşük seviyeli kontroller için şarttır)
+            const SCAN_LCONTROL = 0x1D;
+            const SCAN_V = 0x2F;
 
             // 1. Modifikatörleri serbest bırak (Shift, Alt, Win)
             const releaseInputs = [
@@ -1426,30 +1431,16 @@ function registerIPCHandlers() {
             ];
             SendInput(releaseInputs.length, releaseInputs, koffi.sizeof(INPUT));
 
-            await new Promise(resolve => setTimeout(resolve, 15));
+            await new Promise(resolve => setTimeout(resolve, 20));
 
-            // 2. Ctrl tuşuna bas (Down)
-            const ctrlDown = [
-              { type: 1, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } }
+            // 2. Ctrl Down + V Down + V Up + Ctrl Up (Aynı paket içinde, donanım tarama kodlarıyla birlikte)
+            const pasteInputs = [
+              { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: SCAN_LCONTROL, dwFlags: KEYEVENTF_SCANCODE, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_V, wScan: SCAN_V, dwFlags: KEYEVENTF_SCANCODE, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_V, wScan: SCAN_V, dwFlags: KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: SCAN_LCONTROL, dwFlags: KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
             ];
-            SendInput(ctrlDown.length, ctrlDown, koffi.sizeof(INPUT));
-
-            await new Promise(resolve => setTimeout(resolve, 15));
-
-            // 3. V tuşuna bas ve bırak (Down -> Up)
-            const vKeys = [
-              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
-              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
-            ];
-            SendInput(vKeys.length, vKeys, koffi.sizeof(INPUT));
-
-            await new Promise(resolve => setTimeout(resolve, 15));
-
-            // 4. Ctrl tuşunu bırak (Up)
-            const ctrlUp = [
-              { type: 1, u: { ki: { wVk: VK_CONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
-            ];
-            const res = SendInput(ctrlUp.length, ctrlUp, koffi.sizeof(INPUT));
+            const res = SendInput(pasteInputs.length, pasteInputs, koffi.sizeof(INPUT));
             console.log('SendInput yerel cagri sonucu:', res, 'GetLastError:', GetLastError ? GetLastError() : 'N/A');
           } catch (sendErr) {
             console.error('SendInput yapıştırma hatası:', sendErr);
