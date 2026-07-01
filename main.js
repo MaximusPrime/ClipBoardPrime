@@ -1383,14 +1383,23 @@ function registerIPCHandlers() {
         }
       }
 
-      // Aktif pencereye yapıştırmak için ClipBoardPrime'ın odağı kaybetmesi (gizlenmesi) şarttır.
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.hide();
-      }
-
       if (SendInput && INPUT) {
+        // 1. Önce hedef pencereyi öne getir (ClipBoardPrime hala odaktayken bu yetkiye sahiptir)
+        if (lastActiveWindowHwnd && SetForegroundWindow) {
+          const setFocusResult = SetForegroundWindow(lastActiveWindowHwnd);
+          console.log('Ön-SetForegroundWindow sonucu:', setFocusResult);
+        }
+
+        // 2. Kısa bir süre bekleyip odağın geçişini sağla, ardından ClipBoardPrime'ı gizle
         setTimeout(async () => {
           try {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.hide();
+            }
+
+            // 3. Pencere gizlendikten sonra odağın tamamen oturması için asenkron gecikme
+            await new Promise(resolve => setTimeout(resolve, 150));
+
             // Hedef pencereyi ve sınıfını logla
             if (lastActiveWindowHwnd && GetClassNameA) {
               const buf = Buffer.alloc(256);
@@ -1398,15 +1407,6 @@ function registerIPCHandlers() {
               const className = buf.toString('ascii', 0, len).trim();
               console.log('Odak geri yukleniyor, Hedef Pencere Sınıfı:', className);
             }
-
-            // Hedef pencereyi öne getir
-            if (lastActiveWindowHwnd && SetForegroundWindow) {
-              const setFocusResult = SetForegroundWindow(lastActiveWindowHwnd);
-              console.log('SetForegroundWindow sonucu:', setFocusResult);
-            }
-
-            // İşletim sisteminin odağı tamamen o pencereye geçirmesi için asenkron gecikme (350ms)
-            await new Promise(resolve => setTimeout(resolve, 350));
 
             // Sanal klavye kodları ve modifikatörler
             const VK_SHIFT = 0x10;
@@ -1446,9 +1446,13 @@ function registerIPCHandlers() {
               isWritingToClipboard = false;
             }, 50);
           }
-        }, 200);
+        }, 150);
       } else {
         // Fallback: mshta yöntemi (koffi yüklenemezse yedek olarak çalışır)
+        // Aktif pencereye yapıştırmak için ClipBoardPrime'ın odağı kaybetmesi (gizlenmesi) şarttır.
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.hide();
+        }
         setTimeout(() => {
           try {
             exec('mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))');
