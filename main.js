@@ -1430,14 +1430,15 @@ function registerIPCHandlers() {
 
             await new Promise(resolve => setTimeout(resolve, 20));
 
-            // TANI TESTİ: Hedefe sadece 'a' harfi gönderiyoruz (sanal tuş kodlarıyla)
-            const VK_A = 0x41;
+            // 2. Ctrl Down + V Down + V Up + Ctrl Up (Aynı paket içinde sanal tuş kodlarıyla)
             const pasteInputs = [
-              { type: 1, u: { ki: { wVk: VK_A, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
-              { type: 1, u: { ki: { wVk: VK_A, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
+              { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
             ];
             const res = SendInput(pasteInputs.length, pasteInputs, koffi.sizeof(INPUT));
-            console.log("TANI TESTİ: SendInput 'A' cagri sonucu:", res, 'GetLastError:', GetLastError ? GetLastError() : 'N/A');
+            console.log("SendInput yerel yapıştırma sonucu:", res, 'GetLastError:', GetLastError ? GetLastError() : 'N/A');
           } catch (sendErr) {
             console.error('SendInput yapıştırma hatası:', sendErr);
           } finally {
