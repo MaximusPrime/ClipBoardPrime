@@ -531,6 +531,79 @@ function createTrayIcon() {
 }
 
 /**
+ * Resolves localized strings for main process elements (like tray).
+ */
+function getTranslation(key) {
+  try {
+    let lang = 'en';
+    if (db) {
+      lang = db.getSetting('language') || 'en';
+    }
+    const localePath = path.join(__dirname, 'src', 'locales', `${lang}.json`);
+    if (fs.existsSync(localePath)) {
+      const data = JSON.parse(fs.readFileSync(localePath, 'utf8'));
+      const value = key.split('.').reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), data);
+      if (typeof value === 'string') return value;
+    }
+  } catch (err) {
+    console.error('getTranslation error:', err);
+  }
+  
+  // Fallbacks
+  const fallbacks = {
+    'tr': { 'tray.show': 'Göster', 'tray.settings': 'Ayarlar', 'tray.exit': 'Çıkış' },
+    'en': { 'tray.show': 'Show', 'tray.settings': 'Settings', 'tray.exit': 'Exit' },
+    'zh': { 'tray.show': '显示', 'tray.settings': '设置', 'tray.exit': '退出' }
+  };
+  let lang = 'en';
+  if (db) {
+    lang = db.getSetting('language') || 'en';
+  }
+  const langFallbacks = fallbacks[lang] || fallbacks['en'];
+  return langFallbacks[key] || key;
+}
+
+/**
+ * Updates the tray context menu language dynamically.
+ */
+function updateTrayMenu() {
+  if (!tray) return;
+
+  const showLabel = getTranslation('tray.show');
+  const settingsLabel = getTranslation('tray.settings');
+  const exitLabel = getTranslation('tray.exit');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: showLabel,
+      click: () => {
+        showWindow();
+      },
+    },
+    {
+      label: settingsLabel,
+      click: () => {
+        showWindow();
+        // Ayarlar sayfasını aç
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('navigate', 'settings');
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: exitLabel,
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+}
+
+/**
  * System tray'i oluşturur.
  */
 function createTray() {
@@ -551,40 +624,14 @@ function createTray() {
   
   tray.setToolTip('ClipBoardPrime');
 
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Göster',
-      click: () => {
-        showWindow();
-      },
-    },
-    {
-      label: 'Ayarlar',
-      click: () => {
-        showWindow();
-        // Ayarlar sayfasını aç
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('navigate', 'settings');
-        }
-      },
-    },
-    { type: 'separator' },
-    {
-      label: 'Çıkış',
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      },
-    },
-  ]);
-
-  tray.setContextMenu(contextMenu);
+  updateTrayMenu();
 
   // Tray'e tıklayınca göster/gizle
   tray.on('click', () => {
     toggleWindow();
   });
 }
+
 
 // ═══════════════════════════════════════════════════════════════
 // Pencere Yardımcı Fonksiyonlar
@@ -1756,6 +1803,11 @@ function handleSettingChange(key, value) {
     case 'startWithWindows':
       // Başlangıçta aç ayarını güncelle
       setWindowsAutostart(value === 'true');
+      break;
+
+    case 'language':
+      // Sistem tepsisi dilini güncelle
+      updateTrayMenu();
       break;
   }
 }

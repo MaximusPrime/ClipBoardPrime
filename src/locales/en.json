@@ -270,5 +270,10 @@
   "imageItem": {
     "alt": "Image Clipboard",
     "label": "Image Item"
+  },
+  "tray": {
+    "show": "Show",
+    "settings": "Settings",
+    "exit": "Exit"
   }
 }

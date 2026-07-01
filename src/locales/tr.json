@@ -270,5 +270,10 @@
   "imageItem": {
     "alt": "Görsel Pano",
     "label": "Görsel Öğesi"
+  },
+  "tray": {
+    "show": "Göster",
+    "settings": "Ayarlar",
+    "exit": "Çıkış"
   }
 }

@@ -270,5 +270,10 @@
   "imageItem": {
     "alt": "图片剪贴板",
     "label": "图片条目"
+  },
+  "tray": {
+    "show": "显示",
+    "settings": "设置",
+    "exit": "退出"
   }
 }

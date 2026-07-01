@@ -85,6 +85,7 @@ const SettingsPanel = (() => {
         await saveSetting('language', lang, false); // false = don't show "setting saved" toast for language
         if (window.i18n) {
           await window.i18n.setLanguage(lang);
+          updateFontSizeLabels();
           // Refresh dynamic JS-rendered parts
           if (window.ClipboardPanel) window.ClipboardPanel.loadHistory(false);
           if (window.NotesPanel) {
@@ -212,6 +213,7 @@ const SettingsPanel = (() => {
           if (elements.language) {
             elements.language.value = window.i18n.getLanguage();
           }
+          updateFontSizeLabels();
         }
         
         // UI alanlarını doldur
@@ -336,6 +338,28 @@ const SettingsPanel = (() => {
     else if (key === 'language' && elements.language) {
       elements.language.value = value;
     }
+  }
+
+  /**
+   * Font size select element'inin seçeneklerini mevcut dile göre günceller
+   */
+  function updateFontSizeLabels() {
+    if (!elements.appFontSize || !window.i18n) return;
+    const sizes = [
+      { value: '12px', key: 'settings.fontSmall' },
+      { value: '13px', key: 'settings.fontDefault' },
+      { value: '14px', key: 'settings.fontMedium' },
+      { value: '15px', key: 'settings.fontLarge' },
+      { value: '16px', key: 'settings.fontXLarge' },
+      { value: '18px', key: 'settings.fontXXLarge' }
+    ];
+
+    Array.from(elements.appFontSize.options).forEach((option) => {
+      const sizeObj = sizes.find(s => s.value === option.value);
+      if (sizeObj) {
+        option.textContent = `${sizeObj.value} (${window.i18n.t(sizeObj.key)})`;
+      }
+    });
   }
 
   /**
