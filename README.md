@@ -167,7 +167,7 @@ This generates two output files inside the `dist/` directory:
 
 ## 📄 License
 
-This project is licensed under the **MIT License**. For more details, see the [LICENSE](LICENSE) file.
+This project is licensed under the **GNU General Public License v3.0**. For more details, see the [LICENSE](LICENSE) file.
 
 ---
 
