@@ -692,22 +692,22 @@ function stopClipboardWatcher() {
 const _blurHandlerDebounced = debounce(() => {
   try {
     if (!db.isReady()) return;
-    const blurToTray = db.getSetting('blurToTray');
-    if (blurToTray !== 'true') return;
-    if (isModalOpen || isQuitting) return;
-    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible()) return;
 
-    if (GetForegroundWindow && GetClassNameA) {
-      const activeClass = getActiveWindowClassName();
-      if (activeClass === 'Progman' || activeClass === 'WorkerW' || activeClass === 'Shell_TrayWnd') {
-        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
-          mainWindow.hide();
-          lastBlurTime = Date.now();
-        }
+    // Uygulama odağı kaybettiğinde, yeni odaklanılan geçerli pencereyi (örn. Tarayıcıyı) hedef pencere olarak kaydet.
+    // Bu sayede pano açıkken başka bir uygulamaya tıklansa bile hedef pencere her zaman güncel kalır!
+    if (GetForegroundWindow) {
+      const activeHwnd = GetForegroundWindow();
+      if (isValidTargetWindow(activeHwnd)) {
+        lastActiveWindowHwnd = activeHwnd;
       }
-    } else {
-      mainWindow.hide();
-      lastBlurTime = Date.now();
+    }
+
+    const blurToTray = db.getSetting('blurToTray');
+    if (blurToTray === 'true') {
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+        mainWindow.hide();
+        lastBlurTime = Date.now();
+      }
     }
   } catch (err) {
     // Sessizce geç
