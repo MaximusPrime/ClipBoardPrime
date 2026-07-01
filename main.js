@@ -1416,11 +1416,6 @@ function registerIPCHandlers() {
             const VK_LCONTROL = 0xA2;
             const VK_V = 0x56;
             const KEYEVENTF_KEYUP = 0x0002;
-            const KEYEVENTF_SCANCODE = 0x0008;
-
-            // Donanım tarama (scan) kodları (Not defteri gibi düşük seviyeli kontroller için şarttır)
-            const SCAN_LCONTROL = 0x1D;
-            const SCAN_V = 0x2F;
 
             // 1. Modifikatörleri serbest bırak (Shift, Alt, Win)
             const releaseInputs = [
@@ -1433,12 +1428,12 @@ function registerIPCHandlers() {
 
             await new Promise(resolve => setTimeout(resolve, 20));
 
-            // 2. Ctrl Down + V Down + V Up + Ctrl Up (Aynı paket içinde, donanım tarama kodlarıyla birlikte)
+            // 2. Ctrl Down + V Down + V Up + Ctrl Up (Aynı paket içinde sanal tuş kodlarıyla)
             const pasteInputs = [
-              { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: SCAN_LCONTROL, dwFlags: KEYEVENTF_SCANCODE, time: 0, dwExtraInfo: 0 } } },
-              { type: 1, u: { ki: { wVk: VK_V, wScan: SCAN_V, dwFlags: KEYEVENTF_SCANCODE, time: 0, dwExtraInfo: 0 } } },
-              { type: 1, u: { ki: { wVk: VK_V, wScan: SCAN_V, dwFlags: KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
-              { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: SCAN_LCONTROL, dwFlags: KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
+              { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: 0, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_V, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } },
+              { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
             ];
             const res = SendInput(pasteInputs.length, pasteInputs, koffi.sizeof(INPUT));
             console.log('SendInput yerel cagri sonucu:', res, 'GetLastError:', GetLastError ? GetLastError() : 'N/A');
