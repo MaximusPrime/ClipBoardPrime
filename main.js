@@ -1437,7 +1437,7 @@ function registerIPCHandlers() {
               { type: 1, u: { ki: { wVk: VK_A, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
             ];
             const res = SendInput(pasteInputs.length, pasteInputs, koffi.sizeof(INPUT));
-            console.log('TANI TESTİ: SendInput 'A' cagri sonucu:', res, 'GetLastError:', GetLastError ? GetLastError() : 'N/A');
+            console.log("TANI TESTİ: SendInput 'A' cagri sonucu:", res, 'GetLastError:', GetLastError ? GetLastError() : 'N/A');
           } catch (sendErr) {
             console.error('SendInput yapıştırma hatası:', sendErr);
           } finally {
