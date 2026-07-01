@@ -43,7 +43,7 @@ const Utils = (() => {
   };
 
   /**
-   * Tarihi "Bugün 14:32", "Dün 09:15", "12 Haz 2026" formatında döndürür
+   * Tarihi locale'e göre formatlar: "Today 03:45 PM", "Yesterday", "12 Jun 2026"
    */
   function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -54,21 +54,25 @@ const Utils = (() => {
     yesterday.setDate(yesterday.getDate() - 1);
     const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-    const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const locale = (window.i18n && window.i18n.t('date.timeLocale')) || 'tr-TR';
+    const opts = (window.i18n && window.i18n.tObj('date.timeOptions')) || { hour: '2-digit', minute: '2-digit' };
+    const timeStr = date.toLocaleTimeString(locale, opts);
 
     if (dateDay.getTime() === today.getTime()) {
-      return `Bugün ${timeStr}`;
+      return `${window.i18n ? window.i18n.t('date.today') : 'Bugün'} ${timeStr}`;
     }
     if (dateDay.getTime() === yesterday.getTime()) {
-      return `Dün ${timeStr}`;
+      return `${window.i18n ? window.i18n.t('date.yesterday') : 'Dün'} ${timeStr}`;
     }
 
-    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    const months = (window.i18n && window.i18n.tArray('date.months').length > 0)
+      ? window.i18n.tArray('date.months')
+      : ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
     return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   }
 
   /**
-   * "5 dk önce", "2 saat önce" formatında zaman farkı
+   * Locale'e göre zaman farkı: "Just now", "5m ago", "2h ago"
    */
   function timeAgo(dateStr) {
     if (!dateStr) return '';
@@ -80,21 +84,24 @@ const Utils = (() => {
     const diffHour = Math.floor(diffMin / 60);
     const diffDay = Math.floor(diffHour / 24);
 
-    if (diffSec < 10) return 'Az önce';
-    if (diffSec < 60) return `${diffSec} sn önce`;
-    if (diffMin < 60) return `${diffMin} dk önce`;
-    if (diffHour < 24) return `${diffHour} saat önce`;
-    if (diffDay < 7) return `${diffDay} gün önce`;
-    if (diffDay < 30) return `${Math.floor(diffDay / 7)} hafta önce`;
-    if (diffDay < 365) return `${Math.floor(diffDay / 30)} ay önce`;
-    return `${Math.floor(diffDay / 365)} yıl önce`;
+    const _ = (key, vars) => window.i18n ? window.i18n.t(key, vars) : key;
+
+    if (diffSec < 10) return _('date.justNow');
+    if (diffSec < 60) return _('date.secondsAgo', { n: diffSec });
+    if (diffMin < 60) return _('date.minutesAgo', { n: diffMin });
+    if (diffHour < 24) return _('date.hoursAgo', { n: diffHour });
+    if (diffDay < 7) return _('date.daysAgo', { n: diffDay });
+    if (diffDay < 30) return _('date.weeksAgo', { n: Math.floor(diffDay / 7) });
+    if (diffDay < 365) return _('date.monthsAgo', { n: Math.floor(diffDay / 30) });
+    return _('date.yearsAgo', { n: Math.floor(diffDay / 365) });
   }
 
   /**
-   * Bir tarihin hangi gruba ait olduğunu döndürür
+   * Bir tarihin hangi gruba ait olduğunu locale'e göre döndürür
    */
   function getDateGroup(dateStr) {
-    if (!dateStr) return 'Diğer';
+    const _ = (key) => window.i18n ? window.i18n.t(key) : key;
+    if (!dateStr) return _('date.other');
     const date = new Date(dateStr);
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -104,10 +111,10 @@ const Utils = (() => {
     weekAgo.setDate(weekAgo.getDate() - 7);
     const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-    if (dateDay.getTime() >= today.getTime()) return 'Bugün';
-    if (dateDay.getTime() >= yesterday.getTime()) return 'Dün';
-    if (dateDay.getTime() >= weekAgo.getTime()) return 'Bu Hafta';
-    return 'Daha Eski';
+    if (dateDay.getTime() >= today.getTime()) return _('date.today');
+    if (dateDay.getTime() >= yesterday.getTime()) return _('date.yesterday');
+    if (dateDay.getTime() >= weekAgo.getTime()) return _('date.thisWeek');
+    return _('date.older');
   }
 
   /**
@@ -198,16 +205,13 @@ const Utils = (() => {
   }
 
   /**
-   * İçerik tipi için Türkçe etiket
+   * İçerik tipi için lokalize etiket
    */
   function getContentTypeLabel(type) {
-    const labels = {
-      text: 'Metin',
-      url: 'URL',
-      email: 'E-posta',
-      code: 'Kod',
-      image: 'Görsel',
-    };
+    if (window.i18n) {
+      return window.i18n.t(`type.${type}`) || window.i18n.t('type.text');
+    }
+    const labels = { text: 'Metin', url: 'URL', email: 'E-posta', code: 'Kod', image: 'Görsel' };
     return labels[type] || 'Metin';
   }
 
@@ -245,10 +249,11 @@ const Utils = (() => {
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
+    const closeLabel = window.i18n ? window.i18n.t('tooltip.closeToast') : 'Kapat';
     toast.innerHTML = `
       <span class="toast-icon">${icons[type] || icons.info}</span>
       <span class="toast-message">${escapeHtml(message)}</span>
-      <button class="toast-close" data-tooltip="Kapat">✕</button>
+      <button class="toast-close" data-tooltip="${closeLabel}">✕</button>
     `;
 
     const closeBtn = toast.querySelector('.toast-close');
@@ -316,11 +321,12 @@ const Utils = (() => {
   }
 
   /**
-   * Sayıyı binlik ayıraçlı formata çevirir
+   * Sayıyı locale'e göre binlik ayıraçlı formata çevirir
    */
   function formatNumber(num) {
     if (num == null) return '0';
-    return Number(num).toLocaleString('tr-TR');
+    const locale = (window.i18n && window.i18n.t('date.timeLocale')) || 'tr-TR';
+    return Number(num).toLocaleString(locale);
   }
 
   let lastActiveElement = null;

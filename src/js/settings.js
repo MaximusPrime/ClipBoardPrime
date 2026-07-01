@@ -21,6 +21,7 @@ const SettingsPanel = (() => {
     shortcut: document.getElementById('setting-shortcut'),
     blurToTray: document.getElementById('setting-blur-to-tray'),
     appFontSize: document.getElementById('setting-app-font-size'),
+    language: document.getElementById('setting-language'),
     
     // Data Actions
     locationPath: document.getElementById('data-location-path'),
@@ -35,9 +36,9 @@ const SettingsPanel = (() => {
   /**
    * Modülü başlatır ve olay dinleyicilerini kurar
    */
-  function init() {
+  async function init() {
     setupEventListeners();
-    loadSettings();
+    await loadSettings();
   }
 
   /**
@@ -78,6 +79,22 @@ const SettingsPanel = (() => {
       saveSetting('appFontSize', e.target.value);
       applyFontSizes(e.target.value);
     });
+    if (elements.language) {
+      elements.language.addEventListener('change', async (e) => {
+        const lang = e.target.value;
+        await saveSetting('language', lang, false); // false = don't show "setting saved" toast for language
+        if (window.i18n) {
+          await window.i18n.setLanguage(lang);
+          // Refresh dynamic JS-rendered parts
+          if (window.ClipboardPanel) window.ClipboardPanel.loadHistory(false);
+          if (window.NotesPanel) {
+            await window.NotesPanel.loadCategories();
+            window.NotesPanel.loadNotes();
+          }
+          if (window.App) window.App.updateStatusBar();
+        }
+      });
+    }
 
     // ─── Veri Ayarları Dinleyicileri ───
     elements.changeLocationBtn.addEventListener('click', () => changeDataLocation());
@@ -115,7 +132,7 @@ const SettingsPanel = (() => {
       isListeningShortcut = true;
       elements.shortcut.style.borderColor = 'var(--accent-primary)';
       elements.shortcut.style.boxShadow = '0 0 0 3px var(--accent-subtle)';
-      elements.shortcut.value = 'Kombinasyona bas...';
+      elements.shortcut.value = window.i18n ? window.i18n.t('settings.shortcutListening') : 'Kombinasyona bas...';
     });
 
     elements.shortcut.addEventListener('blur', () => {
@@ -186,6 +203,16 @@ const SettingsPanel = (() => {
 
       if (settingsData) {
         currentSettings = settingsData;
+
+        // i18n motorunu başlat (dil ayarını yükle)
+        if (window.i18n) {
+          const savedLang = currentSettings.language || null;
+          await window.i18n.init(savedLang);
+          // Dil select'ini güncelle
+          if (elements.language) {
+            elements.language.value = window.i18n.getLanguage();
+          }
+        }
         
         // UI alanlarını doldur
         elements.theme.value = currentSettings.theme || 'dark';
@@ -220,24 +247,26 @@ const SettingsPanel = (() => {
             const sourceLinkEl = document.getElementById('about-source-link');
 
             if (titleEl) titleEl.textContent = appInfo.name;
-            if (versionEl) versionEl.textContent = `Sürüm ${appInfo.version}`;
+            if (versionEl) versionEl.textContent = window.i18n
+              ? window.i18n.t('settings.version', { version: appInfo.version })
+              : `Sürüm ${appInfo.version}`;
             if (authorEl) authorEl.textContent = `${appInfo.author}`;
             if (devLinkEl) devLinkEl.dataset.url = 'https://github.com/MaximusPrime77';
             if (sourceLinkEl) sourceLinkEl.dataset.url = 'https://github.com/MaximusPrime77/ClipBoardPrime';
 
             // Taşınabilir (Portable) Sürüm
             if (isPortableMode) {
+              const i = window.i18n;
               elements.changeLocationBtn.disabled = true;
               elements.changeLocationBtn.classList.add('disabled');
-              elements.changeLocationBtn.setAttribute('title', 'Portable sürümde veri konumu değiştirilemez.');
+              elements.changeLocationBtn.setAttribute('title', i ? i.t('settings.portableLocked') : 'Portable sürümde veri konumu değiştirilemez.');
               elements.changeLocationBtn.innerHTML = `
                 <svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                Portable Modda Kilitli
+                ${i ? i.t('settings.portableLocked') : 'Portable Modda Kilitli'}
               `;
 
               const locationContainer = elements.changeLocationBtn.parentElement;
               if (locationContainer) {
-                // Portable modda veri konumu değiştirme satırını gizle
                 locationContainer.style.display = 'none';
 
                 const parentElement = locationContainer.parentElement;
@@ -250,8 +279,8 @@ const SettingsPanel = (() => {
                       <svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                     </div>
                     <div class="portable-info-text">
-                      <strong>Taşınabilir (Portable) Sürüm Aktif</strong>
-                      <span>Verileriniz taşınabilirlik ve sıfır iz (zero-trace) ilkesi için her zaman uygulama dizinindeki <code>/data</code> klasöründe saklanır. Bu modda veri konumu değiştirilemez.</span>
+                      <strong>${i ? i.t('settings.portableTitle') : 'Taşınabilir (Portable) Sürüm Aktif'}</strong>
+                      <span>${i ? i.t('settings.portableDesc') : 'Verileriniz taşınabilirlik ve sıfır iz için her zaman uygulama dizinindeki <code>/data</code> klasöründe saklanır.'}</span>
                     </div>
                   `;
                   parentElement.appendChild(warningBox);
@@ -269,19 +298,20 @@ const SettingsPanel = (() => {
   /**
    * Tek bir ayarı veritabanına kaydeder
    */
-  async function saveSetting(key, value) {
+  async function saveSetting(key, value, showToast = true) {
     try {
       const response = await window.api.saveSetting(key, value);
       if (response && response.success) {
         currentSettings[key] = value;
-        Utils.showToast('Ayar kaydedildi', 'success');
-
+        if (showToast) {
+          Utils.showToast(window.i18n ? window.i18n.t('toast.settingSaved') : 'Ayar kaydedildi', 'success');
+        }
         // Tema ayarı değiştiyse anında uygula
         if (key === 'theme') {
           applyTheme(value);
         }
       } else {
-        Utils.showToast('Ayar kaydedilemedi: ' + response?.error, 'error');
+        Utils.showToast((window.i18n ? window.i18n.t('toast.settingFailed') : 'Ayar kaydedilemedi') + ': ' + response?.error, 'error');
       }
     } catch (err) {
       console.error(err);
@@ -302,6 +332,9 @@ const SettingsPanel = (() => {
     else if (key === 'appFontSize') {
       elements.appFontSize.value = value;
       applyFontSizes(value);
+    }
+    else if (key === 'language' && elements.language) {
+      elements.language.value = value;
     }
   }
 
@@ -339,7 +372,7 @@ const SettingsPanel = (() => {
         elements.locationPath.title = dbPath;
       }
     } catch (err) {
-      elements.locationPath.textContent = 'Konum okunamadı';
+      elements.locationPath.textContent = window.i18n ? window.i18n.t('settings.dbLocationReadError') : 'Konum okunamadı';
     }
   }
 
@@ -348,13 +381,13 @@ const SettingsPanel = (() => {
    */
   async function changeDataLocation() {
     if (isPortableMode) {
-      Utils.showToast('Portable sürümde veri konumu değiştirilemez.', 'error');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.portableNoLocation') : 'Portable sürümde veri konumu değiştirilemez.', 'error');
       return;
     }
 
     const confirmed = await window.App.confirm(
-      'Veri Konumunu Taşı',
-      'Veritabanı konumunu değiştirmek ve mevcut verilerinizi yeni konuma kopyalamak istediğinize emin misiniz?',
+      window.i18n ? window.i18n.t('confirm.changeLocationTitle') : 'Veri Konumunu Taşı',
+      window.i18n ? window.i18n.t('confirm.changeLocationMsg') : 'Veritabanı konumunu değiştirmek ve mevcut verilerinizi yeni konuma kopyalamak istediğinize emin misiniz?',
       Utils.Icons.settings
     );
 
@@ -363,21 +396,20 @@ const SettingsPanel = (() => {
     try {
       const response = await window.api.selectDataLocation();
       if (response && response.success) {
-        Utils.showToast('Veritabanı konumu başarıyla taşındı.', 'success');
+        Utils.showToast(window.i18n ? window.i18n.t('toast.locationMoved') : 'Veritabanı konumu başarıyla taşındı.', 'success');
         await refreshLocationPath();
         
-        // Yeni veri kaynağından her şeyi tekrar yükle
         if (window.ClipboardPanel) window.ClipboardPanel.loadHistory(false);
         if (window.NotesPanel) {
           window.NotesPanel.loadCategories();
           window.NotesPanel.loadNotes();
         }
       } else if (response && response.error !== 'İptal edildi') {
-        Utils.showToast('Taşıma başarısız: ' + response.error, 'error');
+        Utils.showToast((window.i18n ? window.i18n.t('toast.locationMoveFailed') : 'Taşıma başarısız') + ': ' + response.error, 'error');
       }
     } catch (err) {
       console.error(err);
-      Utils.showToast('İşlem sırasında bir hata oluştı', 'error');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.locationMoveError') : 'İşlem sırasında bir hata oluştı', 'error');
     }
   }
 
@@ -388,9 +420,9 @@ const SettingsPanel = (() => {
     try {
       const response = await window.api.exportData();
       if (response && response.success) {
-        Utils.showToast('Veriler başarıyla yedeklendi.', 'success');
+        Utils.showToast(window.i18n ? window.i18n.t('toast.exportSuccess') : 'Veriler başarıyla yedeklendi.', 'success');
       } else if (response && response.error !== 'İptal edildi') {
-        Utils.showToast('Dışa aktarma hatası: ' + response.error, 'error');
+        Utils.showToast((window.i18n ? window.i18n.t('toast.exportFailed') : 'Dışa aktarma hatası') + ': ' + response.error, 'error');
       }
     } catch (err) {
       console.error(err);
@@ -402,8 +434,8 @@ const SettingsPanel = (() => {
    */
   async function importData() {
     const confirmed = await window.App.confirm(
-      'Veriyi İçe Aktar',
-      'Seçilen yedek dosyasındaki veriler mevcut veritabanınıza eklenecektir. Devam etmek istiyor musiniz?',
+      window.i18n ? window.i18n.t('confirm.importDataTitle') : 'Veriyi İçe Aktar',
+      window.i18n ? window.i18n.t('confirm.importDataMsg') : 'Seçilen yedek dosyasındaki veriler mevcut veritabanınıza eklenecektir. Devam etmek istiyor musunuz?',
       Utils.Icons.download
     );
 
@@ -413,20 +445,24 @@ const SettingsPanel = (() => {
       const response = await window.api.importData();
       if (response && response.success) {
         const res = response.data;
-        Utils.showToast(`İçe aktarma başarılı! (${res.clipboard_history} pano, ${res.notes} not eklendi)`, 'success');
+        Utils.showToast(
+          window.i18n
+            ? window.i18n.t('toast.importSuccess', { clipboard: res.clipboard_history, notes: res.notes })
+            : `İçe aktarma başarılı! (${res.clipboard_history} pano, ${res.notes} not eklendi)`,
+          'success'
+        );
         
-        // Uygulamadaki tüm listeleri yenile
         if (window.ClipboardPanel) window.ClipboardPanel.loadHistory(false);
         if (window.NotesPanel) {
           await window.NotesPanel.loadCategories();
           window.NotesPanel.loadNotes();
         }
       } else if (response && response.error !== 'İptal edildi') {
-        Utils.showToast('İçe aktarma hatası: ' + response.error, 'error');
+        Utils.showToast((window.i18n ? window.i18n.t('toast.importFailed') : 'İçe aktarma hatası') + ': ' + response.error, 'error');
       }
     } catch (err) {
       console.error(err);
-      Utils.showToast('Dosya okuma veya yazma hatası oluştu', 'error');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.importReadFailed') : 'Dosya okuma veya yazma hatası oluştu', 'error');
     }
   }
 

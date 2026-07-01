@@ -326,21 +326,21 @@ const NotesPanel = (() => {
     const allBtn = document.createElement('button');
     allBtn.className = `filter-btn${activeCategoryFilter === '' ? ' active' : ''}`;
     allBtn.dataset.category = '';
-    allBtn.innerHTML = `<span class="filter-emoji" style="color: #6366f1;">${Utils.Icons.tag}</span> Tüm Kategoriler`;
+    allBtn.innerHTML = `<span class="filter-emoji" style="color: #6366f1;">${Utils.Icons.tag}</span> ${window.i18n ? window.i18n.t('filter.allCategories') : 'Tüm Kategoriler'}`;
     elements.categoryFilter.appendChild(allBtn);
 
     // "Sabitler" butonu
     const pinnedBtn = document.createElement('button');
     pinnedBtn.className = `filter-btn${activeCategoryFilter === 'pinned' ? ' active' : ''}`;
     pinnedBtn.dataset.category = 'pinned';
-    pinnedBtn.innerHTML = `<span class="filter-emoji" style="color: #2563eb;">${Utils.Icons.pin}</span> Sabitler`;
+    pinnedBtn.innerHTML = `<span class="filter-emoji" style="color: #2563eb;">${Utils.Icons.pin}</span> ${window.i18n ? window.i18n.t('filter.pinned') : 'Sabitler'}`;
     elements.categoryFilter.appendChild(pinnedBtn);
 
     // "Favoriler" butonu
     const favBtn = document.createElement('button');
     favBtn.className = `filter-btn${activeCategoryFilter === 'favorites' ? ' active' : ''}`;
     favBtn.dataset.category = 'favorites';
-    favBtn.innerHTML = `<span class="filter-emoji" style="color: #eab308;">${Utils.Icons.star}</span> Favoriler`;
+    favBtn.innerHTML = `<span class="filter-emoji" style="color: #eab308;">${Utils.Icons.star}</span> ${window.i18n ? window.i18n.t('filter.favorites') : 'Favoriler'}`;
     elements.categoryFilter.appendChild(favBtn);
 
     // Separatör çizgi
@@ -374,7 +374,7 @@ const NotesPanel = (() => {
       nullOpt.dataset.value = '';
       nullOpt.innerHTML = `
         <span class="icon-svg" style="opacity: 0;"></span>
-        <span>(Kategorisiz)</span>
+        <span>${window.i18n ? window.i18n.t('note.noCategoryOption') : '(Kategorisiz)'}</span>
       `;
       optionsContainer.appendChild(nullOpt);
 
@@ -411,8 +411,8 @@ const NotesPanel = (() => {
       elements.list.innerHTML = `
         <div class="empty-state">
           <span class="empty-state-icon">${Utils.Icons.fileText}</span>
-          <p class="empty-state-title">Not Bulunamadı</p>
-          <p class="empty-state-text">${searchQuery ? 'Aramanızla eşleşen not bulunamadı.' : 'Yeni bir not eklemek için sağ üstteki "+" butonuna tıklayın.'}</p>
+          <p class="empty-state-title">${window.i18n ? window.i18n.t('empty.notesTitle') : 'Not Bulunamadı'}</p>
+          <p class="empty-state-text">${searchQuery ? (window.i18n ? window.i18n.t('empty.notesSearch') : 'Aramanızla eşleşen not bulunamadı.') : (window.i18n ? window.i18n.t('empty.notesText') : 'Yeni bir not eklemek için sağ üstteki "+" butonuna tıklayın.')}</p>
         </div>
       `;
       return;
@@ -477,7 +477,7 @@ const NotesPanel = (() => {
       }
 
       // Arama vurgulaması
-      const titleText = note.title || 'Başlıksız Not';
+      const titleText = note.title || (window.i18n ? window.i18n.t('note.untitled') : 'Başlıksız Not');
       const contentText = note.content || '';
       
       const highlightedTitle = searchQuery
@@ -498,33 +498,25 @@ const NotesPanel = (() => {
       let badgeHTML = '';
       if (note.is_pinned || note.is_favorite) {
         badgeHTML = `<div class="note-status-badges">`;
-        if (note.is_pinned) {
-          badgeHTML += `
-            <div class="status-badge pin-badge" data-tooltip="Sabitlendi">
-              ${Utils.Icons.pin}
-            </div>
-          `;
-        }
-        if (note.is_favorite) {
-          badgeHTML += `
-            <div class="status-badge fav-badge" data-tooltip="Favori">
-              ${Utils.Icons.star}
-            </div>
-          `;
-        }
+        if (note.is_pinned) badgeHTML += `<span class="status-badge pin-badge" data-tooltip="${window.i18n ? window.i18n.t('tooltip.pinnedNote') : 'Sabitlendi'}">${Utils.Icons.pin}</span>`;
+        if (note.is_favorite) badgeHTML += `<span class="status-badge fav-badge" data-tooltip="${window.i18n ? window.i18n.t('tooltip.favorited') : 'Favori'}">${Utils.Icons.star}</span>`;
         badgeHTML += `</div>`;
       }
+      
+      const categoryTagHTML = note.category_name
+        ? `<span class="note-category-tag" style="background: ${note.category_color}22; color: ${note.category_color}; border-color: ${note.category_color}44;">${note.category_icon_svg || ''} ${Utils.escapeHtml(note.category_name)}</span>`
+        : `<span class="note-category-tag uncategorized">${window.i18n ? window.i18n.t('note.noCategory') : 'Kategorisiz'}</span>`;
 
       el.innerHTML = `
         <div class="note-item-header">
           <div class="note-item-title">${highlightedTitle}</div>
           <div class="note-item-actions">
-            <button class="note-action-btn detail-btn" data-tooltip="Detayları Göster" aria-label="Detayları göster">${Utils.Icons.eye}</button>
-            <button class="note-action-btn copy-btn" data-tooltip="Kopyala" aria-label="Kopyala">${Utils.Icons.copy}</button>
-            <button class="note-action-btn edit-btn" data-tooltip="Düzenle" aria-label="Düzenle">${Utils.Icons.edit}</button>
-            <button class="note-action-btn fav-btn ${note.is_favorite ? 'fav-active' : ''}" data-tooltip="${note.is_favorite ? 'Favorilerden Kaldır' : 'Favorilere Ekle'}" aria-label="${note.is_favorite ? 'Favorilerden kaldır' : 'Favorilere ekle'}">${Utils.Icons.star}</button>
-            <button class="note-action-btn pin-btn ${note.is_pinned ? 'pin-active' : ''}" data-tooltip="${note.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}" aria-label="${note.is_pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}">${Utils.Icons.pin}</button>
-            <button class="note-action-btn delete-btn" data-tooltip="Sil" aria-label="Sil">${Utils.Icons.trash}</button>
+            <button class="note-action-btn detail-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.details') : 'Detayları Göster'}" aria-label="${window.i18n ? window.i18n.t('tooltip.details') : 'Detayları göster'}">${Utils.Icons.eye}</button>
+            <button class="note-action-btn copy-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Notu Kopyala'}">${Utils.Icons.copy}</button>
+            <button class="note-action-btn edit-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.edit') : 'Düzenle'}" aria-label="${window.i18n ? window.i18n.t('tooltip.edit') : 'Notu Düzenle'}">${Utils.Icons.edit}</button>
+            <button class="note-action-btn fav-btn ${note.is_favorite ? 'fav-active' : ''}" data-tooltip="${note.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavoriteNote') : 'Favorilerden Kaldır') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere Ekle')}" aria-label="${note.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavoriteNote') : 'Favorilerden kaldır') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere ekle')}">${Utils.Icons.star}</button>
+            <button class="note-action-btn pin-btn ${note.is_pinned ? 'pin-active' : ''}" data-tooltip="${note.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi Kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}" aria-label="${note.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}">${Utils.Icons.pin}</button>
+            <button class="note-action-btn delete-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}" aria-label="${window.i18n ? window.i18n.t('tooltip.delete') : 'Notu Sil'}">${Utils.Icons.trash}</button>
           </div>
         </div>
         <div class="note-item-accordion">
@@ -532,7 +524,7 @@ const NotesPanel = (() => {
         </div>
         <div class="note-item-footer">
           <div style="display: flex; align-items: center; gap: 8px;">
-            ${note.category_name ? `<span class="note-category-tag" style="border-color: ${note.category_color || 'var(--border-primary)'}; color: ${note.category_color || 'var(--text-secondary)'}; background: ${note.category_color ? note.category_color + '15' : 'var(--bg-tertiary)'};">${Utils.Icons[note.category_icon] || Utils.Icons.folder} ${note.category_name}</span>` : `<span class="note-category-tag" style="border-color: var(--border-primary); color: var(--text-muted); background: var(--bg-tertiary); font-style: italic;">Kategorisiz</span>`}
+            ${categoryTagHTML}
             ${badgeHTML}
           </div>
           <span class="note-date">${dateLabel}</span>
@@ -719,7 +711,7 @@ const NotesPanel = (() => {
         const response = await window.api.copyToClipboard(note.content, 'text', false);
         if (response && response.success) {
           Utils.copyFlashAnimation(el);
-          Utils.showToast('Not panoya kopyalandı!', 'success');
+          Utils.showToast(window.i18n ? window.i18n.t('toast.noteCopied') : 'Not panoya kopyalandı!', 'success');
         }
       } catch (err) {
         console.error(err);
@@ -741,12 +733,12 @@ const NotesPanel = (() => {
           const response = await window.api.toggleFavoriteNote(note.id);
           if (response && response.success) {
             const isFav = response.data.is_favorite;
-            Utils.showToast(isFav ? 'Favorilere eklendi' : 'Favorilerden kaldırıldı', 'success');
+            Utils.showToast(isFav ? (window.i18n ? window.i18n.t('toast.noteFavAdded') : 'Favorilere eklendi') : (window.i18n ? window.i18n.t('toast.noteFavRemoved') : 'Favorilerden kaldırıldı'), 'success');
             loadNotes();
           }
         } catch (err) {
           console.error(err);
-          Utils.showToast('Favori işlemi sırasında bir hata oluştu. Lütfen uygulamayı tepsiden tamamen kapatıp yeniden başlatın.', 'error');
+          Utils.showToast(window.i18n ? window.i18n.t('toast.noteActionFailed') : 'Favori işlemi sırasında bir hata oluştu. Lütfen uygulamanızı tepsiden tamamen kapatıp yeniden başlatın.', 'error');
         }
       });
     }
@@ -758,12 +750,12 @@ const NotesPanel = (() => {
         const response = await window.api.togglePinNote(note.id);
         if (response && response.success) {
           const isPinned = response.data.is_pinned;
-          Utils.showToast(isPinned ? 'Not sabitlendi' : 'Sabitleme kaldırıldı', 'success');
+          Utils.showToast(isPinned ? (window.i18n ? window.i18n.t('toast.notePinned') : 'Not sabitlendi') : (window.i18n ? window.i18n.t('toast.notePinRemoved') : 'Sabitleme kaldırıldı'), 'success');
           loadNotes();
         }
       } catch (err) {
         console.error(err);
-        Utils.showToast('Sabitleme işlemi sırasında bir hata oluştu. Lütfen uygulamayı tepsiden tamamen kapatıp yeniden başlatın.', 'error');
+        Utils.showToast(window.i18n ? window.i18n.t('toast.notePinFailed') : 'Sabitleme işlemi sırasında bir hata oluştu. Lütfen uygulamanızı tepsiden tamamen kapatıp yeniden başlatın.', 'error');
       }
     });
 
@@ -771,8 +763,8 @@ const NotesPanel = (() => {
     el.querySelector('.delete-btn').addEventListener('click', async (e) => {
       e.stopPropagation();
       const confirmed = await window.App.confirm(
-        'Notu Sil',
-        `"${note.title || 'Başlıksız Not'}" başlıklı notu silmek istediğinize emin misiniz?`,
+        window.i18n ? window.i18n.t('confirm.deleteNoteTitle') : 'Notu Sil',
+        window.i18n ? window.i18n.t('confirm.deleteNoteMsg', { title: note.title || (window.i18n ? window.i18n.t('note.untitled') : 'Başlıksız Not') }) : `"${note.title || 'Başlıksız Not'}" başlıklı notu silmek istediğinize emin misiniz?`,
         Utils.Icons.trash
       );
 
@@ -785,11 +777,11 @@ const NotesPanel = (() => {
           el.addEventListener('animationend', () => {
             loadNotes();
           }, { once: true });
-          Utils.showToast('Not silindi', 'info');
+          Utils.showToast(window.i18n ? window.i18n.t('toast.noteDeleted') : 'Not silindi', 'info');
         }
       } catch (err) {
         console.error(err);
-        Utils.showToast('Silme işlemi sırasında bir hata oluştu.', 'error');
+        Utils.showToast(window.i18n ? window.i18n.t('toast.noteDeleteFailed') : 'Silme işlemi sırasında bir hata oluştu.', 'error');
       }
     });
   }
@@ -799,7 +791,7 @@ const NotesPanel = (() => {
   // ═══════════════════════════════════════════════════════════════
 
   function openDetailModal(note) {
-    elements.detailTitle.textContent = note.title || 'Başlıksız Not';
+    elements.detailTitle.textContent = note.title || (window.i18n ? window.i18n.t('note.untitled') : 'Başlıksız Not');
     elements.detailContent.textContent = note.content || '';
     
     if (note.category_name) {
@@ -826,7 +818,7 @@ const NotesPanel = (() => {
       try {
         const response = await window.api.copyToClipboard(note.content, 'text', false);
         if (response && response.success) {
-          Utils.showToast('Not panoya kopyalandı!', 'success');
+          Utils.showToast(window.i18n ? window.i18n.t('toast.noteCopied') : 'Not panoya kopyalandı!', 'success');
         }
       } catch (err) {
         console.error(err);
@@ -849,7 +841,7 @@ const NotesPanel = (() => {
 
     if (!val) {
       triggerIcon.innerHTML = '';
-      triggerText.textContent = '(Kategorisiz)';
+      triggerText.textContent = window.i18n ? window.i18n.t('note.noCategoryOption') : '(Kategorisiz)';
       return;
     }
 
@@ -861,7 +853,7 @@ const NotesPanel = (() => {
       triggerText.textContent = cat.name;
     } else {
       triggerIcon.innerHTML = '';
-      triggerText.textContent = '(Kategorisiz)';
+      triggerText.textContent = window.i18n ? window.i18n.t('note.noCategoryOption') : '(Kategorisiz)';
     }
   }
 
@@ -877,7 +869,7 @@ const NotesPanel = (() => {
     if (note) {
       // Düzenleme modu
       if (iconSpan) iconSpan.innerHTML = Utils.Icons.fileText;
-      if (textSpan) textSpan.textContent = 'Notu Düzenle';
+      if (textSpan) textSpan.textContent = window.i18n ? window.i18n.t('note.editNote') : 'Notu Düzenle';
       elements.editId.value = note.id;
       elements.editTitle.value = note.title || '';
       elements.editContent.value = note.content || '';
@@ -886,7 +878,7 @@ const NotesPanel = (() => {
     } else {
       // Yeni not ekleme modu
       if (iconSpan) iconSpan.innerHTML = Utils.Icons.fileText;
-      if (textSpan) textSpan.textContent = 'Yeni Not';
+      if (textSpan) textSpan.textContent = window.i18n ? window.i18n.t('note.newNote') : 'Yeni Not';
       elements.editId.value = '';
       elements.editTitle.value = '';
       elements.editContent.value = '';
@@ -955,7 +947,7 @@ const NotesPanel = (() => {
     const id = elements.editId.value ? parseInt(elements.editId.value) : null;
 
     if (!title && !content) {
-      Utils.showToast('Başlık veya içerik girmelisiniz', 'warning');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.noteSaveFailedRequired') : 'Başlık veya içerik girmelisiniz', 'warning');
       return;
     }
 
@@ -968,7 +960,7 @@ const NotesPanel = (() => {
       }
 
       const noteData = {
-        title: title || 'Başlıksız Not',
+        title: title || (window.i18n ? window.i18n.t('note.untitled') : 'Başlıksız Not'),
         content: content,
         category_id: categoryId,
         color: noteColor,
@@ -980,15 +972,15 @@ const NotesPanel = (() => {
 
       const response = await window.api.saveNote(noteData);
       if (response && response.success) {
-        Utils.showToast(id ? 'Not güncellendi' : 'Yeni not kaydedildi', 'success');
+        Utils.showToast(id ? (window.i18n ? window.i18n.t('toast.noteUpdated') : 'Not güncellendi') : (window.i18n ? window.i18n.t('toast.noteSaved') : 'Yeni not kaydedildi'), 'success');
         closeEditorModal();
         loadNotes();
       } else {
-        Utils.showToast('Not kaydedilemedi: ' + response?.error, 'error');
+        Utils.showToast((window.i18n ? window.i18n.t('toast.noteSaveFailed') : 'Not kaydedilemedi') + ': ' + response?.error, 'error');
       }
     } catch (err) {
       console.error('saveNote hatası:', err);
-      Utils.showToast('Kayıt başarısız', 'error');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.noteSaveFailed') : 'Kayıt başarısız', 'error');
     }
   }
 
@@ -1032,8 +1024,8 @@ const NotesPanel = (() => {
       elements.categoryList.innerHTML = `
         <div class="empty-state" style="padding: 20px 12px; background: transparent; border: none; min-height: auto;">
           <span class="empty-state-icon" style="font-size: 18px; width: 36px; height: 36px; margin-bottom: 6px;">${Utils.Icons.folder}</span>
-          <p class="empty-state-title" style="font-size: 12px; margin-bottom: 2px;">Kategori Bulunmuyor</p>
-          <p class="empty-state-text" style="font-size: 10.5px;">Yukarıdan yeni bir kategori oluşturabilirsiniz.</p>
+          <p class="empty-state-title" style="font-size: 12px; margin-bottom: 2px;">${window.i18n ? window.i18n.t('empty.categoriesTitle') : 'Kategori Bulunmuyor'}</p>
+          <p class="empty-state-text" style="font-size: 10.5px;">${window.i18n ? window.i18n.t('empty.categoriesText') : 'Yukarıdan yeni bir kategori oluşturabilirsiniz.'}</p>
         </div>
       `;
       return;
@@ -1056,7 +1048,7 @@ const NotesPanel = (() => {
           <span style="font-size:14px;display:flex;align-items:center;color:${cat.color || 'var(--text-secondary)'}">${Utils.Icons[cat.icon] || Utils.Icons.folder}</span>
           <span style="font-weight:500;color:var(--text-primary)">${Utils.escapeHtml(cat.name)}</span>
         </div>
-        <button class="btn-delete-cat" data-id="${cat.id}" style="color:var(--text-muted);cursor:pointer;font-size:11px;transition:color var(--transition-fast);padding:4px 8px;" aria-label="Kategoriyi sil">✕ Sil</button>
+        <button class="btn-delete-cat" data-id="${cat.id}" style="color:var(--text-muted);cursor:pointer;font-size:11px;transition:color var(--transition-fast);padding:4px 8px;" aria-label="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}">${window.i18n ? window.i18n.t('category.deleteBtn') : '✕ Sil'}</button>
       `;
 
       // Kategori silme olayı
@@ -1064,8 +1056,8 @@ const NotesPanel = (() => {
         const id = parseInt(e.target.dataset.id);
         
         const confirmed = await window.App.confirm(
-          'Kategoriyi Sil',
-          `"${cat.name}" kategorisini silmek istediğinize emin misiniz? Bu kategoriye bağlı notlar silinmez, "Kategorisiz" olarak güncellenir.`,
+          window.i18n ? window.i18n.t('confirm.deleteCategoryTitle') : 'Kategoriyi Sil',
+          window.i18n ? window.i18n.t('confirm.deleteCategoryMsg', { name: cat.name }) : `"${cat.name}" kategorisini silmek istediğinize emin misiniz? Bu kategoriye bağlı notlar silinmez, "Kategorisiz" olarak güncellenir.`,
           Utils.Icons.alertTriangle
         );
 
@@ -1074,7 +1066,7 @@ const NotesPanel = (() => {
         try {
           const response = await window.api.deleteCategory(id);
           if (response && response.success) {
-            Utils.showToast('Kategori silindi', 'success');
+            Utils.showToast(window.i18n ? window.i18n.t('toast.categoryDeleted') : 'Kategori silindi', 'success');
             
             // Eğer silinen kategori şu an seçili filtre kategorisi ise sıfırla
             if (activeCategoryFilter === String(id)) {
@@ -1084,7 +1076,7 @@ const NotesPanel = (() => {
             await loadCategories();
             loadNotes(); // Notlar listesini de güncelle (kategorisi kalkmış olabilir)
           } else {
-            Utils.showToast('Kategori silinemedi: ' + response?.error, 'error');
+            Utils.showToast((window.i18n ? window.i18n.t('toast.categoryDeleteFailed') : 'Kategori silinemedi') + ': ' + response?.error, 'error');
           }
         } catch (err) {
           console.error(err);
@@ -1109,7 +1101,7 @@ const NotesPanel = (() => {
     const icon = elements.categoryIconInput.value || 'folder'; 
 
     if (!name) {
-      Utils.showToast('Kategori adı girmelisiniz', 'warning');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.categoryNameRequired') : 'Kategori adı girmelisiniz', 'warning');
       return;
     }
 
@@ -1121,17 +1113,17 @@ const NotesPanel = (() => {
       });
 
       if (response && response.success) {
-        Utils.showToast('Kategori oluşturuldu', 'success');
+        Utils.showToast(window.i18n ? window.i18n.t('toast.categoryCreated') : 'Kategori oluşturuldu', 'success');
         elements.categoryNameInput.value = '';
         await loadCategories();
         // Dropdown'ları ve listeyi yenile
         loadNotes();
       } else {
-        Utils.showToast('Kategori oluşturulamadı: ' + response?.error, 'error');
+        Utils.showToast((window.i18n ? window.i18n.t('toast.categoryCreateFailed') : 'Kategori oluşturulamadı') + ': ' + response?.error, 'error');
       }
     } catch (err) {
       console.error(err);
-      Utils.showToast('Kategori eklenemedi', 'error');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.categoryAddFailed') : 'Kategori eklenemedi', 'error');
     }
   }
 

@@ -153,11 +153,11 @@ const ClipboardPanel = (() => {
         updateCounters(total);
       } else {
         console.error('Pano geçmişi yüklenemedi:', response?.error);
-        Utils.showToast('Pano geçmişi yüklenemedi', 'error');
+        Utils.showToast(window.i18n ? window.i18n.t('toast.historyLoadFailed') : 'Pano geçmişi yüklenemedi', 'error');
       }
     } catch (err) {
       console.error('loadHistory hatası:', err);
-      Utils.showToast('Bir hata oluştu', 'error');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.genericError') : 'Bir hata oluştu', 'error');
     } finally {
       isLoading = false;
     }
@@ -216,8 +216,8 @@ const ClipboardPanel = (() => {
       elements.list.innerHTML = `
         <div class="empty-state">
           <span class="empty-state-icon">${Utils.Icons.clipboard}</span>
-          <p class="empty-state-title">Pano Geçmişi Boş</p>
-          <p class="empty-state-text">${searchQuery ? 'Aramanızla eşleşen öğe bulunamadı.' : 'Kopyaladığınız öğeler burada görünecektir.'}</p>
+          <p class="empty-state-title">${window.i18n ? window.i18n.t('empty.clipboardTitle') : 'Pano Geçmişi Boş'}</p>
+          <p class="empty-state-text">${searchQuery ? (window.i18n ? window.i18n.t('empty.clipboardSearch') : 'Aramanızla eşleşen öğe bulunamadı.') : (window.i18n ? window.i18n.t('empty.clipboardText') : 'Kopyaladığınız öğeler burada görünecektir.')}</p>
         </div>
       `;
       return;
@@ -280,7 +280,7 @@ const ClipboardPanel = (() => {
       // Windows dosya yollarını local-file URL'ine çevir (güvenle yüklenmesi için)
       const fileUrl = 'local-file:///' + item.image_path.replace(/\\/g, '/');
       contentHTML = `
-        <img class="clip-item-image-preview" src="${fileUrl}" alt="Görsel Pano" onerror="this.src='../assets/image-error.png';">
+        <img class="clip-item-image-preview" src="${fileUrl}" alt="${window.i18n ? window.i18n.t('imageItem.alt') : 'Görsel Pano'}" onerror="this.src='../assets/image-error.png';">
       `;
     } else {
       // Arama yapılmışsa eşleşen kısımları vurgula
@@ -292,7 +292,7 @@ const ClipboardPanel = (() => {
       
       // Hassas veri ise gizle
       if (item.is_sensitive) {
-        previewText = '•••••••••••• (Hassas Veri)';
+        previewText = window.i18n ? window.i18n.t('sensitive.placeholder') : '•••••••••••• (Hassas Veri)';
         el.classList.add('sensitive');
       }
 
@@ -310,22 +310,22 @@ const ClipboardPanel = (() => {
     let badgesHTML = '';
     if (item.is_pinned || item.is_favorite) {
       badgesHTML = `<div class="clip-status-badges">`;
-      if (item.is_pinned) badgesHTML += `<span class="status-badge pin-badge" data-tooltip="Sabitlenmiş">${Utils.Icons.pin}</span>`;
-      if (item.is_favorite) badgesHTML += `<span class="status-badge fav-badge" data-tooltip="Favori">${Utils.Icons.star}</span>`;
+      if (item.is_pinned) badgesHTML += `<span class="status-badge pin-badge" data-tooltip="${window.i18n ? window.i18n.t('tooltip.pinned') : 'Sabitlenmiş'}">${Utils.Icons.pin}</span>`;
+      if (item.is_favorite) badgesHTML += `<span class="status-badge fav-badge" data-tooltip="${window.i18n ? window.i18n.t('tooltip.favorited') : 'Favori'}">${Utils.Icons.star}</span>`;
       badgesHTML += `</div>`;
     }
 
     // Hassas veri maske kaldır butonu
     let sensitiveBtnHTML = '';
     if (item.is_sensitive) {
-      sensitiveBtnHTML = `<button class="clip-action-btn sensitive-btn" data-tooltip="İçeriği Göster" aria-label="Hassas içeriği göster veya gizle">${Utils.Icons.eye}</button>`;
+      sensitiveBtnHTML = `<button class="clip-action-btn sensitive-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.showContent') : 'İçeriği Göster'}" aria-label="${window.i18n ? window.i18n.t('tooltip.showContent') : 'Hassas içeriği göster veya gizle'}">${Utils.Icons.eye}</button>`;
     }
 
     // Uzun metinler için genişletme butonu (chevron-down)
     let expandBtnHTML = '';
     if (isLongText) {
       const chevronDownIcon = `<svg class="icon-svg expand-icon" style="transition: transform 0.2s ease;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
-      expandBtnHTML = `<button class="clip-action-btn expand-btn" data-tooltip="Genişlet" aria-label="Genişlet">${chevronDownIcon}</button>`;
+      expandBtnHTML = `<button class="clip-action-btn expand-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.expand') : 'Genişlet'}" aria-label="${window.i18n ? window.i18n.t('tooltip.expand') : 'Genişlet'}">${chevronDownIcon}</button>`;
     }
 
     el.innerHTML = `
@@ -343,11 +343,11 @@ const ClipboardPanel = (() => {
       </div>
       <div class="clip-item-actions">
         ${sensitiveBtnHTML}
-        <button class="clip-action-btn copy-btn" data-tooltip="Kopyala" aria-label="Kopyala">${Utils.Icons.copy}</button>
-        <button class="clip-action-btn pin-btn ${item.is_pinned ? 'pin-active' : ''}" data-tooltip="${item.is_pinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}" aria-label="${item.is_pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}">${Utils.Icons.pin}</button>
-        <button class="clip-action-btn fav-btn ${item.is_favorite ? 'fav-active' : ''}" data-tooltip="${item.is_favorite ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}" aria-label="${item.is_favorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}">${Utils.Icons.star}</button>
-        <button class="clip-action-btn note-btn" data-tooltip="Not Olarak Kaydet" aria-label="Not olarak kaydet">${Utils.Icons.fileText}</button>
-        <button class="clip-action-btn delete-btn" data-tooltip="Sil" aria-label="Sil">${Utils.Icons.trash}</button>
+        <button class="clip-action-btn copy-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}">${Utils.Icons.copy}</button>
+        <button class="clip-action-btn pin-btn ${item.is_pinned ? 'pin-active' : ''}" data-tooltip="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi Kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}" aria-label="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}">${Utils.Icons.pin}</button>
+        <button class="clip-action-btn fav-btn ${item.is_favorite ? 'fav-active' : ''}" data-tooltip="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden Çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere Ekle')}" aria-label="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere ekle')}">${Utils.Icons.star}</button>
+        <button class="clip-action-btn note-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.saveAsNote') : 'Not Olarak Kaydet'}" aria-label="${window.i18n ? window.i18n.t('tooltip.saveAsNote') : 'Not olarak kaydet'}">${Utils.Icons.fileText}</button>
+        <button class="clip-action-btn delete-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}" aria-label="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}">${Utils.Icons.trash}</button>
       </div>
       ${expandBtnHTML}
     `;
@@ -403,7 +403,7 @@ const ClipboardPanel = (() => {
       const icon = el.querySelector('.expand-icon');
       if (icon) icon.style.transform = 'rotate(0deg)';
       const expBtn = el.querySelector('.expand-btn');
-      if (expBtn) expBtn.setAttribute('data-tooltip', 'Genişlet');
+      if (expBtn) expBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.expand') : 'Genişlet');
 
       // 1. requestAnimationFrame ile tarayıcının yeni boyut hesaplamasını yakala ve kusursuz kaydır
       requestAnimationFrame(() => {
@@ -467,7 +467,7 @@ const ClipboardPanel = (() => {
           collapseCard();
         } else {
           el.classList.add('expanded');
-          expandBtn.setAttribute('data-tooltip', 'Daralt');
+          expandBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.collapse') : 'Daralt');
           const icon = expandBtn.querySelector('.expand-icon');
           if (icon) icon.style.transform = 'rotate(180deg)';
         }
@@ -494,14 +494,14 @@ const ClipboardPanel = (() => {
                   revealedContent = res.data;
                 } else {
                   isRevealed = false;
-                  Utils.showToast('İçerik çözülemedi: ' + (res?.error || 'Bilinmeyen hata'), 'error');
+                  Utils.showToast((window.i18n ? window.i18n.t('toast.contentDecryptFailed') : 'İçerik çözülemedi') + ': ' + (res?.error || 'Bilinmeyen hata'), 'error');
                   sensitiveBtn.disabled = false;
                   return;
                 }
               } catch (err) {
                 console.error(err);
                 isRevealed = false;
-                Utils.showToast('İçerik çözülemedi', 'error');
+                Utils.showToast(window.i18n ? window.i18n.t('toast.contentDecryptFailed') : 'İçerik çözülemedi', 'error');
                 sensitiveBtn.disabled = false;
                 return;
               }
@@ -509,12 +509,12 @@ const ClipboardPanel = (() => {
             }
             previewEl.textContent = revealedContent;
             sensitiveBtn.innerHTML = Utils.Icons.eyeOff;
-            sensitiveBtn.setAttribute('data-tooltip', 'İçeriği Gizle');
+            sensitiveBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.hideContent') : 'İçeriği Gizle');
           } else {
             revealedContent = null;
-            previewEl.textContent = '•••••••••••• (Hassas Veri)';
+            previewEl.textContent = window.i18n ? window.i18n.t('sensitive.placeholder') : '•••••••••••• (Hassas Veri)';
             sensitiveBtn.innerHTML = Utils.Icons.eye;
-            sensitiveBtn.setAttribute('data-tooltip', 'İçeriği Göster');
+            sensitiveBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.showContent') : 'İçeriği Göster');
           }
         }
       });
@@ -536,7 +536,7 @@ const ClipboardPanel = (() => {
         const response = await window.api.togglePinClipboard(item.id);
         if (response && response.success) {
           const updatedItem = response.data;
-          Utils.showToast(updatedItem.is_pinned ? 'Öğe sabitlendi' : 'Sabitleme kaldırıldı', 'success');
+          Utils.showToast(updatedItem.is_pinned ? (window.i18n ? window.i18n.t('toast.itemPinned') : 'Öğe sabitlendi') : (window.i18n ? window.i18n.t('toast.itemPinRemoved') : 'Sabitleme kaldırıldı'), 'success');
           
           // Güncellenen öğeyi hafızadaki listede güncelle
           const idx = historyItems.findIndex(h => h.id === item.id);
@@ -570,14 +570,14 @@ const ClipboardPanel = (() => {
         if (response && response.success) {
           const updatedItem = response.data;
           favBtn.classList.toggle('fav-active', updatedItem.is_favorite);
-          favBtn.setAttribute('data-tooltip', updatedItem.is_favorite ? 'Favorilerden Çıkar' : 'Favorilere Ekle');
+          favBtn.setAttribute('data-tooltip', updatedItem.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden Çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere Ekle'));
           
           if (updatedItem.is_favorite) {
             favBtn.classList.add('fav-animate');
             favBtn.addEventListener('animationend', () => favBtn.classList.remove('fav-animate'), { once: true });
           }
           
-          Utils.showToast(updatedItem.is_favorite ? 'Favorilere eklendi' : 'Favorilerden çıkarıldı', 'success');
+          Utils.showToast(updatedItem.is_favorite ? (window.i18n ? window.i18n.t('toast.itemFavAdded') : 'Favorilere eklendi') : (window.i18n ? window.i18n.t('toast.itemFavRemoved') : 'Favorilerden çıkarıldı'), 'success');
           
           // Güncellenen öğeyi hafızadaki listede güncelle
           const idx = historyItems.findIndex(h => h.id === item.id);
@@ -609,14 +609,14 @@ const ClipboardPanel = (() => {
       try {
         const response = await window.api.clipToNote(item.id);
         if (response && response.success) {
-          Utils.showToast('Pano öğesi not olarak kaydedildi', 'success');
+          Utils.showToast(window.i18n ? window.i18n.t('toast.clipToNoteSaved') : 'Pano öğesi not olarak kaydedildi', 'success');
           
           // Notlar panelini yenile
           if (window.NotesPanel && typeof window.NotesPanel.loadNotes === 'function') {
             window.NotesPanel.loadNotes();
           }
         } else {
-          Utils.showToast('Nota aktarılamadı: ' + response?.error, 'error');
+          Utils.showToast((window.i18n ? window.i18n.t('toast.clipToNoteFailed') : 'Nota aktarılamadı') + ': ' + response?.error, 'error');
         }
       } catch (err) {
         console.error('Not aktarma hatası:', err);
@@ -629,14 +629,14 @@ const ClipboardPanel = (() => {
       
       let preview = item.content || '';
       if (item.content_type === 'image') {
-        preview = 'Görsel Öğesi';
+        preview = window.i18n ? window.i18n.t('imageItem.label') : 'Görsel Öğesi';
       } else {
         preview = Utils.truncate(preview, 50);
       }
       
       const confirmed = await window.App.confirm(
-        'Öğeyi Sil',
-        `"${preview}" içeriğine sahip pano geçmişi öğesini silmek istediğinize emin misiniz?`,
+        window.i18n ? window.i18n.t('confirm.deleteItemTitle') : 'Öğeyi Sil',
+        window.i18n ? window.i18n.t('confirm.deleteItemMsg', { preview }) : `"${preview}" içeriğine sahip pano geçmişi öğesini silmek istediğinize emin misiniz?`,
         Utils.Icons.trash
       );
       
@@ -656,7 +656,7 @@ const ClipboardPanel = (() => {
             }
             updateCounters(historyItems.length);
           }, { once: true });
-          Utils.showToast('Öğe silindi', 'info');
+          Utils.showToast(window.i18n ? window.i18n.t('toast.itemDeleted') : 'Öğe silindi', 'info');
           // Yetim görselleri asenkron temizle
           window.api.cleanupOrphanImages().catch(err => console.error(err));
         }
@@ -684,13 +684,13 @@ const ClipboardPanel = (() => {
       }
       
       if (response && response.success) {
-        Utils.showToast('Panoya kopyalandı!', 'success');
+        Utils.showToast(window.i18n ? window.i18n.t('toast.copied') : 'Panoya kopyalandı!', 'success');
       } else {
-        Utils.showToast('Kopyalanamadı: ' + response?.error, 'error');
+        Utils.showToast((window.i18n ? window.i18n.t('toast.copyFailed') : 'Kopyalanamadı') + ': ' + response?.error, 'error');
       }
     } catch (err) {
       console.error('copyToSystemClipboard hatası:', err);
-      Utils.showToast('Kopyalama başarısız', 'error');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.copyFailed') : 'Kopyalama başarısız', 'error');
     }
   }
 
@@ -700,7 +700,7 @@ const ClipboardPanel = (() => {
   async function pasteToActiveWindow(item) {
     try {
       if (item.content_type === 'image') {
-        Utils.showToast('Görseller doğrudan yapıştırılamaz. Panoya kopyalanıyor...', 'info');
+        Utils.showToast(window.i18n ? window.i18n.t('toast.pasteImageInfo') : 'Görseller doğrudan yapıştırılamaz. Panoya kopyalanıyor...', 'info');
         await copyToSystemClipboard(item);
         return;
       }
@@ -713,11 +713,11 @@ const ClipboardPanel = (() => {
       }
 
       if (!response || !response.success) {
-        Utils.showToast('Yapıştırma başarısız: ' + response?.error, 'error');
+        Utils.showToast((window.i18n ? window.i18n.t('toast.pasteFailed') : 'Yapıştırma başarısız') + ': ' + response?.error, 'error');
       }
     } catch (err) {
       console.error('pasteToActiveWindow hatası:', err);
-      Utils.showToast('Yapıştırma başarısız', 'error');
+      Utils.showToast(window.i18n ? window.i18n.t('toast.pasteFailed') : 'Yapıştırma başarısız', 'error');
     }
   }
 
@@ -842,8 +842,8 @@ const ClipboardPanel = (() => {
   async function handleClearHistory() {
     // app.js'teki global confirm modalını kullan veya yerel oluştur
     const confirmed = await window.App.confirm(
-      'Geçmişi Temizle',
-      'Sabitlenmemiş tüm pano geçmişini silmek istediğinize emin misiniz? Sabitlenmiş öğeler korunacaktır.',
+      window.i18n ? window.i18n.t('confirm.clearHistoryTitle') : 'Geçmişi Temizle',
+      window.i18n ? window.i18n.t('confirm.clearHistoryMsg') : 'Sabitlenmemiş tüm pano geçmişini silmek istediğinize emin misiniz? Sabitlenmiş öğeler korunacaktır.',
       Utils.Icons.trash
     );
 
@@ -852,12 +852,15 @@ const ClipboardPanel = (() => {
     try {
       const response = await window.api.clearClipboardHistory();
       if (response && response.success) {
-        Utils.showToast(`${response.data.deleted} öğe temizlendi.`, 'success');
+        Utils.showToast(
+          window.i18n ? window.i18n.t('toast.historyCleared', { count: response.data.deleted }) : `${response.data.deleted} öğe temizlendi.`,
+          'success'
+        );
         loadHistory(false);
         // Yetim görselleri asenkron temizle
         window.api.cleanupOrphanImages().catch(err => console.error(err));
       } else {
-        Utils.showToast('Temizlenemedi: ' + response?.error, 'error');
+        Utils.showToast((window.i18n ? window.i18n.t('toast.historyClearFailed') : 'Temizlenemedi') + ': ' + response?.error, 'error');
       }
     } catch (err) {
       console.error('Pano temizleme hatası:', err);
@@ -881,22 +884,21 @@ const ClipboardPanel = (() => {
     if (pinBtn) {
       if (updatedItem.is_pinned) {
         pinBtn.classList.add('pin-active');
-        pinBtn.setAttribute('data-tooltip', 'Sabitlemeyi Kaldır');
+        pinBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi Kaldır');
       } else {
         pinBtn.classList.remove('pin-active');
-        pinBtn.setAttribute('data-tooltip', 'Sabitle');
+        pinBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle');
       }
     }
 
-    // 4. Favori butonunu güncelle
     const favBtn = el.querySelector('.fav-btn');
     if (favBtn) {
       if (updatedItem.is_favorite) {
         favBtn.classList.add('fav-active');
-        favBtn.setAttribute('data-tooltip', 'Favorilerden Çıkar');
+        favBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden Çıkar');
       } else {
         favBtn.classList.remove('fav-active');
-        favBtn.setAttribute('data-tooltip', 'Favorilere Ekle');
+        favBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere Ekle');
       }
     }
   }

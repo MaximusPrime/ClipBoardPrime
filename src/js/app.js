@@ -52,7 +52,7 @@ const App = (() => {
 
     // 2. Ayarları Yükle ve Başlat (Tema gibi ayarların ilk yüklenmesi için)
     if (window.SettingsPanel) {
-      window.SettingsPanel.init();
+      await window.SettingsPanel.init();
     }
 
     // 3. Diğer panelleri başlat
