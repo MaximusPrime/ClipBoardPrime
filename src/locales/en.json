@@ -145,7 +145,9 @@
     "contentPlaceholder": "Write your note...",
     "categoryLabel": "Category / Tag",
     "noCategoryOption": "(Uncategorized)",
-    "noteDetail": "Note Detail"
+    "noteDetail": "Note Detail",
+    "viewMore": "View More",
+    "closeAccordion": "Close Accordion"
   },
   "settings": {
     "title": "Settings",

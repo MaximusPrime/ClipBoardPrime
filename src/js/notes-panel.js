@@ -40,6 +40,7 @@ const NotesPanel = (() => {
     // Detail Modal
     detailModal: document.getElementById('note-detail-modal'),
     detailCloseBtn: document.getElementById('note-detail-close-btn'),
+    detailCloseBottomBtn: document.getElementById('note-detail-close-bottom-btn'),
     detailTitle: document.getElementById('note-detail-title-text'),
     detailContent: document.getElementById('note-detail-content'),
     detailCategory: document.getElementById('note-detail-category-tag'),
@@ -242,23 +243,7 @@ const NotesPanel = (() => {
 
     // ─── Detay Modalı Dinleyicileri ───
     elements.detailCloseBtn.addEventListener('click', () => closeDetailModal());
-
-    // ─── Boşluğa tıklayarak kapatma ───
-    elements.editorModal.addEventListener('click', (e) => {
-      if (e.target === elements.editorModal) {
-        const isNewNote = !elements.editId.value;
-        if (isNewNote) return; // Yeni not oluştururken dışarı tıklamayla kapanmasın
-        closeEditorModal();
-      }
-    });
-    
-    elements.detailModal.addEventListener('click', (e) => {
-      if (e.target === elements.detailModal) closeDetailModal();
-    });
-
-    elements.categoryModal.addEventListener('click', (e) => {
-      if (e.target === elements.categoryModal) closeCategoryModal();
-    });
+    elements.detailCloseBottomBtn.addEventListener('click', () => closeDetailModal());
   }
 
   /**
@@ -540,10 +525,18 @@ const NotesPanel = (() => {
         <div class="note-item-accordion">
           <div class="note-item-accordion-content">${highlightedFullContent}</div>
         </div>
+        <div class="accordion-view-more" data-tooltip="${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}" aria-label="${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}">
+          <span>${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}</span>
+          <svg class="icon-svg" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </div>
+        <div class="accordion-footer-divider"></div>
         <div class="note-item-footer">
           <div style="display: flex; align-items: center; gap: 8px;">
             ${categoryTagHTML}
             ${badgeHTML}
+          </div>
+          <div class="accordion-close-btn" data-tooltip="${window.i18n ? window.i18n.t('note.closeAccordion') : 'Akordiyonu Kapat'}" aria-label="${window.i18n ? window.i18n.t('note.closeAccordion') : 'Akordiyonu Kapat'}">
+            <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg>
           </div>
           <span class="note-date">${dateLabel}</span>
         </div>
@@ -628,17 +621,54 @@ const NotesPanel = (() => {
       }
     });
 
-    // Nota tıklayınca akordiyonu aç/kapat (Madde 4)
-    el.addEventListener('click', (e) => {
-      if (isDraggingGlobal) return;
-      if (e.target.closest('.note-action-btn') || e.target.closest('.note-item-accordion')) return;
-      
-      const isOpen = el.classList.contains('accordion-open');
-      if (isOpen) {
+    // Akordiyon kapatma ok butonu
+    const closeBtn = el.querySelector('.accordion-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         el.classList.remove('accordion-open');
         updateNoteDraggableState(el);
-      } else {
-        // İsteğe bağlı: diğer tüm açık akordiyonları kapat
+      });
+    }
+
+    // Alt şeride tıklayınca akordiyonu kapat
+    const footerEl = el.querySelector('.note-item-footer');
+    if (footerEl) {
+      footerEl.addEventListener('click', (e) => {
+        if (el.classList.contains('accordion-open')) {
+          e.stopPropagation();
+          el.classList.remove('accordion-open');
+          updateNoteDraggableState(el);
+        }
+      });
+    }
+
+    // Devamını Gör butonu → modal aç
+    const viewMoreBtn = el.querySelector('.accordion-view-more');
+    if (viewMoreBtn) {
+      viewMoreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openDetailModal(note);
+      });
+    }
+
+    // Nota tıklayınca akordiyon aç/kapat
+    el.addEventListener('click', (e) => {
+      if (isDraggingGlobal) return;
+      // Aksiyon butonları, akordiyon içeriği ve ok butonu hariç
+      if (e.target.closest('.note-action-btn') ||
+          e.target.closest('.note-item-accordion') ||
+          e.target.closest('.accordion-close-btn')) return;
+
+      const isOpen = el.classList.contains('accordion-open');
+      const isHeaderClick = e.target.closest('.note-item-header');
+
+      if (isOpen && isHeaderClick) {
+        // Akordiyon açıksa ve başlığa tıklandıysa → kapat
+        el.classList.remove('accordion-open');
+        updateNoteDraggableState(el);
+      } else if (!isOpen) {
+        // Akordiyon kapalıysa → aç (başlık veya başka bir yere tıklanmış olabilir)
         document.querySelectorAll('.note-item.accordion-open').forEach(item => {
           item.classList.remove('accordion-open');
           updateNoteDraggableState(item);
@@ -648,25 +678,10 @@ const NotesPanel = (() => {
       }
     });
 
-    // Akordiyon içeriğine tıklayınca da kapatılabilsin/açılabilsin
-    const accordionEl = el.querySelector('.note-item-accordion');
-    if (accordionEl) {
-      accordionEl.addEventListener('click', (e) => {
-        // Seçim yapılmaya çalışılıyorsa kapatma (Kullanıcı deneyimi için)
-        const selection = window.getSelection().toString();
-        if (selection) return;
-
-        e.stopPropagation();
-        el.classList.toggle('accordion-open');
-        updateNoteDraggableState(el);
-      });
-    }
-
     // Arama veya filtre aktifse sürüklemeyi engelle (Sadece sekmelerde izin ver)
     updateNoteDraggableState(el);
     
     el.addEventListener('dragstart', (e) => {
-      console.log('Drag başlatıldı - Not ID:', note.id, 'Pinned:', note.is_pinned);
       isDraggingGlobal = true;
       draggedNoteId = note.id;
       el.classList.add('dragging');
@@ -676,7 +691,6 @@ const NotesPanel = (() => {
     });
 
     el.addEventListener('dragend', () => {
-      console.log('Drag bitti - Not ID:', note.id);
       el.classList.remove('dragging');
       elements.list.classList.remove('notes-list-dragging');
       document.querySelectorAll('.note-item.drag-over').forEach(item => {

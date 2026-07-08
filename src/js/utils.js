@@ -128,67 +128,13 @@ const Utils = (() => {
   }
 
   /**
-   * HTML karakterlerini escape eder
+   * HTML karakterlerini escape eder (template literal güvenliği için backtick dahil)
    */
   function escapeHtml(str) {
     if (!str) return '';
     const div = document.createElement('div');
     div.textContent = str;
-    return div.innerHTML;
-  }
-
-  /**
-   * İçerik tipini algılar: url, email, code, text, image
-   */
-  function detectContentType(text) {
-    if (!text || typeof text !== 'string') return 'text';
-
-    const trimmed = text.trim();
-
-    // URL
-    if (/^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+$/i.test(trimmed)) {
-      return 'url';
-    }
-
-    // E-posta
-    if (/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
-      return 'email';
-    }
-
-    // Kod algılama (birden çok kriter)
-    const codePatterns = [
-      /\bfunction\s*\(/,
-      /\bconst\s+\w+\s*=/,
-      /\blet\s+\w+\s*=/,
-      /\bvar\s+\w+\s*=/,
-      /\bif\s*\(.+\)\s*\{/,
-      /\bfor\s*\(.+\)\s*\{/,
-      /\bclass\s+\w+/,
-      /\bimport\s+/,
-      /\bexport\s+(default\s+)?/,
-      /\breturn\s+/,
-      /=>\s*[\{(]/,
-      /\bconsole\.\w+\(/,
-      /\bdocument\.\w+/,
-      /[{}\[\]];?\s*$/m,
-      /^\s*(\/\/|#|\/\*|\*)/m,
-      /\bdef\s+\w+\s*\(/,
-      /\bprint\s*\(/,
-      /\bpublic\s+(static\s+)?void/,
-      /\bselect\s+.+\bfrom\b/i,
-      /<\w+(\s+\w+="[^"]*")*\s*\/?>/,
-    ];
-
-    let codeScore = 0;
-    for (const pattern of codePatterns) {
-      if (pattern.test(trimmed)) codeScore++;
-    }
-
-    if (codeScore >= 2 || (trimmed.includes('\n') && codeScore >= 1 && /[{};()=]/.test(trimmed))) {
-      return 'code';
-    }
-
-    return 'text';
+    return div.innerHTML.replace(/`/g, '&#96;');
   }
 
   /**
@@ -225,13 +171,6 @@ const Utils = (() => {
       clearTimeout(timer);
       timer = setTimeout(() => fn.apply(this, args), delay);
     };
-  }
-
-  /**
-   * Benzersiz ID oluşturur
-   */
-  function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
   }
 
   /**
@@ -286,28 +225,6 @@ const Utils = (() => {
     element.addEventListener('animationend', () => {
       element.classList.remove('copy-flash');
     }, { once: true });
-  }
-
-  /**
-   * Dosya boyutunu formatlar
-   */
-  function formatBytes(bytes) {
-    if (!bytes || bytes === 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return parseFloat((bytes / Math.pow(1024, i)).toFixed(1)) + ' ' + units[i];
-  }
-
-  /**
-   * URL doğrulama
-   */
-  function isValidUrl(str) {
-    try {
-      new URL(str);
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   /**
@@ -391,15 +308,11 @@ const Utils = (() => {
     getDateGroup,
     truncate,
     escapeHtml,
-    detectContentType,
     getContentTypeIcon,
     getContentTypeLabel,
     debounce,
-    generateId,
     showToast,
     copyFlashAnimation,
-    formatBytes,
-    isValidUrl,
     highlightText,
     formatNumber,
     initFocusTrap,

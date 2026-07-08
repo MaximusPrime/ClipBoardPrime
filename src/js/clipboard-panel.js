@@ -534,13 +534,15 @@ const ClipboardPanel = (() => {
     }
 
     // Kopyala butonu
-    el.querySelector('.copy-btn').addEventListener('click', async (e) => {
+    const copyBtn = el.querySelector('.copy-btn');
+    if (copyBtn) copyBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await copyToSystemClipboard(item, el);
     });
 
     // Pin butonu
-    el.querySelector('.pin-btn').addEventListener('click', async (e) => {
+    const pinBtn = el.querySelector('.pin-btn');
+    if (pinBtn) pinBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       try {
         const response = await window.api.togglePinClipboard(item.id);
@@ -573,7 +575,7 @@ const ClipboardPanel = (() => {
 
     // Favori butonu
     const favBtn = el.querySelector('.fav-btn');
-    favBtn.addEventListener('click', async (e) => {
+    if (favBtn) favBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       try {
         const response = await window.api.toggleFavoriteClipboard(item.id);
@@ -614,7 +616,8 @@ const ClipboardPanel = (() => {
     });
 
     // Not yapma butonu (clip-to-note)
-    el.querySelector('.note-btn').addEventListener('click', async (e) => {
+    const noteBtn = el.querySelector('.note-btn');
+    if (noteBtn) noteBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       try {
         const response = await window.api.clipToNote(item.id);
@@ -634,7 +637,8 @@ const ClipboardPanel = (() => {
     });
 
     // Sil butonu
-    el.querySelector('.delete-btn').addEventListener('click', async (e) => {
+    const deleteBtn = el.querySelector('.delete-btn');
+    if (deleteBtn) deleteBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       
       let preview = item.content || '';
@@ -934,17 +938,19 @@ const ClipboardPanel = (() => {
       document.body.appendChild(modal);
 
       const closeBtn = modal.querySelector('#image-viewer-close-btn');
-      closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+      if (closeBtn) closeBtn.addEventListener('click', () => modal.classList.remove('active'));
       modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.remove('active');
       });
-      
-      // ESC ile kapatma desteği
-      window.addEventListener('keydown', (e) => {
+
+      // ESC ile kapatma desteği (bir kere ekle, kapatıldığında kaldır)
+      const escHandler = (e) => {
         if (e.key === 'Escape' && modal.classList.contains('active')) {
           modal.classList.remove('active');
+          window.removeEventListener('keydown', escHandler);
         }
-      });
+      };
+      window.addEventListener('keydown', escHandler);
     }
 
     const img = modal.querySelector('#image-viewer-img');
