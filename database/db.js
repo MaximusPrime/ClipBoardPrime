@@ -475,6 +475,44 @@ function getClipboardHistory(params = {}) {
 }
 
 /**
+ * Clipboard öğesini günceller (düzenler).
+ * @param {number} id - Güncellenecek öğenin ID'si
+ * @param {string} content - Yeni içerik
+ * @returns {Object} Güncellenmiş öğe
+ */
+function updateClipboardItem(id, content) {
+  const item = getClipboardItemById(id);
+  if (!item) {
+    throw new Error('Öğe bulunamadı');
+  }
+
+  let dbContent = content || '';
+  let preview = '';
+
+  if (item.content_type === 'text') {
+    preview = dbContent.substring(0, 200);
+  } else if (item.content_type === 'html') {
+    preview = dbContent.replace(/<[^>]*>/g, '').substring(0, 200);
+  }
+
+  if (item.is_sensitive && item.content_type !== 'image') {
+    dbContent = encryptFn(dbContent, true);
+    preview = encryptFn(preview, true);
+  }
+
+  const charCount = dbContent ? dbContent.length : 0;
+
+  const stmt = db.prepare(`
+    UPDATE clipboard_history 
+    SET content = ?, preview = ?, char_count = ?, created_at = datetime('now','localtime')
+    WHERE id = ?
+  `);
+  stmt.run(dbContent, preview, charCount, id);
+
+  return getClipboardItemById(id);
+}
+
+/**
  * Clipboard öğesini siler.
  */
 function deleteClipboardItem(id) {
