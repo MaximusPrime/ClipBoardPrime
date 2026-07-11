@@ -1357,11 +1357,30 @@ function registerIPCHandlers() {
         return { success: false, error: 'Clipboard öğesi bulunamadı' };
       }
 
+      let noteContent = clipItem.content || '';
+      if (clipItem.content_type === 'html') {
+        // Ham HTML etiketlerini, yorumlarını, style ve script bloklarını temizle
+        noteContent = noteContent
+          .replace(/<!--[\s\S]*?-->/g, '')
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<[^>]*>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&apos;/g, "'")
+          .replace(/\n\s*\n\s*\n/g, '\n\n')
+          .trim();
+      }
+
       const note = db.addNote({
         title: clipItem.preview
           ? clipItem.preview.substring(0, 50)
           : 'Panodan Not',
-        content: clipItem.content,
+        content: noteContent,
         color: '#3b82f6',
       });
 
@@ -1868,7 +1887,21 @@ app.whenReady().then(() => {
       if (request.url.startsWith('local-file://') && !request.url.startsWith('local-file:///')) {
         urlPath = request.url.replace('local-file://', '');
       }
-      const decodedPath = decodeURIComponent(urlPath);
+      
+      const decodedPath = path.normalize(decodeURIComponent(urlPath));
+      
+      // Güvenlik sınır kontrolü: Sadece activeDataDir altındaki resimlerin okunmasına izin ver
+      const dbFile = db.getDbPath();
+      const baseDir = activeDataDir || (dbFile ? path.dirname(dbFile) : app.getPath('userData'));
+      const allowedDir = path.join(baseDir, 'images');
+
+      const relative = path.relative(allowedDir, decodedPath);
+      const isSafe = relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+
+      if (!isSafe) {
+        return new Response('Erişim Engellendi (Güvenlik Sınırı Dışı)', { status: 403 });
+      }
+
       if (fs.existsSync(decodedPath)) {
         const data = fs.readFileSync(decodedPath);
         // Dosya uzantısından MIME tipini belirle
