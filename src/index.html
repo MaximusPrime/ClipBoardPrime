@@ -412,7 +412,8 @@
         <div class="modal-footer">
           <button class="btn btn-ghost" id="note-editor-cancel-btn" aria-label="Değişiklikleri iptal et" data-i18n="btn.cancel" type="button">İptal</button>
           <button class="btn btn-primary" id="note-editor-save-btn" aria-label="Notu kaydet" type="button">
-            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Kaydet
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span data-i18n="btn.save">Kaydet</span>
           </button>
         </div>
       </div>
@@ -453,20 +454,20 @@
     <div class="modal-overlay" id="category-manager-modal" role="dialog" aria-modal="true" aria-labelledby="category-manager-title">
       <div class="modal" style="width:420px;">
         <div class="modal-header">
-          <h3 id="category-manager-title"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg> Kategoriler</h3>
+          <h3 id="category-manager-title"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg> <span data-i18n="category.title">Kategoriler</span></h3>
           <button class="modal-close" id="category-manager-close-btn" aria-label="Kategori yönetim modalını kapat" type="button">✕</button>
         </div>
         <div class="modal-body">
           <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px; border-bottom:1px solid var(--border-primary); padding-bottom:16px;">
             <div style="display:flex; gap:8px;">
-              <input type="text" class="form-input" id="new-category-name" placeholder="Kategori adı..." style="flex:1; height:32px;" aria-label="Yeni kategori adı">
+              <input type="text" class="form-input" id="new-category-name" placeholder="Kategori adı..." data-i18n="[placeholder]category.namePlaceholder" style="flex:1; height:32px;" aria-label="Yeni kategori adı">
               <select class="form-input" id="new-category-icon" style="width:110px; height:32px; font-size:11.5px; cursor:pointer; padding:0 8px;" aria-label="Yeni kategori simgesi">
-                <option value="folder">📁 Klasör</option>
-                <option value="briefcase">💼 İş</option>
-                <option value="code">💻 Kod</option>
-                <option value="user">👤 Kişisel</option>
-                <option value="star">⭐ Önemli</option>
-                <option value="tag">🏷️ Etiket</option>
+                <option value="folder" data-i18n="category.iconFolder">📁 Klasör</option>
+                <option value="briefcase" data-i18n="category.iconBriefcase">💼 İş</option>
+                <option value="code" data-i18n="category.iconCode">💻 Kod</option>
+                <option value="user" data-i18n="category.iconUser">👤 Kişisel</option>
+                <option value="star" data-i18n="category.iconStar">⭐ Önemli</option>
+                <option value="tag" data-i18n="category.iconTag">🏷️ Etiket</option>
               </select>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
