@@ -22,6 +22,10 @@
 
 With a customizable global hotkey (`Ctrl + Shift + V`), the panel slides into focus instantly, allowing you to search, filter, preview, organize, and directly paste any historical clipboard item back into your active window.
 
+<p align="center">
+  <img src="screenshort/ClipBoard.png" alt="ClipBoardPrime Overview Image" width="80%">
+</p>
+
 ---
 
 ## 📸 Screenshots Showcase
@@ -94,6 +98,18 @@ Here is a look at the ClipBoardPrime interface in action:
 *   **Drag-and-Drop Reordering:** Change the sequence of your notes using drag-and-drop.
 *   **Detailed Viewer Modal:** View and edit full notes in a dedicated layout.
 *   **HTML Content Sanitization:** When saving HTML-formatted clipboard items as notes, the application automatically strips out unsafe HTML tags, comments, embedded `<style>`, and `<script>` blocks using regex sanitization while resolving standard HTML entities (like `&nbsp;`, `&lt;`, `&gt;`). This guarantees that notes remain formatted as clean, safe, and readable plain text without rendering raw markup.
+
+---
+
+## 🌐 Language Support
+
+ClipBoardPrime detects your operating system language automatically and supports multiple languages out-of-the-box:
+
+*   🇹🇷 **Türkçe** (Turkish)
+*   🇺🇸 **English** (English)
+*   🇨🇳 **简体中文** (Simplified Chinese)
+
+You can manually switch your language at any time via `Settings → Appearance → Language`.
 
 ---
 
