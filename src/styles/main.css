@@ -699,6 +699,9 @@ img { max-width: 100%; display: block; }
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   word-break: break-word;
+  user-select: text;
+  -webkit-user-select: text;
+  transition: max-height 0.3s ease;
 }
 
 
@@ -1952,19 +1955,49 @@ img { max-width: 100%; display: block; }
 .no-select { user-select: none; }
 .selectable { user-select: text; }
 
-/* Inline Expansion for Clip Items */
-.clip-item.expanded {
-  max-height: none;
+/* Inline Expansion for Clip Items (Accordion Style like Notes) */
+.clip-item.accordion-open {
+  cursor: default;
 }
-.clip-item.expanded .clip-item-preview {
-  max-height: none;
-  -webkit-line-clamp: unset;
+.clip-item.accordion-open .clip-item-preview {
+  max-height: 250px;
   display: block;
-  user-select: text;
+  overflow: hidden;
+  -webkit-line-clamp: unset;
+  -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+  padding-bottom: 4px;
 }
-.clip-item.expanded .clip-action-btn.expand-btn {
+.clip-item.accordion-open .clip-action-btn.expand-btn {
   color: var(--accent-primary);
   background: var(--accent-subtle);
+}
+
+/* Accordion View More Button for Clip Items */
+.clip-item .accordion-view-more {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-primary);
+  cursor: pointer;
+  transition: color 0.2s, background-color 0.2s;
+  border-top: 1px solid var(--border-primary);
+  margin-top: 6px;
+}
+.clip-item.accordion-open .accordion-view-more {
+  display: flex;
+}
+.clip-item .accordion-view-more:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+.clip-item .accordion-view-more .icon-svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ── Settings About Tab Premium Styles ─────────────────────── */

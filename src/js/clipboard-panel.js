@@ -97,6 +97,8 @@ const ClipboardPanel = (() => {
     window.api.onClipboardChanged((item) => {
       handleNewItem(item);
     });
+
+    setupModalEventListeners();
   }
 
   /**
@@ -336,6 +338,12 @@ const ClipboardPanel = (() => {
       </div>
       <div class="clip-item-body">
         ${contentHTML}
+        ${isLongText ? `
+          <div class="accordion-view-more" data-tooltip="${window.i18n ? window.i18n.t('tooltip.viewMore') : 'Devamını Gör'}" aria-label="${window.i18n ? window.i18n.t('tooltip.viewMore') : 'Devamını Gör'}">
+            <span>${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}</span>
+            <svg class="icon-svg" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </div>
+        ` : ''}
         <div class="clip-item-meta">
           <span class="type-badge">${typeLabel}</span>
           <span class="clip-date">${dateLabel}</span>
@@ -398,9 +406,9 @@ const ClipboardPanel = (() => {
 
     // Kartı daraltan akıllı yardımcı fonksiyon (parlama efekti ve hassas kaydırma dahil)
     function collapseCard() {
-      if (!el.classList.contains('expanded')) return;
+      if (!el.classList.contains('accordion-open')) return;
 
-      el.classList.remove('expanded');
+      el.classList.remove('accordion-open');
       const icon = el.querySelector('.expand-icon');
       if (icon) icon.style.transform = 'rotate(0deg)';
       const expBtn = el.querySelector('.expand-btn');
@@ -420,17 +428,20 @@ const ClipboardPanel = (() => {
       }, { once: true });
     }
 
-    // Sol tık: Görsel ise görüntüleyiciyi aç, değilse gecikmeli daralt (çift tık ile çakışmayı önlemek için)
+    // Sol tık: Görsel ise görüntüleyiciyi aç, metin ise akordiyonu aç/kapat veya seçilince işlem yapma
     let clickTimeout = null;
     el.addEventListener('click', (e) => {
-      if (e.target.closest('.clip-action-btn')) return;
+      // Eylem butonları, metin önizleme seçimi veya devamını gör butonu tıklandıysa işlem yapma
+      if (e.target.closest('.clip-action-btn') || 
+          e.target.closest('.clip-item-preview') || 
+          e.target.closest('.accordion-view-more')) return;
 
       if (item.content_type === 'image' && item.image_path) {
         openImageViewer(item.image_path);
         return;
       }
 
-      // Eğer zaten tıklanmışsa ve 200ms dolmamışsa (çift tıklama), tek tık daraltmasını iptal et
+      // Çift tıklama algılaması için gecikme
       if (clickTimeout) {
         clearTimeout(clickTimeout);
         clickTimeout = null;
@@ -440,19 +451,38 @@ const ClipboardPanel = (() => {
       clickTimeout = setTimeout(() => {
         clickTimeout = null;
 
-        // Eğer kullanıcı metin seçiyorsa daraltma yapma
+        // Metin seçiliyorsa akordiyonu tetikleme
         const selection = window.getSelection().toString();
         if (selection && selection.trim().length > 0) {
           return;
         }
 
-        collapseCard();
+        const isOpen = el.classList.contains('accordion-open');
+        if (isOpen) {
+          collapseCard();
+        } else {
+          // Diğer açık akordiyonları kapat
+          document.querySelectorAll('.clip-item.accordion-open').forEach(itemEl => {
+            if (itemEl !== el) {
+              itemEl.classList.remove('accordion-open');
+              const itemIcon = itemEl.querySelector('.expand-icon');
+              if (itemIcon) itemIcon.style.transform = 'rotate(0deg)';
+              const itemExp = itemEl.querySelector('.expand-btn');
+              if (itemExp) itemExp.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.expand') : 'Genişlet');
+            }
+          });
+          el.classList.add('accordion-open');
+          const icon = el.querySelector('.expand-icon');
+          if (icon) icon.style.transform = 'rotate(180deg)';
+          const expBtn = el.querySelector('.expand-btn');
+          if (expBtn) expBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.collapse') : 'Daralt');
+        }
       }, 200);
     });
 
     // Çift tıklama: Görseller hariç öğeyi doğrudan aktif pencereye yapıştırır
     el.addEventListener('dblclick', async (e) => {
-      if (e.target.closest('.clip-action-btn')) return;
+      if (e.target.closest('.clip-action-btn') || e.target.closest('.clip-item-preview')) return;
       if (item.content_type === 'image') return;
       await pasteToActiveWindow(item);
     });
@@ -463,15 +493,34 @@ const ClipboardPanel = (() => {
       expandBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         
-        const isExpanded = el.classList.contains('expanded');
-        if (isExpanded) {
+        const isOpen = el.classList.contains('accordion-open');
+        if (isOpen) {
           collapseCard();
         } else {
-          el.classList.add('expanded');
+          // Diğerlerini kapat
+          document.querySelectorAll('.clip-item.accordion-open').forEach(itemEl => {
+            if (itemEl !== el) {
+              itemEl.classList.remove('accordion-open');
+              const itemIcon = itemEl.querySelector('.expand-icon');
+              if (itemIcon) itemIcon.style.transform = 'rotate(0deg)';
+              const itemExp = itemEl.querySelector('.expand-btn');
+              if (itemExp) itemExp.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.expand') : 'Genişlet');
+            }
+          });
+          el.classList.add('accordion-open');
           expandBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.collapse') : 'Daralt');
           const icon = expandBtn.querySelector('.expand-icon');
           if (icon) icon.style.transform = 'rotate(180deg)';
         }
+      });
+    }
+
+    // Devamını Gör butonu -> detay modalını aç
+    const viewMoreBtn = el.querySelector('.accordion-view-more');
+    if (viewMoreBtn) {
+      viewMoreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openClipDetailModal(item);
       });
     }
 
@@ -957,6 +1006,163 @@ const ClipboardPanel = (() => {
     const fileUrl = 'local-file:///' + imagePath.replace(/\\/g, '/');
     img.src = fileUrl;
     modal.classList.add('active');
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Pano Detay ve Editör Modalleri Yönetimi
+  // ═══════════════════════════════════════════════════════════════
+
+  function setupModalEventListeners() {
+    const detailCloseBtn = document.getElementById('clip-detail-close-btn');
+    const detailCloseBottomBtn = document.getElementById('clip-detail-close-bottom-btn');
+    const editorCloseBtn = document.getElementById('clip-editor-close-btn');
+    const editorCancelBtn = document.getElementById('clip-editor-cancel-btn');
+    const editorForm = document.getElementById('clip-editor-form');
+    const editorSaveBtn = document.getElementById('clip-editor-save-btn');
+
+    if (detailCloseBtn) detailCloseBtn.addEventListener('click', () => closeClipDetailModal());
+    if (detailCloseBottomBtn) detailCloseBottomBtn.addEventListener('click', () => closeClipDetailModal());
+    if (editorCloseBtn) editorCloseBtn.addEventListener('click', () => closeClipEditorModal());
+    if (editorCancelBtn) editorCancelBtn.addEventListener('click', () => closeClipEditorModal());
+    if (editorSaveBtn) editorSaveBtn.addEventListener('click', () => saveClipItem());
+    if (editorForm) {
+      editorForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveClipItem();
+      });
+    }
+  }
+
+  function openClipDetailModal(item) {
+    const detailModal = document.getElementById('clip-detail-modal');
+    const detailTitle = document.getElementById('clip-detail-title-text');
+    const detailContent = document.getElementById('clip-detail-content');
+    const detailTypeTag = document.getElementById('clip-detail-type-tag');
+    const detailDate = document.getElementById('clip-detail-date');
+    const detailEditBtn = document.getElementById('clip-detail-edit-btn');
+    const detailCopyBtn = document.getElementById('clip-detail-copy-btn');
+
+    if (!detailModal || !detailContent) return;
+
+    let rawContent = item.content || '';
+    
+    // Hassas veri ise ve maskesi kaldırıldıysa oradaki çözülmüş içeriği al
+    const sensitiveBtn = document.querySelector(`.clip-item[data-id="${item.id}"] .sensitive-btn`);
+    const previewEl = document.querySelector(`.clip-item[data-id="${item.id}"] .clip-item-preview`);
+    if (item.is_sensitive && sensitiveBtn && previewEl) {
+      if (previewEl.textContent !== (window.i18n ? window.i18n.t('sensitive.placeholder') : '•••••••••••• (Hassas Veri)')) {
+        rawContent = previewEl.textContent;
+      }
+    }
+
+    if (detailTitle) {
+      detailTitle.textContent = window.i18n ? window.i18n.t('clipDetail.title') : 'Pano Öğesi Detayı';
+    }
+    detailContent.textContent = rawContent;
+    
+    if (detailTypeTag) {
+      const typeLabel = Utils.getContentTypeLabel(item.content_type);
+      detailTypeTag.innerHTML = `
+        <span class="note-category-tag ${item.content_type}">
+          ${Utils.getContentTypeIcon(item.content_type)} ${typeLabel}
+        </span>
+      `;
+    }
+
+    if (detailDate) {
+      detailDate.textContent = Utils.formatDate(item.created_at);
+    }
+
+    // Düzenle butonu
+    if (detailEditBtn) {
+      detailEditBtn.onclick = () => {
+        closeClipDetailModal();
+        openClipEditorModal(item, rawContent);
+      };
+    }
+
+    // Kopyala butonu
+    if (detailCopyBtn) {
+      detailCopyBtn.onclick = async () => {
+        try {
+          const response = await window.api.copyToClipboard(rawContent, item.content_type, false);
+          if (response && response.success) {
+            Utils.showToast(window.i18n ? window.i18n.t('toast.copied') : 'Kopyalandı!', 'success');
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+    }
+
+    detailModal.classList.add('active');
+    Utils.initFocusTrap(detailModal);
+  }
+
+  function closeClipDetailModal() {
+    const detailModal = document.getElementById('clip-detail-modal');
+    if (detailModal) {
+      detailModal.classList.remove('active');
+      Utils.destroyFocusTrap(detailModal);
+    }
+  }
+
+  function openClipEditorModal(item, currentText = null) {
+    const editorModal = document.getElementById('clip-editor-modal');
+    const editId = document.getElementById('clip-edit-id');
+    const editContent = document.getElementById('clip-edit-content');
+
+    if (!editorModal || !editId || !editContent) return;
+
+    editId.value = item.id;
+    editContent.value = currentText || item.content || '';
+    
+    editorModal.classList.add('active');
+    Utils.initFocusTrap(editorModal);
+  }
+
+  function closeClipEditorModal() {
+    const editorModal = document.getElementById('clip-editor-modal');
+    const editorForm = document.getElementById('clip-editor-form');
+    if (editorModal) {
+      editorModal.classList.remove('active');
+      Utils.destroyFocusTrap(editorModal);
+    }
+    if (editorForm) {
+      editorForm.reset();
+    }
+  }
+
+  async function saveClipItem() {
+    const editId = document.getElementById('clip-edit-id');
+    const editContent = document.getElementById('clip-edit-content');
+    
+    if (!editId || !editContent) return;
+
+    const id = parseInt(editId.value);
+    const content = editContent.value;
+    if (!content.trim()) {
+      Utils.showToast(window.i18n ? window.i18n.t('toast.contentRequired') : 'İçerik boş bırakılamaz', 'warning');
+      return;
+    }
+
+    try {
+      const res = await window.api.updateClipboardItem(id, content);
+      if (res && res.success) {
+        Utils.showToast(window.i18n ? window.i18n.t('toast.itemSaved') : 'Öğe başarıyla güncellendi', 'success');
+        closeClipEditorModal();
+        
+        // Pano geçmişini listesini, pozisyonu koruyarak yeniden yükle
+        const listEl = document.getElementById('clipboard-list');
+        const scrollPos = listEl ? listEl.scrollTop : 0;
+        loadHistory(false, true, scrollPos);
+      } else {
+        Utils.showToast((window.i18n ? window.i18n.t('toast.saveFailed') : 'Kaydedilemedi') + ': ' + (res?.error || 'Bilinmeyen hata'), 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      Utils.showToast(window.i18n ? window.i18n.t('toast.saveFailed') : 'Kayıt sırasında bir hata oluştu.', 'error');
+    }
   }
 
   return {

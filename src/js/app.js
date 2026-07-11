@@ -276,6 +276,17 @@ const App = (() => {
             detailModal.classList.remove('active');
           }
         }
+        if (window.ClipboardPanel) {
+          // Pano detay veya editör modalını kapat
+          const clipDetailModal = document.getElementById('clip-detail-modal');
+          const clipEditorModal = document.getElementById('clip-editor-modal');
+          if (clipDetailModal && clipDetailModal.classList.contains('active')) {
+            clipDetailModal.classList.remove('active');
+          }
+          if (clipEditorModal && clipEditorModal.classList.contains('active')) {
+            clipEditorModal.classList.remove('active');
+          }
+        }
         
         // Confirm dialog kapat
         if (elements.confirmDialog.classList.contains('active')) {
@@ -422,7 +433,9 @@ const App = (() => {
       '#confirm-dialog',
       '#note-editor-modal',
       '#category-manager-modal',
-      '#note-detail-modal'
+      '#note-detail-modal',
+      '#clip-detail-modal',
+      '#clip-editor-modal'
     ];
 
     const checkModals = () => {

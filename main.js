@@ -1391,6 +1391,20 @@ function registerIPCHandlers() {
     }
   });
 
+  ipcMain.handle('update-clipboard-item', async (_event, params) => {
+    try {
+      if (!db.isReady()) {
+        return { success: false, error: 'Veritabanı hazır değil' };
+      }
+      const { id, content } = params;
+      const updated = db.updateClipboardItem(id, content);
+      return { success: true, data: updated };
+    } catch (err) {
+      console.error('update-clipboard-item hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('paste-to-active-window', async (_event, params) => {
     let id, content;
     if (params && typeof params === 'object') {

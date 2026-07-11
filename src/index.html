@@ -450,6 +450,66 @@
       </div>
     </div>
 
+    <!-- ═══════ CLIP DETAIL MODAL ═══════ -->
+    <div class="modal-overlay" id="clip-detail-modal" role="dialog" aria-modal="true" aria-labelledby="clip-detail-title-text">
+      <div class="modal" style="width: 640px;">
+        <div class="modal-header">
+          <h3 id="clip-detail-title">
+            <span class="modal-title-icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg></span>
+            <span class="modal-title-text" id="clip-detail-title-text" data-i18n="clipDetail.title">Pano Öğesi Detayı</span>
+          </h3>
+          <button class="modal-close" id="clip-detail-close-btn" aria-label="Pano detay modalını kapat" type="button">✕</button>
+        </div>
+        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+          <div id="clip-detail-type-tag" style="margin-bottom: 12px;"></div>
+          <div id="clip-detail-content" style="white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.6; color: var(--text-primary); padding: 4px 0; user-select: text; -webkit-user-select: text;"></div>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="clip-date" id="clip-detail-date" style="font-size: 10.5px;"></span>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-ghost" id="clip-detail-edit-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="Notu düzenle" type="button">
+              <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"></path></svg> <span data-i18n="btn.edit">Düzenle</span>
+            </button>
+            <button class="btn btn-ghost" id="clip-detail-copy-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="İçeriği kopyala" type="button">
+              <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> <span data-i18n="btn.copy">Kopyala</span>
+            </button>
+            <button class="btn btn-ghost" id="clip-detail-close-bottom-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="Pano detay modalını kapat" type="button">
+              <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> <span data-i18n="btn.close">Kapat</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ CLIP EDITOR MODAL ═══════ -->
+    <div class="modal-overlay" id="clip-editor-modal" role="dialog" aria-modal="true" aria-labelledby="clip-editor-title">
+      <div class="modal" style="width: 560px;">
+        <div class="modal-header">
+          <h3 id="clip-editor-title">
+            <span class="modal-title-icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"></path></svg></span>
+            <span class="modal-title-text" id="clip-editor-title-text" data-i18n="clipEditor.title">Pano Öğesini Düzenle</span>
+          </h3>
+          <button class="modal-close" id="clip-editor-close-btn" aria-label="Pano editörünü kapat" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+          <form class="note-editor-form" id="clip-editor-form">
+            <input type="hidden" id="clip-edit-id">
+            <div class="form-group">
+              <label for="clip-edit-content" data-i18n="clipEditor.contentLabel">Pano İçeriği</label>
+              <textarea class="form-input form-textarea" id="clip-edit-content" required placeholder="Pano içeriği..." style="height: 240px; font-family: inherit; font-size: 13px;" aria-label="Pano içeriği"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="clip-editor-cancel-btn" aria-label="Değişiklikleri iptal et" data-i18n="btn.cancel" type="button">İptal</button>
+          <button class="btn btn-primary" id="clip-editor-save-btn" aria-label="Değişiklikleri kaydet" type="button">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span data-i18n="btn.save">Kaydet</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ═══════ CATEGORY MANAGER MODAL ═══════ -->
     <div class="modal-overlay" id="category-manager-modal" role="dialog" aria-modal="true" aria-labelledby="category-manager-title">
       <div class="modal" style="width:420px;">

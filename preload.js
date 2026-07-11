@@ -11,6 +11,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const ALLOWED_INVOKE_CHANNELS = [
   'get-clipboard-history',
   'delete-clipboard-item',
+  'update-clipboard-item',
   'clear-clipboard-history',
   'toggle-pin-clipboard',
   'toggle-favorite-clipboard',
@@ -89,6 +90,7 @@ contextBridge.exposeInMainWorld('api', {
     return safeInvoke('copy-to-clipboard', { content: params, type, ignoreChange });
   },
   clipToNote: (id) => safeInvoke('clip-to-note', id),
+  updateClipboardItem: (id, content) => safeInvoke('update-clipboard-item', { id, content }),
   pasteToActiveWindow: (params) => safeInvoke('paste-to-active-window', params),
   revealSensitiveContent: (id) => safeInvoke('reveal-sensitive-content', id),
   cleanupOrphanImages: () => safeInvoke('cleanup-orphan-images'),

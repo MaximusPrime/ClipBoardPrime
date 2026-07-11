@@ -1549,6 +1549,7 @@ module.exports = {
   // Clipboard
   addClipboardItem,
   getClipboardItemById,
+  updateClipboardItem,
   getClipboardHistory,
   deleteClipboardItem,
   clearHistory,
