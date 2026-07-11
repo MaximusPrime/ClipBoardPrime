@@ -76,6 +76,7 @@ Here is a look at the ClipBoardPrime interface in action:
     *   **PEM Private Keys:** Cryptographic blocks starting with `-----BEGIN PRIVATE KEY-----`.
     *   **National ID Numbers:** Turkish T.C. Identification Numbers (validated with checksum verification to prevent false positives).
 *   **Temporary Reveal:** Click the eye/eye-off icon to toggle visibility of masked text.
+*   **Path Traversal Protection:** The custom `local-file` protocol handler (used to load cached images) features strict boundary checking and path normalization. It restricts file system access exclusively to the `${activeDataDir}/images` directory, returning a `403 Forbidden` error for any attempts to traverse directories or access sensitive files outside the sandbox.
 
 ### ⚡ Native Paste-to-Active-Window
 *   **Instant Simulation:** Select any card and click the dedicated **Paste** button, double-click the item, or press **Enter**. The application will instantly yield focus, bring the previous application to the foreground, and type the content natively using the Windows `SendInput` API.
@@ -92,6 +93,7 @@ Here is a look at the ClipBoardPrime interface in action:
 *   **Category Tags & Styling:** Group notes into categories with custom SVG icons (folder, briefcase, user, code, etc.) and color-coded labels.
 *   **Drag-and-Drop Reordering:** Change the sequence of your notes using drag-and-drop.
 *   **Detailed Viewer Modal:** View and edit full notes in a dedicated layout.
+*   **HTML Content Sanitization:** When saving HTML-formatted clipboard items as notes, the application automatically strips out unsafe HTML tags, comments, embedded `<style>`, and `<script>` blocks using regex sanitization while resolving standard HTML entities (like `&nbsp;`, `&lt;`, `&gt;`). This guarantees that notes remain formatted as clean, safe, and readable plain text without rendering raw markup.
 
 ---
 
