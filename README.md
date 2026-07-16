@@ -1,198 +1,250 @@
 <div align="center">
 
-  <img src="assets/logo.png" alt="ClipBoardPrime Logo" width="112" height="112">
+  <img src="assets/logo.png" alt="ClipBoardPrime logo" width="112" height="112">
 
   # ClipBoardPrime
 
-  **An ultra-fast, intelligent, and highly secure clipboard manager for your desktop.**
+  **A fast, private, and keyboard-friendly clipboard manager for Windows.**
 
-  [![Electron](https://img.shields.io/badge/Electron-v33-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
-  [![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-  [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-  [![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
-  [![Developer](https://img.shields.io/badge/Developer-MaximusPrime77-f97316?style=for-the-badge&logo=github)](https://github.com/MaximusPrime77)
+  Store clipboard history locally, find past content instantly, paste it into the active window, and turn frequently used items into organized notes.
+
+  [![Version](https://img.shields.io/badge/version-1.0.1-6366f1?style=flat-square)](package.json)
+  [![Electron](https://img.shields.io/badge/Electron-33-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
+  [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](#system-requirements)
+  [![Tests](https://img.shields.io/badge/tests-6%20passing-22c55e?style=flat-square)](#quality-assurance)
+  [![License](https://img.shields.io/badge/license-GPL--3.0-22c55e?style=flat-square)](LICENSE)
+
+  [Features](#features) · [Security](#security-and-privacy) · [Installation](#installation) · [Development](#development) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
----
-
-## 🌟 Overview
-
-**ClipBoardPrime** is a premium, lightweight desktop clipboard companion. Operating silently in the system tray, it monitors and securely archives your copied texts, URLs, code snippets, emails, and images into a highly optimized, encrypted local SQLite database. 
-
-With a customizable global hotkey (`Ctrl + Shift + V`), the panel slides into focus instantly, allowing you to search, filter, preview, organize, and directly paste any historical clipboard item back into your active window.
-
 <p align="center">
-  <img src="screenshort/ClipBoard.png" alt="ClipBoardPrime Overview Image" width="80%">
+  <img src="screenshort/ClipBoard.png" alt="ClipBoardPrime application overview" width="88%">
 </p>
 
----
+## Overview
 
-## 📸 Screenshots Showcase
+ClipBoardPrime runs quietly in the Windows system tray and records supported clipboard content in a local SQLite database. Open it with the customizable global shortcut—`Ctrl + Shift + V` by default—then search, filter, copy, edit, pin, favorite, or paste an earlier item directly into the previously active application.
 
-Here is a look at the ClipBoardPrime interface in action:
+The application is designed around three principles:
+
+- **Local-first privacy:** clipboard data stays on the device unless the user explicitly exports a backup.
+- **Fast interaction:** keyboard navigation, instant search, native Windows paste automation, and system-tray access.
+- **Practical organization:** clipboard history, favorites, pinned items, notes, categories, and portable backups in one application.
+
+## Features
+
+### Clipboard history
+
+- Monitors text, rich HTML, URLs, email addresses, code snippets, and images.
+- Detects duplicate entries and moves reused content to the top instead of creating unnecessary copies.
+- Provides paginated history, live search, match highlighting, content filters, and date grouping.
+- Supports pinned and favorite items; pinned entries are preserved when regular history is cleared.
+- Stores copied images as local PNG files with preview support.
+- Allows text-based entries to be edited and converted into notes.
+
+### Paste into the active window
+
+- Paste text into the previously active Windows application using the native `SendInput` API.
+- Use the primary **Paste** button, press `Enter`, or double-click a compatible clipboard item.
+- Copy images back to the system clipboard with one click.
+- Tracks the active target window and releases stuck modifier keys before sending `Ctrl + V`.
+
+### Notes and categories
+
+- Create notes manually or from clipboard items.
+- Edit, delete, pin, favorite, search, and reorder notes.
+- Organize notes using color-coded categories and icons.
+- View longer clipboard entries and notes in focused detail modals.
+- Converts rich clipboard content to readable plain text before saving it as a note.
+
+### Personalization and system integration
+
+- Dark, light, and system themes.
+- Turkish, English, and Simplified Chinese interfaces.
+- Customizable global shortcut.
+- Optional launch at Windows startup.
+- Adjustable clipboard polling interval and history limit.
+- Installer and portable distribution modes.
+- Configurable data location with integrity checks and rollback protection.
+
+## Security and privacy
+
+ClipBoardPrime does not require an account, cloud service, telemetry endpoint, or remote database.
+
+| Protection | Implementation |
+|---|---|
+| Renderer isolation | Electron sandbox, context isolation, and disabled Node.js integration |
+| IPC boundary | Explicitly allowlisted preload API and validated main-process inputs |
+| Sensitive content | Automatic detection, masking, and AES-256-GCM encryption |
+| Encryption key | Protected using Electron `safeStorage`, backed by the operating-system account |
+| Portable backups | Password-protected `.cpbackup` files using AES-256-GCM and scrypt key derivation |
+| Database queries | Parameterized SQLite prepared statements |
+| Local images | Restricted `local-file` protocol with normalized path-boundary validation |
+| External links | Limited to `https:` and `mailto:` protocols |
+| Import safety | Backup structure validation, duplicate detection, and category ID remapping |
+
+Sensitive-content detection includes common payment-card formats, API tokens, JWTs, password assignments, PEM private keys, and checksum-validated Turkish identity numbers. Detection reduces accidental exposure but should not be treated as a replacement for a dedicated password manager.
+
+> [!IMPORTANT]
+> Backup passwords cannot be recovered. Store the password safely; losing it means the encrypted backup cannot be opened.
+
+### Legacy backups
+
+The importer remains compatible with earlier JSON exports. New exports use the encrypted `.cpbackup` format by default.
+
+## Screenshots
 
 <div align="center">
   <table>
     <tr>
       <td width="50%" align="center">
-        <b>Main Clipboard History Panel</b><br/>
-        <img src="screenshort/2026-07-01-11-29-03-4bd8.png" alt="ClipBoardPrime History Panel" width="100%">
+        <strong>Clipboard history</strong><br><br>
+        <img src="screenshort/2026-07-01-11-29-03-4bd8.png" alt="Clipboard history">
       </td>
       <td width="50%" align="center">
-        <b>Notes & Categories Manager</b><br/>
-        <img src="screenshort/2026-07-01-11-29-32-65a0.png" alt="ClipBoardPrime Notes Management" width="100%">
+        <strong>Notes and categories</strong><br><br>
+        <img src="screenshort/2026-07-01-11-29-32-65a0.png" alt="Notes and categories">
       </td>
     </tr>
     <tr>
       <td width="50%" align="center">
-        <b>Settings & Shortcut Customization</b><br/>
-        <img src="screenshort/2026-07-01-11-29-41-0b8b.png" alt="ClipBoardPrime Settings Configuration" width="100%">
+        <strong>Settings</strong><br><br>
+        <img src="screenshort/2026-07-01-11-29-41-0b8b.png" alt="Application settings">
       </td>
       <td width="50%" align="center">
-        <b>Compact View & Tray Integration</b><br/>
-        <img src="screenshort/2026-07-01-11-28-33-b1af.png" alt="ClipBoardPrime Compact Mode" width="100%">
+        <strong>Compact workflow</strong><br><br>
+        <img src="screenshort/2026-07-01-11-28-33-b1af.png" alt="Compact clipboard workflow">
       </td>
     </tr>
   </table>
 </div>
 
----
+## Keyboard and mouse controls
 
-## ✨ Key Features
+| Control | Action |
+|---|---|
+| `Ctrl + Shift + V` | Show or hide ClipBoardPrime; customizable in Settings |
+| `↑` / `↓` | Navigate clipboard or note cards |
+| `Enter` | Paste the selected text item into the active window |
+| `Space` | Copy the selected clipboard item |
+| Double-click | Paste a compatible clipboard item |
+| `Escape` | Close the active modal |
 
-### 🗂️ Advanced Clipboard Archiving
-*   **Infinite Clipboard History:** Keep track of everything you copy. Maximum log limits can be customized under `Settings → General` (set to `0` for unlimited history).
-*   **Smart Content Detection:** Incoming clipboard events are automatically parsed, categorized, and tagged:
-    *   📄 **Text:** Plain text entries.
-    *   🔗 **URL:** Links starting with `http://`, `https://`, or `www.`
-    *   📧 **Email:** Valid email address structures.
-    *   💻 **Code:** Dynamic regex matching identifies functions, tags, imports, and variables across 15+ programming and markup languages (JS/TS, Python, C++, HTML, SQL, etc.).
-    *   🖼️ **Image:** Images or screenshots copied to your clipboard are compressed and saved directly as PNGs on disk.
+## Installation
 
-### 🔒 Enterprise-Grade Local Security (AES-256-GCM)
-*   **Encrypted Storage:** Sensitive contents (such as bank cards or tokens) are encrypted on-the-fly using the **AES-256-GCM** algorithm prior to database serialization.
-*   **Auto-Masking Engine:** The app monitors your clipboard and automatically masks + encrypts sensitive matches in real-time, including:
-    *   **Credit/Debit Cards:** Visa, Mastercard, American Express, Troy (13-19 digits).
-    *   **API Credentials:** Google (`AIzaSy`), GitHub tokens (`ghp_`, `github_pat_`), Slack secrets (`xox*`), SendGrid keys (`SG.`).
-    *   **JSON Web Tokens (JWT):** Strings starting with `eyJ...`
-    *   **System Credentials:** Key-value pairs containing keywords like `password:`, `şifre=`, etc.
-    *   **PEM Private Keys:** Cryptographic blocks starting with `-----BEGIN PRIVATE KEY-----`.
-    *   **National ID Numbers:** Turkish T.C. Identification Numbers (validated with checksum verification to prevent false positives).
-*   **Temporary Reveal:** Click the eye/eye-off icon to toggle visibility of masked text.
-*   **Path Traversal Protection:** The custom `local-file` protocol handler (used to load cached images) features strict boundary checking and path normalization. It restricts file system access exclusively to the `${activeDataDir}/images` directory, returning a `403 Forbidden` error for any attempts to traverse directories or access sensitive files outside the sandbox.
+Download the installer or portable executable from the project’s [GitHub Releases](https://github.com/MaximusPrime77/ClipBoardPrime/releases) page.
 
-### ⚡ Native Paste-to-Active-Window
-*   **Instant Simulation:** Select any card and click the dedicated **Paste** button, double-click the item, or press **Enter**. The application will instantly yield focus, bring the previous application to the foreground, and type the content natively using the Windows `SendInput` API.
-*   **State Cleansing:** Releases any stuck modifier keys (Ctrl, Shift, Alt, Win) from the OS input stream before typing, preventing key conflicts.
-*   **Dynamic Focus Tracking:** If you switch to another target application while ClipBoardPrime is open, the app automatically tracks your active window focus, ensuring pasting goes to the right place.
+| Distribution | Behavior |
+|---|---|
+| `ClipBoardPrime Setup <version>.exe` | Standard Windows installation with an optional install directory |
+| `ClipBoardPrime Portable <version>.exe` | Keeps application data in the adjacent `data` directory |
 
-### 📌 Organization & Categorization
-*   **Pinning & Favorites:** Pin important clips to keep them at the top of your feed, or star them for quick filtering. Pinned clips are protected from bulk history clearing.
-*   **Smart Date Grouping:** Natural timeline categories such as **Today**, **Yesterday**, **This Week**, **Last Week**, and **[Month Name]**.
-*   **Live Search with Highlighting:** Instant full-text search. Matched characters are highlighted in yellow using HTML `<mark>` tags.
+### System requirements
 
-### ✏️ Built-in Notes Board
-*   **Quick Note Creation:** Copy a clipboard card directly into a new note with a single click.
-*   **Category Tags & Styling:** Group notes into categories with custom SVG icons (folder, briefcase, user, code, etc.) and color-coded labels.
-*   **Drag-and-Drop Reordering:** Change the sequence of your notes using drag-and-drop.
-*   **Detailed Viewer Modal:** View and edit full notes in a dedicated layout.
-*   **HTML Content Sanitization:** When saving HTML-formatted clipboard items as notes, the application automatically strips out unsafe HTML tags, comments, embedded `<style>`, and `<script>` blocks using regex sanitization while resolving standard HTML entities (like `&nbsp;`, `&lt;`, `&gt;`). This guarantees that notes remain formatted as clean, safe, and readable plain text without rendering raw markup.
+- Windows 10 or Windows 11, 64-bit
+- A standard user account; administrator rights are not required for normal operation
 
----
-
-## 🌐 Language Support
-
-ClipBoardPrime detects your operating system language automatically and supports multiple languages out-of-the-box:
-
-*   🇹🇷 **Türkçe** (Turkish)
-*   🇺🇸 **English** (English)
-*   🇨🇳 **简体中文** (Simplified Chinese)
-
-You can manually switch your language at any time via `Settings → Appearance → Language`.
-
----
-
-## ⌨️ Global Shortcuts
-
-| Shortcut | Context | Description |
-|:---|:---|:---|
-| `Ctrl + Shift + V` *(customizable)* | System-Wide | Show / Hide the Clipboard Panel |
-| `Double Click` | Clipboard List | Paste item to active window (excluding images) |
-| `Single Click` | Long Text Cards | Expand / Collapse card with smooth scroll and highlight |
-| `Enter` | Clipboard List | Paste item to active window / Open full view |
-| `Space` | Clipboard List | Copy item back to system clipboard |
-| `↑ / ↓` Arrow Keys | General | Navigate between list items |
-| `Escape` | Modals | Close the active modal |
-
----
-
-## 🚀 Installation & Developer Setup
+## Development
 
 ### Prerequisites
-*   [Node.js](https://nodejs.org/) (v18 or higher)
-*   npm
 
-### 1. Clone the Repository
+- Node.js 18 or newer
+- npm
+- Windows for native paste integration and final packaging tests
+
+### Set up the project
+
 ```bash
 git clone https://github.com/MaximusPrime77/ClipBoardPrime.git
 cd ClipBoardPrime
-```
-
-### 2. Install Dependencies
-```bash
 npm install
-```
-
-> [!IMPORTANT]
-> This project uses the `better-sqlite3` module, which contains native C++ bindings. If you switch Electron versions or encounter binary issues, rebuild the native modules using:
-> ```bash
-> npm run rebuild
-> ```
-
-### 3. Run in Development Mode
-```bash
 npm run dev
 ```
-In development mode, Electron DevTools will open automatically, and persistent app data will be stored under the `%AppData%/clipboard-prime-app-dev` directory.
 
----
-
-## 📦 Building & Packaging
-
-To compile and package the app for distribution:
+`npm install` automatically aligns native dependencies with the Electron version. If a native-module mismatch occurs after changing Electron versions, run:
 
 ```bash
-npm run build
+npm run rebuild
 ```
 
-This generates two output files inside the `dist/` directory:
+### Available commands
 
-| Build Output | Description |
-|:---|:---|
-| `ClipBoardPrime Setup.exe` | Standard Windows NSIS installer |
-| `ClipBoardPrime Portable.exe` | Lightweight, portable version. All database files and configurations are kept in the `/data` folder adjacent to the executable |
+| Command | Purpose |
+|---|---|
+| `npm start` | Start the packaged-style application |
+| `npm run dev` | Start in development mode with DevTools |
+| `npm run check` | Validate JavaScript syntax |
+| `npm test` | Run automated tests using Electron’s Node runtime |
+| `npm run build` | Build Windows installer and portable packages |
+| `npm run rebuild` | Rebuild native dependencies for Electron |
 
----
+## Architecture
 
-## 🛡️ Database & Performance
-*   **SQLite WAL Mode:** Utilizes Write-Ahead Logging for high-concurrency read/write operations.
-*   **SQL Indexes:** Custom indexes defined on timestamp, type, pin, and favorite fields for lightning-fast querying.
-*   **Prepared Statements:** All SQLite queries are prepared, eliminating the risk of SQL injection.
-*   **Window State Memory:** Remembers window dimensions, position, and active monitor configurations.
+```text
+main.js                 Electron lifecycle, tray, clipboard watcher, IPC
+preload.js              Allowlisted renderer-to-main bridge
+database/db.js          SQLite schema, migrations, CRUD, import/export
+lib/backup-crypto.js    Password-protected backup encryption
+src/
+  index.html            Application shell and accessible dialogs
+  js/                   Clipboard, notes, settings, i18n, and UI modules
+  locales/              Turkish, English, and Simplified Chinese resources
+  styles/               Themes and application styling
+test/                   Database and backup-encryption regression tests
+```
 
----
+The application uses Vanilla JavaScript, HTML, and CSS in the renderer, Electron for desktop integration, `better-sqlite3` for local persistence, and `koffi` for native Windows input APIs.
 
-## 📄 License
+## Quality assurance
 
-This project is licensed under the **GNU General Public License v3.0**. For more details, see the [LICENSE](LICENSE) file.
+Before submitting changes or producing a release:
 
----
+```bash
+npm run check
+npm test
+npm run build -- --dir
+```
 
-## 📧 Contact & Support
+The automated suite currently covers encrypted-backup round trips, incorrect-password rejection, password-policy enforcement, sensitive-item character counts, note import fidelity, and safe data-location migration.
 
-**Maximus Decimus Meridius**
+Production dependency security can be checked with:
 
-*   **GitHub:** [MaximusPrime77](https://github.com/MaximusPrime77)
-*   **Email:** [b.maximus.prime@gmail.com](mailto:b.maximus.prime@gmail.com)
-*   **Project Repository:** [ClipBoardPrime](https://github.com/MaximusPrime77/ClipBoardPrime)
+```bash
+npm audit --omit=dev
+```
+
+## Data storage
+
+- Installed builds use Electron’s Windows `userData` directory by default.
+- Development mode uses a separate `clipboard-pro-app-dev` directory under `%AppData%`.
+- Portable builds store data next to the executable in `data/`.
+- Users of installed builds may move the database and image directory from Settings.
+
+The application database, encryption-key wrapper, configuration, and image cache are user data and should not be committed to the repository.
+
+## Contributing
+
+Bug reports, feature proposals, documentation improvements, and code contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+When reporting an issue, include the application version, Windows version, reproduction steps, expected behavior, actual behavior, and relevant screenshots or logs. Never include real passwords, access tokens, private keys, or unredacted clipboard history.
+
+## License
+
+ClipBoardPrime is licensed under the [GNU General Public License v3.0](LICENSE).
+
+## Author and support
+
+- **Developer:** Maximus Prime
+- **Studio:** Maximus Prime Software
+- **GitHub:** [@MaximusPrime77](https://github.com/MaximusPrime77)
+- **Email:** [b.maximus.prime@gmail.com](mailto:b.maximus.prime@gmail.com)
+- **Repository:** [github.com/MaximusPrime77/ClipBoardPrime](https://github.com/MaximusPrime77/ClipBoardPrime)
+
+<div align="center">
+  <a href="https://github.com/MaximusPrime77">
+    <img src="assets/maximus-prime-software.png" alt="Maximus Prime Software" width="200">
+  </a>
+  <br>
+  <sub>Designed and developed by Maximus Prime Software.</sub>
+</div>

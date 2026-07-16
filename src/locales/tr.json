@@ -25,6 +25,7 @@
     "close": "Kapat",
     "edit": "Düzenle",
     "copy": "Kopyala",
+    "paste": "Yapıştır",
     "delete": "Sil",
     "export": "Dışa Aktar",
     "import": "İçe Aktar",
@@ -242,12 +243,23 @@
     "sourceCode": "Kaynak Kodlar",
     "copyright": "© 2026 ClipBoardPrime. Tüm hakları saklıdır."
   },
+  "backup": {
+    "exportPasswordTitle": "Yedek Parolası",
+    "exportPasswordMsg": "Yedeği korumak için en az 8 karakterli bir parola belirleyin. Bu parola kurtarılamaz.",
+    "confirmPasswordTitle": "Parolayı Doğrulayın",
+    "confirmPasswordMsg": "Aynı parolayı yeniden girin.",
+    "importPasswordTitle": "Yedek Parolası",
+    "importPasswordMsg": "Şifreli yedek parolasını girin. Eski JSON yedekleri için herhangi bir değer girebilirsiniz.",
+    "passwordMismatch": "Parolalar eşleşmiyor."
+  },
   "tooltip": {
     "changeTheme": "Tema Değiştir",
     "settings": "Ayarlar",
     "clearHistory": "Geçmişi Temizle",
     "categories": "Kategoriler",
     "copy": "Kopyala",
+    "paste": "Yapıştır",
+    "pasteHint": "Aktif pencereye yapıştır (Enter veya çift tık)",
     "pin": "Sabitle",
     "unpin": "Sabitlemeyi Kaldır",
     "favorite": "Favorilere Ekle",

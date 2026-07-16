@@ -441,8 +441,26 @@ const SettingsPanel = (() => {
    * Verileri JSON olarak dışa aktarır
    */
   async function exportData() {
+    const password = await window.App.prompt(
+      window.i18n ? window.i18n.t('backup.exportPasswordTitle') : 'Yedek Parolası',
+      window.i18n ? window.i18n.t('backup.exportPasswordMsg') : 'Yedeği korumak için en az 8 karakterli bir parola belirleyin.',
+      { type: 'password', minLength: 8 }
+    );
+    if (!password) return;
+
+    const confirmation = await window.App.prompt(
+      window.i18n ? window.i18n.t('backup.confirmPasswordTitle') : 'Parolayı Doğrulayın',
+      window.i18n ? window.i18n.t('backup.confirmPasswordMsg') : 'Aynı parolayı yeniden girin.',
+      { type: 'password', minLength: 8 }
+    );
+    if (!confirmation) return;
+    if (password !== confirmation) {
+      Utils.showToast(window.i18n ? window.i18n.t('backup.passwordMismatch') : 'Parolalar eşleşmiyor.', 'error');
+      return;
+    }
+
     try {
-      const response = await window.api.exportData();
+      const response = await window.api.exportData(password);
       if (response && response.success) {
         Utils.showToast(window.i18n ? window.i18n.t('toast.exportSuccess') : 'Veriler başarıyla yedeklendi.', 'success');
       } else if (response && response.error !== 'İptal edildi') {
@@ -465,8 +483,15 @@ const SettingsPanel = (() => {
 
     if (!confirmed) return;
 
+    const password = await window.App.prompt(
+      window.i18n ? window.i18n.t('backup.importPasswordTitle') : 'Yedek Parolası',
+      window.i18n ? window.i18n.t('backup.importPasswordMsg') : 'Şifreli yedek parolasını girin. Eski JSON yedekleri için herhangi bir değer girebilirsiniz.',
+      { type: 'password', minLength: 1 }
+    );
+    if (!password) return;
+
     try {
-      const response = await window.api.importData();
+      const response = await window.api.importData(password);
       if (response && response.success) {
         const res = response.data;
         Utils.showToast(

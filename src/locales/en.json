@@ -25,6 +25,7 @@
     "close": "Close",
     "edit": "Edit",
     "copy": "Copy",
+    "paste": "Paste",
     "delete": "Delete",
     "export": "Export",
     "import": "Import",
@@ -242,12 +243,23 @@
     "sourceCode": "Source Code",
     "copyright": "© 2026 ClipBoardPrime. All rights reserved."
   },
+  "backup": {
+    "exportPasswordTitle": "Backup Password",
+    "exportPasswordMsg": "Choose a password of at least 8 characters to protect the backup. This password cannot be recovered.",
+    "confirmPasswordTitle": "Confirm Password",
+    "confirmPasswordMsg": "Enter the same password again.",
+    "importPasswordTitle": "Backup Password",
+    "importPasswordMsg": "Enter the encrypted backup password. For legacy JSON backups, you may enter any value.",
+    "passwordMismatch": "Passwords do not match."
+  },
   "tooltip": {
     "changeTheme": "Toggle Theme",
     "settings": "Settings",
     "clearHistory": "Clear History",
     "categories": "Categories",
     "copy": "Copy",
+    "paste": "Paste",
+    "pasteHint": "Paste into the active window (Enter or double-click)",
     "pin": "Pin",
     "unpin": "Unpin",
     "favorite": "Add to Favorites",

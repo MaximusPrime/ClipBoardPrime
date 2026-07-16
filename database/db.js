@@ -500,7 +500,7 @@ function updateClipboardItem(id, content) {
     preview = encryptFn(preview, true);
   }
 
-  const charCount = dbContent ? dbContent.length : 0;
+  const charCount = content ? content.length : 0;
 
   const stmt = db.prepare(`
     UPDATE clipboard_history 
@@ -517,9 +517,11 @@ function updateClipboardItem(id, content) {
  */
 function deleteClipboardItem(id) {
   const item = getClipboardItemById(id);
+  const stmt = db.prepare('DELETE FROM clipboard_history WHERE id = ?');
+  const result = stmt.run(id);
 
-  // Eğer görsel ise dosyayı da sil
-  if (item && item.image_path) {
+  // DB kaydı başarıyla silindikten sonra ilişkili dosyayı temizle.
+  if (result.changes > 0 && item && item.image_path) {
     try {
       if (fs.existsSync(item.image_path)) {
         fs.unlinkSync(item.image_path);
@@ -529,8 +531,6 @@ function deleteClipboardItem(id) {
     }
   }
 
-  const stmt = db.prepare('DELETE FROM clipboard_history WHERE id = ?');
-  const result = stmt.run(id);
   return result.changes > 0;
 }
 
@@ -543,7 +543,10 @@ function clearHistory() {
     "SELECT image_path FROM clipboard_history WHERE is_pinned = 0 AND image_path IS NOT NULL"
   ).all();
 
-  // Görsel dosyaları sil
+  const stmt = db.prepare('DELETE FROM clipboard_history WHERE is_pinned = 0');
+  const result = stmt.run();
+
+  // DB kayıtları silindikten sonra görsel dosyaları temizle
   for (const img of images) {
     try {
       if (img.image_path && fs.existsSync(img.image_path)) {
@@ -554,8 +557,6 @@ function clearHistory() {
     }
   }
 
-  const stmt = db.prepare('DELETE FROM clipboard_history WHERE is_pinned = 0');
-  const result = stmt.run();
   return result.changes;
 }
 
@@ -606,6 +607,16 @@ function enforceMaxHistory() {
       LIMIT ?
     `).all(excess);
 
+    const deleteStmt = db.prepare(`
+      DELETE FROM clipboard_history WHERE id IN (
+        SELECT id FROM clipboard_history
+        WHERE is_pinned = 0
+        ORDER BY created_at ASC
+        LIMIT ?
+      )
+    `);
+    deleteStmt.run(excess);
+
     for (const img of images) {
       try {
         if (img.image_path && fs.existsSync(img.image_path)) {
@@ -616,15 +627,6 @@ function enforceMaxHistory() {
       }
     }
 
-    const deleteStmt = db.prepare(`
-      DELETE FROM clipboard_history WHERE id IN (
-        SELECT id FROM clipboard_history
-        WHERE is_pinned = 0
-        ORDER BY created_at ASC
-        LIMIT ?
-      )
-    `);
-    deleteStmt.run(excess);
   }
 }
 
@@ -1271,8 +1273,11 @@ function importAll(data) {
     // Notları içe aktar
     if (Array.isArray(data.data.notes)) {
       const noteStmt = db.prepare(`
-        INSERT INTO notes (title, content, category_id, color, is_pinned, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO notes (
+          title, content, category_id, color, is_pinned, is_favorite,
+          sort_order, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const checkNote = db.prepare('SELECT id FROM notes WHERE title = ? AND content = ? AND created_at = ?');
 
@@ -1291,6 +1296,8 @@ function importAll(data) {
           newCategoryId,
           note.color || '#3b82f6',
           note.is_pinned || 0,
+          note.is_favorite || 0,
+          Number.isInteger(note.sort_order) ? note.sort_order : 0,
           note.created_at || new Date().toISOString(),
           note.updated_at || new Date().toISOString()
         );
@@ -1356,6 +1363,10 @@ function copyFileWithRetry(src, dest, maxRetries = 3) {
  * @returns {boolean}
  */
 function changeLocation(newLocation, userDataPath) {
+  if (typeof newLocation !== 'string' || newLocation.trim() === '') {
+    throw new Error('Geçerli bir veri konumu seçilmelidir.');
+  }
+  newLocation = path.resolve(newLocation);
   const oldPath = dbPath;
   const newPath = path.join(newLocation, 'clipboard-pro.db');
 
@@ -1367,6 +1378,13 @@ function changeLocation(newLocation, userDataPath) {
   const oldLocation = oldPath ? path.dirname(oldPath) : userDataPath;
   const oldImagesDir = path.join(oldLocation, 'images');
   const newImagesDir = path.join(newLocation, 'images');
+
+  if (fs.existsSync(newPath)) {
+    throw new Error('Seçilen klasörde mevcut bir ClipBoardPrime veritabanı bulunuyor. Veri kaybını önlemek için boş bir klasör seçin.');
+  }
+  if (fs.existsSync(newImagesDir) && fs.readdirSync(newImagesDir).length > 0) {
+    throw new Error('Seçilen klasörde dolu bir images klasörü bulunuyor. Veri kaybını önlemek için boş bir klasör seçin.');
+  }
 
   // Disk yazma yetkisi ve boş alan kontrolü
   try {

@@ -19,11 +19,13 @@ const {
   protocol,
   net,
   screen,
+  safeStorage,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { exec, execFile } = require('child_process');
+const { decryptBackup, encryptBackup, isEncryptedBackup } = require('./lib/backup-crypto');
 
 // ─── Win32 API ve koffi Tanımlamaları ──────────────────────────
 let koffi = null;
@@ -152,22 +154,34 @@ function getOrCreateEncryptionKey() {
     console.error('Konfigürasyon dosyası okunamadı:', err);
   }
 
-  if (!config.encryptionKey) {
-    config.encryptionKey = crypto.randomBytes(32).toString('hex');
-    try {
-      const dir = path.dirname(configPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-    } catch (err) {
-      console.error('Konfigürasyon dosyası yazılamadı:', err);
+  if (config.protectedEncryptionKey) {
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('İşletim sistemi güvenli anahtar deposu kullanılamıyor.');
     }
+    return safeStorage.decryptString(
+      Buffer.from(config.protectedEncryptionKey, 'base64')
+    );
   }
-  return config.encryptionKey;
+
+  const key = config.encryptionKey || crypto.randomBytes(32).toString('hex');
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('İşletim sistemi güvenli anahtar deposu kullanılamıyor.');
+  }
+
+  config.protectedEncryptionKey = safeStorage.encryptString(key).toString('base64');
+  delete config.encryptionKey;
+  const dir = path.dirname(configPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), {
+    encoding: 'utf8',
+    mode: 0o600,
+  });
+  return key;
 }
 
-const encryptionKey = getOrCreateEncryptionKey();
+let encryptionKey = null;
 const db = require('./database/db');
 
 /**
@@ -214,6 +228,32 @@ function saveCustomDataLocation(location) {
 }
 
 let isWritingToClipboard = false;
+
+function requirePositiveInteger(value, fieldName = 'Kimlik') {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${fieldName} geçerli bir pozitif tam sayı olmalıdır.`);
+  }
+  return parsed;
+}
+
+function requireString(value, fieldName, maxLength) {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} metin olmalıdır.`);
+  }
+  if (maxLength && value.length > maxLength) {
+    throw new Error(`${fieldName} en fazla ${maxLength} karakter olabilir.`);
+  }
+  return value;
+}
+
+function validateExternalUrl(value) {
+  const parsed = new URL(requireString(value, 'Bağlantı', 2048));
+  if (!['https:', 'mailto:'].includes(parsed.protocol)) {
+    throw new Error('Yalnızca güvenli HTTPS ve e-posta bağlantıları açılabilir.');
+  }
+  return parsed.toString();
+}
 
 /**
  * Metni AES-256-GCM ile şifreler.
@@ -1187,7 +1227,7 @@ function registerIPCHandlers() {
           version: app.getVersion(),
           isDev: isDev,
           isPortable: isPortable,
-          author: 'ClipBoardPrime',
+          author: 'Maximus Prime',
         }
       };
     } catch (err) {
@@ -1198,6 +1238,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('reveal-sensitive-content', async (_event, id) => {
     try {
+      id = requirePositiveInteger(id);
       if (!db.isReady()) {
         return { success: false, error: 'Veritabanı hazır değil' };
       }
@@ -1238,6 +1279,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('delete-clipboard-item', async (_event, id) => {
     try {
+      id = requirePositiveInteger(id);
       const result = db.deleteClipboardItem(id);
       return { success: true, data: result };
     } catch (err) {
@@ -1258,6 +1300,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('toggle-pin-clipboard', async (_event, id) => {
     try {
+      id = requirePositiveInteger(id);
       const item = db.togglePin(id);
       return { success: true, data: item };
     } catch (err) {
@@ -1268,6 +1311,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('toggle-favorite-clipboard', async (_event, id) => {
     try {
+      id = requirePositiveInteger(id);
       const item = db.toggleFavorite(id);
       return { success: true, data: item };
     } catch (err) {
@@ -1396,7 +1440,9 @@ function registerIPCHandlers() {
       if (!db.isReady()) {
         return { success: false, error: 'Veritabanı hazır değil' };
       }
-      const { id, content } = params;
+      if (!params || typeof params !== 'object') throw new Error('Geçersiz güncelleme isteği.');
+      const id = requirePositiveInteger(params.id);
+      const content = requireString(params.content, 'İçerik', 10_000_000);
       const updated = db.updateClipboardItem(id, content);
       return { success: true, data: updated };
     } catch (err) {
@@ -1568,6 +1614,14 @@ function registerIPCHandlers() {
 
   ipcMain.handle('save-note', async (_event, note) => {
     try {
+      if (!note || typeof note !== 'object') throw new Error('Geçersiz not verisi.');
+      note = {
+        ...note,
+        id: note.id ? requirePositiveInteger(note.id, 'Not kimliği') : undefined,
+        title: requireString(note.title || '', 'Not başlığı', 500),
+        content: requireString(note.content || '', 'Not içeriği', 10_000_000),
+        category_id: note.category_id ? requirePositiveInteger(note.category_id, 'Kategori kimliği') : null,
+      };
       let result;
       if (note.id) {
         result = db.updateNote(note);
@@ -1583,6 +1637,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('delete-note', async (_event, id) => {
     try {
+      id = requirePositiveInteger(id, 'Not kimliği');
       const result = db.deleteNote(id);
       return { success: true, data: result };
     } catch (err) {
@@ -1645,6 +1700,13 @@ function registerIPCHandlers() {
 
   ipcMain.handle('save-category', async (_event, cat) => {
     try {
+      if (!cat || typeof cat !== 'object') throw new Error('Geçersiz kategori verisi.');
+      cat = {
+        ...cat,
+        id: cat.id ? requirePositiveInteger(cat.id, 'Kategori kimliği') : undefined,
+        name: requireString(cat.name || '', 'Kategori adı', 100).trim(),
+      };
+      if (!cat.name) throw new Error('Kategori adı boş olamaz.');
       let result;
       if (cat.id) {
         result = db.updateCategory(cat);
@@ -1728,13 +1790,14 @@ function registerIPCHandlers() {
     }
   });
 
-  ipcMain.handle('export-data', async () => {
+  ipcMain.handle('export-data', async (_event, options = {}) => {
     try {
+      const password = requireString(options.password, 'Yedek parolası', 1024);
       const result = await dialog.showSaveDialog(mainWindow, {
-        title: 'Veriyi Dışa Aktar',
-        defaultPath: `clipboard-pro-backup-${formatDate(new Date())}.json`,
+        title: 'Şifreli Yedeği Dışa Aktar',
+        defaultPath: `clipboard-prime-backup-${formatDate(new Date())}.cpbackup`,
         filters: [
-          { name: 'JSON Dosyası', extensions: ['json'] },
+          { name: 'ClipBoardPrime Şifreli Yedek', extensions: ['cpbackup'] },
         ],
         buttonLabel: 'Dışa Aktar',
       });
@@ -1744,7 +1807,11 @@ function registerIPCHandlers() {
       }
 
       const exportData = db.exportAll();
-      fs.writeFileSync(result.filePath, JSON.stringify(exportData, null, 2), 'utf8');
+      const encryptedBackup = encryptBackup(exportData, password);
+      fs.writeFileSync(result.filePath, JSON.stringify(encryptedBackup), {
+        encoding: 'utf8',
+        mode: 0o600,
+      });
 
       return { success: true, data: { path: result.filePath } };
     } catch (err) {
@@ -1753,12 +1820,13 @@ function registerIPCHandlers() {
     }
   });
 
-  ipcMain.handle('import-data', async () => {
+  ipcMain.handle('import-data', async (_event, options = {}) => {
     try {
+      const password = requireString(options.password, 'Yedek parolası', 1024);
       const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Veri İçe Aktar',
+        title: 'Şifreli Yedeği İçe Aktar',
         filters: [
-          { name: 'JSON Dosyası', extensions: ['json'] },
+          { name: 'ClipBoardPrime Yedekleri', extensions: ['cpbackup', 'json'] },
         ],
         properties: ['openFile'],
         buttonLabel: 'İçe Aktar',
@@ -1769,7 +1837,10 @@ function registerIPCHandlers() {
       }
 
       const fileContent = fs.readFileSync(result.filePaths[0], 'utf8');
-      const importData = JSON.parse(fileContent);
+      const parsedData = JSON.parse(fileContent);
+      const importData = isEncryptedBackup(parsedData)
+        ? decryptBackup(parsedData, password)
+        : parsedData;
 
       // Doğrulama
       if (!importData.data) {
@@ -1800,7 +1871,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('open-external', async (_event, url) => {
     try {
-      await shell.openExternal(url);
+      await shell.openExternal(validateExternalUrl(url));
       return { success: true };
     } catch (err) {
       console.error('open-external hatası:', err);
@@ -1893,6 +1964,18 @@ app.on('second-instance', () => {
 app.whenReady().then(() => {
   // Varsayılan üst menü çubuğunu (File, Edit, View vb.) kaldırır
   Menu.setApplicationMenu(null);
+
+  try {
+    encryptionKey = getOrCreateEncryptionKey();
+  } catch (err) {
+    console.error('Şifreleme anahtarı başlatılamadı:', err);
+    dialog.showErrorBox(
+      'Güvenli Depolama Hatası',
+      `Şifreleme anahtarı güvenli şekilde açılamadı: ${err.message}\nUygulama kapatılacak.`
+    );
+    app.quit();
+    return;
+  }
 
   // local-file protokolünü tanımla (yerel görselleri güvenle yüklemek için)
   protocol.handle('local-file', (request) => {

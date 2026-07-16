@@ -307,6 +307,12 @@ const ClipboardPanel = (() => {
 
     const typeLabel = Utils.getContentTypeLabel(item.content_type);
     const dateLabel = Utils.timeAgo(item.created_at);
+    const primaryActionLabel = item.content_type === 'image'
+      ? (window.i18n ? window.i18n.t('btn.copy') : 'Kopyala')
+      : (window.i18n ? window.i18n.t('btn.paste') : 'Yapıştır');
+    const primaryActionTooltip = item.content_type === 'image'
+      ? (window.i18n ? window.i18n.t('tooltip.copy') : 'Panoya kopyala')
+      : (window.i18n ? window.i18n.t('tooltip.pasteHint') : 'Aktif pencereye yapıştır (Enter veya çift tık)');
 
     // Durum rozetleri (pin/fav)
     let badgesHTML = '';
@@ -351,8 +357,12 @@ const ClipboardPanel = (() => {
       </div>
       <div class="clip-item-actions">
         ${sensitiveBtnHTML}
-        <button class="clip-action-btn paste-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.paste') : 'Yapıştır'}" aria-label="${window.i18n ? window.i18n.t('tooltip.paste') : 'Yapıştır'}">${Utils.Icons.paste}</button>
-        <button class="clip-action-btn copy-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}">${Utils.Icons.copy}</button>
+        <button class="clip-action-btn clip-primary-action paste-btn" data-tooltip="${primaryActionTooltip}" aria-label="${primaryActionTooltip}">
+          ${item.content_type === 'image' ? Utils.Icons.copy : Utils.Icons.paste}
+          <span>${primaryActionLabel}</span>
+          ${item.content_type === 'image' ? '' : '<kbd>Enter</kbd>'}
+        </button>
+        ${item.content_type === 'image' ? '' : `<button class="clip-action-btn copy-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}">${Utils.Icons.copy}</button>`}
         <button class="clip-action-btn pin-btn ${item.is_pinned ? 'pin-active' : ''}" data-tooltip="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi Kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}" aria-label="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}">${Utils.Icons.pin}</button>
         <button class="clip-action-btn fav-btn ${item.is_favorite ? 'fav-active' : ''}" data-tooltip="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden Çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere Ekle')}" aria-label="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere ekle')}">${Utils.Icons.star}</button>
         <button class="clip-action-btn note-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.saveAsNote') : 'Not Olarak Kaydet'}" aria-label="${window.i18n ? window.i18n.t('tooltip.saveAsNote') : 'Not olarak kaydet'}">${Utils.Icons.fileText}</button>

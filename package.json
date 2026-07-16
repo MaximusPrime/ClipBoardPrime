@@ -7,7 +7,10 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "rebuild": "electron-rebuild",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "test": "node scripts/test.js",
+    "check": "node scripts/check.js",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
@@ -18,8 +21,8 @@
     "electron": "^33.0.0",
     "electron-builder": "^26.15.3"
   },
-  "author": "ClipBoardPrime",
-  "license": "MIT",
+  "author": "Maximus Prime",
+  "license": "GPL-3.0-only",
   "build": {
     "appId": "com.clipboardprime.app",
     "productName": "ClipBoardPrime",
@@ -42,6 +45,7 @@
       "src/**/*",
       "assets/**/*",
       "database/**/*",
+      "lib/**/*",
       "main.js",
       "preload.js",
       "package.json",

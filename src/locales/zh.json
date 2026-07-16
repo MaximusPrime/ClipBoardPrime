@@ -25,6 +25,7 @@
     "close": "关闭",
     "edit": "编辑",
     "copy": "复制",
+    "paste": "粘贴",
     "delete": "删除",
     "export": "导出",
     "import": "导入",
@@ -242,12 +243,23 @@
     "sourceCode": "源代码",
     "copyright": "© 2026 ClipBoardPrime. 保留所有权利。"
   },
+  "backup": {
+    "exportPasswordTitle": "备份密码",
+    "exportPasswordMsg": "请设置至少 8 个字符的密码来保护备份。此密码无法恢复。",
+    "confirmPasswordTitle": "确认密码",
+    "confirmPasswordMsg": "请再次输入相同的密码。",
+    "importPasswordTitle": "备份密码",
+    "importPasswordMsg": "请输入加密备份密码。对于旧版 JSON 备份，可输入任意内容。",
+    "passwordMismatch": "两次输入的密码不一致。"
+  },
   "tooltip": {
     "changeTheme": "切换主题",
     "settings": "设置",
     "clearHistory": "清除历史",
     "categories": "分类",
     "copy": "复制",
+    "paste": "粘贴",
+    "pasteHint": "粘贴到活动窗口（Enter 或双击）",
     "pin": "固定",
     "unpin": "取消固定",
     "favorite": "添加到收藏夹",

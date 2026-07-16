@@ -113,8 +113,8 @@ contextBridge.exposeInMainWorld('api', {
   getSettings: () => safeInvoke('get-settings'),
   saveSetting: (key, value) => safeInvoke('save-setting', { key, value }),
   selectDataLocation: () => safeInvoke('select-data-location'),
-  exportData: () => safeInvoke('export-data'),
-  importData: () => safeInvoke('import-data'),
+  exportData: (password) => safeInvoke('export-data', { password }),
+  importData: (password) => safeInvoke('import-data', { password }),
 
   // ── Stats ──────────────────────────────────────────────────
   getStats: () => safeInvoke('get-stats'),

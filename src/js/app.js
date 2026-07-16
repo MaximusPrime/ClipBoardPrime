@@ -413,6 +413,73 @@ const App = (() => {
     });
   }
 
+  function prompt(title, message, options = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay active runtime-prompt-modal';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+
+      const dialog = document.createElement('div');
+      dialog.className = 'modal runtime-prompt-dialog';
+      const heading = document.createElement('h3');
+      heading.textContent = title;
+      const description = document.createElement('p');
+      description.textContent = message;
+      const input = document.createElement('input');
+      input.className = 'form-input';
+      input.type = options.type || 'text';
+      input.autocomplete = 'off';
+      input.maxLength = options.maxLength || 1024;
+      input.setAttribute('aria-label', title);
+      const error = document.createElement('small');
+      error.className = 'runtime-prompt-error';
+      const actions = document.createElement('div');
+      actions.className = 'modal-actions';
+      const cancelButton = document.createElement('button');
+      cancelButton.className = 'btn btn-default';
+      cancelButton.textContent = window.i18n ? window.i18n.t('btn.cancel') : 'İptal';
+      const submitButton = document.createElement('button');
+      submitButton.className = 'btn btn-primary';
+      submitButton.textContent = window.i18n ? window.i18n.t('btn.continue') : 'Devam';
+
+      actions.append(cancelButton, submitButton);
+      dialog.append(heading, description, input, error, actions);
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+      if (window.api && window.api.setModalOpen) window.api.setModalOpen(true);
+
+      const finish = (value) => {
+        Utils.destroyFocusTrap(overlay);
+        overlay.remove();
+        if (window.api && window.api.setModalOpen) window.api.setModalOpen(false);
+        resolve(value);
+      };
+      const submit = () => {
+        const value = input.value;
+        if (value.length < (options.minLength || 0)) {
+          error.textContent = `${options.minLength} karakterden kısa olamaz.`;
+          input.focus();
+          return;
+        }
+        finish(value);
+      };
+
+      cancelButton.addEventListener('click', () => finish(null));
+      submitButton.addEventListener('click', submit);
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') submit();
+        if (event.key === 'Escape') finish(null);
+      });
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) finish(null);
+      });
+
+      Utils.initFocusTrap(overlay);
+      setTimeout(() => input.focus(), 0);
+    });
+  }
+
   function handleConfirmResponse(value) {
     elements.confirmDialog.classList.remove('active');
     Utils.destroyFocusTrap(elements.confirmDialog);
@@ -469,6 +536,7 @@ const App = (() => {
     init,
     updateStatusBar,
     confirm,
+    prompt,
   };
 })();
 
