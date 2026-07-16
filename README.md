@@ -241,10 +241,15 @@ ClipBoardPrime is licensed under the [GNU General Public License v3.0](LICENSE).
 - **Email:** [b.maximus.prime@gmail.com](mailto:b.maximus.prime@gmail.com)
 - **Repository:** [github.com/MaximusPrime77/ClipBoardPrime](https://github.com/MaximusPrime77/ClipBoardPrime)
 
+---
+
 <div align="center">
+  <h3>Maximus Prime Software</h3>
   <a href="https://github.com/MaximusPrime77">
-    <img src="assets/maximus-prime-software.png" alt="Maximus Prime Software" width="200">
+    <img src="assets/maximus-prime-software.png" alt="Maximus Prime Software brand logo" width="240">
   </a>
-  <br>
-  <sub>Designed and developed by Maximus Prime Software.</sub>
+  <p>
+    <strong>Designed and developed by Maximus Prime Software.</strong><br>
+    <sub>Private by design. Built for productive Windows workflows.</sub>
+  </p>
 </div>
