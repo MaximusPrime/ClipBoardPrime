@@ -99,22 +99,12 @@ The importer remains compatible with earlier JSON exports. New exports use the e
   <table>
     <tr>
       <td width="50%" align="center">
-        <strong>Clipboard history</strong><br><br>
-        <img src="screenshort/2026-07-01-11-29-03-4bd8.png" alt="Clipboard history">
+        <strong>Clipboard and notes workspace</strong><br><br>
+        <img src="screenshort/pano.png" alt="ClipBoardPrime clipboard and notes workspace">
       </td>
       <td width="50%" align="center">
-        <strong>Notes and categories</strong><br><br>
-        <img src="screenshort/2026-07-01-11-29-32-65a0.png" alt="Notes and categories">
-      </td>
-    </tr>
-    <tr>
-      <td width="50%" align="center">
-        <strong>Settings</strong><br><br>
-        <img src="screenshort/2026-07-01-11-29-41-0b8b.png" alt="Application settings">
-      </td>
-      <td width="50%" align="center">
-        <strong>Compact workflow</strong><br><br>
-        <img src="screenshort/2026-07-01-11-28-33-b1af.png" alt="Compact clipboard workflow">
+        <strong>Settings and language support</strong><br><br>
+        <img src="screenshort/Settings.png" alt="ClipBoardPrime settings and language selection">
       </td>
     </tr>
   </table>
