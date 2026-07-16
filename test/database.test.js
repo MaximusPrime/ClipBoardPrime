@@ -139,6 +139,180 @@ test('eski clipboard-pro veritabanı adını ClipBoardPrime adına taşır', () 
     const marker = migratedDb.prepare('SELECT value FROM legacy_marker').get();
     migratedDb.close();
     assert.equal(marker.value, 'preserved');
+    assert.equal(db.getSetting('onboardingCompleted'), 'true');
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test('ilk kez oluşturulan veritabanında başlangıç sihirbazını etkinleştirir', () => {
+  const directory = createDatabase();
+  try {
+    assert.equal(db.getSetting('onboardingCompleted'), 'false');
+    db.saveSetting('onboardingCompleted', 'true');
+    assert.equal(db.getSetting('onboardingCompleted'), 'true');
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test('özel not açılış filtresi ayarını kalıcı olarak saklar', () => {
+  const directory = createDatabase();
+  try {
+    const [category] = db.getCategories();
+    const value = `category:${category.id}`;
+    db.saveSetting('notesOpenFilter', value);
+    assert.equal(db.getSetting('notesOpenFilter'), value);
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test('pano hızlı işlem sırasını görünürlükten bağımsız saklar', () => {
+  const directory = createDatabase();
+  try {
+    const order = '["delete","favorite","copy","pin","note"]';
+    const visible = '["delete","copy","note"]';
+    db.saveSetting('clipboardQuickActionOrder', order);
+    db.saveSetting('clipboardQuickActions', visible);
+    assert.equal(db.getSetting('clipboardQuickActionOrder'), order);
+    assert.equal(db.getSetting('clipboardQuickActions'), visible);
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test('FTS5 araması birden çok kelimeyi ve kelime başlangıçlarını bulur', () => {
+  const directory = createDatabase();
+  try {
+    db.addClipboardItem({
+      content: 'Profesyonel geliştirme planı hazırlandı',
+      content_type: 'text',
+    });
+    db.addClipboardItem({
+      content: 'Alakasız kısa kayıt',
+      content_type: 'text',
+    });
+
+    const result = db.getClipboardHistory({ search: 'prof geliştir' });
+    assert.equal(result.total, 1);
+    assert.match(result.items[0].content, /Profesyonel geliştirme/);
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test('FTS5 hassas pano öğelerini arama indeksine eklemez', () => {
+  const directory = createDatabase();
+  try {
+    db.addClipboardItem({
+      content: 'benzersizgizliifade',
+      content_type: 'text',
+      is_sensitive: 1,
+    });
+
+    const result = db.getClipboardHistory({ search: 'benzersizgizli' });
+    assert.equal(result.total, 0);
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test('otomatik saklama süresi sabitleri ve tercihe göre favorileri korur', () => {
+  const directory = createDatabase();
+  try {
+    const expired = db.addClipboardItem({ content: 'silinecek', content_type: 'text' });
+    const pinned = db.addClipboardItem({ content: 'sabit kalacak', content_type: 'text' });
+    const favorite = db.addClipboardItem({ content: 'favori kalacak', content_type: 'text' });
+    db.togglePin(pinned.id);
+    db.toggleFavorite(favorite.id);
+
+    const Database = require('better-sqlite3');
+    const rawDb = new Database(path.join(directory, 'clipboard-prime.db'));
+    rawDb.prepare(`
+      UPDATE clipboard_history
+      SET created_at = datetime('now', 'localtime', '-10 days')
+      WHERE id IN (?, ?, ?)
+    `).run(expired.id, pinned.id, favorite.id);
+    rawDb.close();
+
+    db.saveSetting('retentionDays', '7');
+    db.saveSetting('retentionKeepFavorites', 'true');
+    assert.equal(db.cleanupExpiredHistory(), 1);
+    assert.equal(db.getClipboardItemById(expired.id), null);
+    assert.ok(db.getClipboardItemById(pinned.id));
+    assert.ok(db.getClipboardItemById(favorite.id));
+
+    db.saveSetting('retentionKeepFavorites', 'false');
+    assert.equal(db.cleanupExpiredHistory(), 1);
+    assert.equal(db.getClipboardItemById(favorite.id), null);
+    assert.ok(db.getClipboardItemById(pinned.id));
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test('gelişmiş pano filtrelerini FTS aramasıyla birlikte uygular', () => {
+  const directory = createDatabase();
+  try {
+    const matching = db.addClipboardItem({
+      content: `aranan ${'x'.repeat(1100)}`,
+      content_type: 'text',
+      source_app: 'Visual Studio Code',
+    });
+    const oldItem = db.addClipboardItem({
+      content: `aranan ${'y'.repeat(1100)}`,
+      content_type: 'text',
+      source_app: 'Visual Studio Code',
+    });
+    db.addClipboardItem({
+      content: 'aranan kısa kayıt',
+      content_type: 'text',
+      source_app: 'Notepad',
+    });
+
+    const Database = require('better-sqlite3');
+    const rawDb = new Database(path.join(directory, 'clipboard-prime.db'));
+    rawDb.prepare(`
+      UPDATE clipboard_history
+      SET created_at = datetime('now', 'localtime', '-40 days')
+      WHERE id = ?
+    `).run(oldItem.id);
+    rawDb.close();
+
+    const result = db.getClipboardHistory({
+      search: 'aran',
+      recentDays: 30,
+      sourceApp: 'Studio',
+      length: 'long',
+      sensitive: 'no',
+    });
+    assert.equal(result.total, 1);
+    assert.equal(result.items[0].id, matching.id);
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test('içerik türüne özel saklama süresi genel kuralı geçersiz kılar', () => {
+  const directory = createDatabase();
+  try {
+    const image = db.addClipboardItem({ content: 'image-hash', content_type: 'image' });
+    const text = db.addClipboardItem({ content: 'eski metin', content_type: 'text' });
+    const Database = require('better-sqlite3');
+    const rawDb = new Database(path.join(directory, 'clipboard-prime.db'));
+    rawDb.prepare(`
+      UPDATE clipboard_history
+      SET created_at = datetime('now', 'localtime', '-10 days')
+      WHERE id IN (?, ?)
+    `).run(image.id, text.id);
+    rawDb.close();
+
+    db.saveSetting('retentionDays', '30');
+    db.saveSetting('retentionTypeRules', '{"image":7}');
+    assert.equal(db.cleanupExpiredHistory(), 1);
+    assert.equal(db.getClipboardItemById(image.id), null);
+    assert.ok(db.getClipboardItemById(text.id));
   } finally {
     cleanup(directory);
   }

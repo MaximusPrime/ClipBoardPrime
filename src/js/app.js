@@ -15,6 +15,7 @@ const App = (() => {
     // Header buttons
     themeToggle: document.getElementById('theme-toggle'),
     settingsBtn: document.getElementById('settings-btn'),
+    workspaceButtons: document.querySelectorAll('[data-workspace]'),
     
     // Status Bar
     statusClips: document.querySelector('#status-clips span'),
@@ -39,6 +40,7 @@ const App = (() => {
    */
   async function init() {
     // 1. Ayarları tek bir asenkron I/O ile en başta çekip önbelleğe al
+    App.settings = {};
     try {
       if (window.api) {
         const response = await window.api.getSettings();
@@ -60,16 +62,26 @@ const App = (() => {
     if (window.NotesPanel) window.NotesPanel.init();
 
     // 4. Genel UI olaylarını ve Panel Genişliğini Kur
-    setupResizer();
     setupPanelSearch();
     setupTitleBarActions();
     setupKeyboardShortcuts();
     setupConfirmDialog();
     setupGlobalTooltips();
+    await setWorkspaceMode(App.settings.workspaceMode || 'clipboard', false);
+    if (window.api.onWorkspaceModeChanged) {
+      window.api.onWorkspaceModeChanged(({ mode }) => {
+        setWorkspaceMode(mode, false);
+      });
+    }
+    if (window.api.onWindowVisibilityChanged) {
+      window.api.onWindowVisibilityChanged(({ visible, mode }) => {
+        if (visible && ['clipboard', 'notes'].includes(mode)) {
+          setWorkspaceMode(mode, false);
+        }
+      });
+    }
     
     // Kayıtlı panel genişliğini önbellekten anında uygula (sıfır flicker)
-    loadPanelWidthFromCache();
-
     // Geçici stil bloğunu temizle (çakışmaları önlemek için)
     const initialStyle = document.getElementById('initial-panel-width-style');
     if (initialStyle) {
@@ -86,6 +98,10 @@ const App = (() => {
 
     // Modalleri dinlemek için MutationObserver kur (blurToTray koruması)
     setupModalObserver();
+
+    if (window.Onboarding) {
+      window.Onboarding.init();
+    }
   }
 
   /**
@@ -94,7 +110,22 @@ const App = (() => {
   function setupResizer() {
     let isResizing = false;
 
+    const applyPanelRatio = (ratio, persist = false) => {
+      const mainContent = document.querySelector('.main-content');
+      if (!mainContent || getWorkspaceMode() !== 'dual') return;
+      const containerRect = mainContent.getBoundingClientRect();
+      const safeRatio = Math.min(0.7, Math.max(0.3, ratio));
+      elements.clipboardPanel.style.width = `${containerRect.width * safeRatio}px`;
+      elements.resizer.setAttribute('aria-valuenow', String(Math.round(safeRatio * 100)));
+      if (persist && window.api) {
+        App.settings.leftPanelWidthRatio = String(safeRatio);
+        window.api.saveSetting('leftPanelWidthRatio', String(safeRatio));
+        window.api.saveSetting('leftPanelWidth', String(Math.round(containerRect.width * safeRatio)));
+      }
+    };
+
     elements.resizer.addEventListener('mousedown', (e) => {
+      if (getWorkspaceMode() !== 'dual') return;
       isResizing = true;
       document.body.style.cursor = 'col-resize';
       document.body.classList.add('resizing');
@@ -111,7 +142,21 @@ const App = (() => {
       // Minimum genişlik sınırlamaları (her panel en az 300px olmalı)
       if (leftWidth > 320 && leftWidth < containerRect.width - 320) {
         elements.clipboardPanel.style.width = `${leftWidth}px`;
+        elements.resizer.setAttribute('aria-valuenow', String(Math.round((leftWidth / containerRect.width) * 100)));
       }
+    });
+
+    elements.resizer.addEventListener('keydown', (event) => {
+      if (getWorkspaceMode() !== 'dual') return;
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const current = Number(elements.resizer.getAttribute('aria-valuenow')) || 50;
+      const next = event.key === 'Home'
+        ? 30
+        : event.key === 'End'
+          ? 70
+          : current + (event.key === 'ArrowLeft' ? -2 : 2);
+      applyPanelRatio(next / 100, true);
     });
 
     document.addEventListener('mouseup', () => {
@@ -188,6 +233,10 @@ const App = (() => {
    * Başlık çubuğu butonlarının mantığı
    */
   function setupTitleBarActions() {
+    elements.workspaceButtons.forEach((button) => button.addEventListener('click', () => {
+      setWorkspaceMode(button.dataset.workspace);
+    }));
+
     // Ayarlar butonu
     elements.settingsBtn.addEventListener('click', () => {
       if (window.SettingsPanel) {
@@ -243,6 +292,24 @@ const App = (() => {
    */
   function setupKeyboardShortcuts() {
     window.addEventListener('keydown', (e) => {
+      const target = e.target;
+      const isEditing = target instanceof HTMLElement && (
+        target.matches('input, textarea, select')
+        || target.isContentEditable
+      );
+      if (isEditing && e.key !== 'Escape') return;
+
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        cycleWorkspaceMode();
+        return;
+      }
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && ['1', '2'].includes(e.key)) {
+        e.preventDefault();
+        const modes = { '1': 'clipboard', '2': 'notes' };
+        setWorkspaceMode(modes[e.key]);
+        return;
+      }
       // Ctrl + F veya Cmd + F -> Aktif panel arama çubuğuna odaklan
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
@@ -257,42 +324,63 @@ const App = (() => {
       
       // ESC tuşu -> Açık modalleri kapat
       if (e.key === 'Escape') {
-        if (window.SettingsPanel) window.SettingsPanel.closeSettingsModal();
-        if (window.NotesPanel) {
-          // Note editor, category veya detail modalını kapat
-          const editorModal = document.getElementById('note-editor-modal');
-          const catModal = document.getElementById('category-manager-modal');
-          const detailModal = document.getElementById('note-detail-modal');
-          if (editorModal.classList.contains('active')) {
-            const isNewNote = !document.getElementById('note-edit-id').value;
-            if (!isNewNote) {
-              editorModal.classList.remove('active');
-            }
-          }
-          if (catModal.classList.contains('active')) {
-            catModal.classList.remove('active');
-          }
-          if (detailModal.classList.contains('active')) {
-            detailModal.classList.remove('active');
-          }
-        }
-        if (window.ClipboardPanel) {
-          // Pano detay veya editör modalını kapat
-          const clipDetailModal = document.getElementById('clip-detail-modal');
-          const clipEditorModal = document.getElementById('clip-editor-modal');
-          if (clipDetailModal && clipDetailModal.classList.contains('active')) {
-            clipDetailModal.classList.remove('active');
-          }
-          if (clipEditorModal && clipEditorModal.classList.contains('active')) {
-            clipEditorModal.classList.remove('active');
-          }
-        }
-        
-        // Confirm dialog kapat
         if (elements.confirmDialog.classList.contains('active')) {
           handleConfirmResponse(false);
+          return;
+        }
+        const closeOrder = [
+          'clip-editor-modal', 'clip-detail-modal', 'note-detail-modal',
+          'category-manager-modal',
+        ];
+        const topmost = closeOrder
+          .map((id) => document.getElementById(id))
+          .find((modal) => modal?.classList.contains('active'));
+        if (topmost) {
+          topmost.classList.remove('active');
+          return;
+        }
+        const noteEditor = document.getElementById('note-editor-modal');
+        if (noteEditor?.classList.contains('active')) {
+          const isNewNote = !document.getElementById('note-edit-id').value;
+          if (!isNewNote) noteEditor.classList.remove('active');
+          return;
+        }
+        if (document.getElementById('settings-modal')?.classList.contains('active')) {
+          window.SettingsPanel?.closeSettingsModal();
         }
       }
+    });
+  }
+
+  function getWorkspaceMode() {
+    return (App.settings && App.settings.workspaceMode) || 'clipboard';
+  }
+
+  function cycleWorkspaceMode() {
+    setWorkspaceMode(getWorkspaceMode() === 'clipboard' ? 'notes' : 'clipboard');
+  }
+
+  async function setWorkspaceMode(mode, persist = true) {
+    const safeMode = mode === 'notes' ? 'notes' : 'clipboard';
+    elements.app.classList.remove('workspace-clipboard', 'workspace-notes');
+    elements.app.classList.add(`workspace-${safeMode}`);
+    App.settings.workspaceMode = safeMode;
+    lastActivePanel = safeMode === 'notes' ? 'notes' : 'clipboard';
+    updateWorkspaceSwitcher(safeMode);
+
+    if (!persist || !window.api) return;
+    const response = await window.api.setWorkspaceMode(safeMode);
+    if (!response?.success) {
+      Utils.showToast(response?.error || 'Görünüm modu değiştirilemedi.', 'error');
+    }
+  }
+
+  function updateWorkspaceSwitcher(mode) {
+    elements.workspaceButtons.forEach((button) => {
+      const active = button.dataset.workspace === mode;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('tabindex', active ? '0' : '-1');
     });
   }
 
@@ -500,6 +588,7 @@ const App = (() => {
 
     const modalSelectors = [
       '#settings-modal',
+      '#onboarding-modal',
       '#confirm-dialog',
       '#note-editor-modal',
       '#category-manager-modal',
@@ -516,7 +605,9 @@ const App = (() => {
           anyOpen = true;
         }
       });
-      window.api.setModalOpen(anyOpen);
+      window.api.setModalOpen(anyOpen).catch((error) => {
+        console.error('Modal durumu bildirilemedi:', error);
+      });
     };
 
     // İlk kontrol
@@ -540,11 +631,17 @@ const App = (() => {
     updateStatusBar,
     confirm,
     prompt,
+    setWorkspaceMode,
   };
 })();
 
 // DOM hazır olduğunda uygulamayı çalıştır
 document.addEventListener('DOMContentLoaded', () => {
   window.App = App;
-  App.init();
+  App.init().catch((error) => {
+    console.error('Uygulama başlatılamadı:', error);
+    // Başlangıçtaki ikincil bir hata kullanıcıya boş pencere göstermemeli.
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) mainContent.style.opacity = '1';
+  });
 });

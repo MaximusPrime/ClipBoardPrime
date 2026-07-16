@@ -9,9 +9,10 @@
   Store clipboard history locally, find past content instantly, paste it into the active window, and turn frequently used items into organized notes.
 
   [![Version](https://img.shields.io/badge/version-1.0.1-6366f1?style=flat-square)](package.json)
-  [![Electron](https://img.shields.io/badge/Electron-33-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
+  [![Electron](https://img.shields.io/badge/Electron-43-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](#system-requirements)
-  [![Tests](https://img.shields.io/badge/tests-9%20passing-22c55e?style=flat-square)](#quality-assurance)
+  [![Tests](https://img.shields.io/badge/tests-54%20passing-22c55e?style=flat-square)](#quality-assurance)
+  [![Security](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-22c55e?style=flat-square)](#security-and-privacy)
   [![License](https://img.shields.io/badge/license-GPL--3.0-22c55e?style=flat-square)](LICENSE)
 
   [Features](#features) · [Security](#security-and-privacy) · [Installation](#installation) · [Development](#development) · [Contributing](CONTRIBUTING.md)
@@ -19,17 +20,17 @@
 </div>
 
 <p align="center">
-  <img src="screenshort/ClipBoard.png" alt="ClipBoardPrime application overview" width="88%">
+  <img src="screenshort/ClipBoardPrime_bua6WwVPcV.png" alt="ClipBoardPrime compact clipboard history with search, filters, and keyboard focus" width="540">
 </p>
 
 ## Overview
 
-ClipBoardPrime runs quietly in the Windows system tray and records supported clipboard content in a local SQLite database. Open it with the customizable global shortcut—`Ctrl + Shift + V` by default—then search, filter, copy, edit, pin, favorite, or paste an earlier item directly into the previously active application.
+ClipBoardPrime runs quietly in the Windows system tray and records supported clipboard content in a local SQLite database. Open its compact window with the customizable global shortcut—`Ctrl + Shift + V` by default—then switch instantly between Clipboard and Notes without resizing your workspace. Search, preview, copy, edit, pin, favorite, or paste an earlier item directly into the previously active application.
 
 The application is designed around three principles:
 
 - **Local-first privacy:** clipboard data stays on the device unless the user explicitly exports a backup.
-- **Fast interaction:** keyboard navigation, instant search, native Windows paste automation, and system-tray access.
+- **Fast interaction:** hover-to-focus cards, keyboard navigation, Space quick preview, instant search, native Windows paste automation, and system-tray access.
 - **Practical organization:** clipboard history, favorites, pinned items, notes, categories, and portable backups in one application.
 
 ## Features
@@ -39,6 +40,7 @@ The application is designed around three principles:
 - Monitors text, rich HTML, URLs, email addresses, code snippets, and images.
 - Detects duplicate entries and moves reused content to the top instead of creating unnecessary copies.
 - Provides paginated history, live search, match highlighting, content filters, and date grouping.
+- Keeps every card compact and opens full selectable content through the centered Space quick preview.
 - Supports pinned and favorite items; pinned entries are preserved when regular history is cleared.
 - Stores copied images as local PNG files with preview support.
 - Allows text-based entries to be edited and converted into notes.
@@ -55,7 +57,7 @@ The application is designed around three principles:
 - Create notes manually or from clipboard items.
 - Edit, delete, pin, favorite, search, and reorder notes.
 - Organize notes using color-coded categories and icons.
-- View longer clipboard entries and notes in focused detail modals.
+- Preview complete clipboard entries and notes in focused, selectable detail views.
 - Converts rich clipboard content to readable plain text before saving it as a note.
 
 ### Personalization and system integration
@@ -67,6 +69,7 @@ The application is designed around three principles:
 - Adjustable clipboard polling interval and history limit.
 - Installer and portable distribution modes.
 - Configurable data location with integrity checks and rollback protection.
+- Shared, resizable Clipboard/Notes window bounds that are remembered and recovered safely inside the active monitor.
 
 ## Security and privacy
 
@@ -99,12 +102,28 @@ The importer remains compatible with earlier JSON exports. New exports use the e
   <table>
     <tr>
       <td width="50%" align="center">
-        <strong>Clipboard and notes workspace</strong><br><br>
-        <img src="screenshort/pano.png" alt="ClipBoardPrime clipboard and notes workspace">
+        <strong>Compact clipboard history</strong><br><br>
+        <img src="screenshort/ClipBoardPrime_bua6WwVPcV.png" alt="Compact clipboard history with filters and focused card">
       </td>
       <td width="50%" align="center">
-        <strong>Settings and language support</strong><br><br>
-        <img src="screenshort/Settings.png" alt="ClipBoardPrime settings and language selection">
+        <strong>Organized notes</strong><br><br>
+        <img src="screenshort/ClipBoardPrime_MWLqBWEiJE.png" alt="Notes workspace with categories and compact note cards">
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" align="center">
+        <strong>Guided first-run setup</strong><br><br>
+        <img src="screenshort/ClipBoardPrime_SvhhDbN4FC.png" alt="ClipBoardPrime welcome screen describing core capabilities">
+      </td>
+      <td width="50%" align="center">
+        <strong>Live personalization</strong><br><br>
+        <img src="screenshort/ClipBoardPrime_lIX55GHkJ0.png" alt="Onboarding preferences for language, theme, startup screen, and Windows startup">
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2" align="center">
+        <strong>Clear application settings</strong><br><br>
+        <img src="screenshort/ClipBoardPrime_XXoHkKSx8F.png" alt="General settings with appearance and behavior controls" width="540">
       </td>
     </tr>
   </table>
@@ -115,9 +134,16 @@ The importer remains compatible with earlier JSON exports. New exports use the e
 | Control | Action |
 |---|---|
 | `Ctrl + Shift + V` | Show or hide ClipBoardPrime; customizable in Settings |
+| `Ctrl + 1` / `Ctrl + 2` | Switch directly to Clipboard / Notes |
+| `Ctrl + Shift + M` | Toggle between Clipboard and Notes |
+| `Ctrl + F` | Focus search in the active screen |
 | `↑` / `↓` | Navigate clipboard or note cards |
+| `Home` / `End` | Jump to the first or last card |
 | `Enter` | Paste the selected text item into the active window |
-| `Space` | Copy the selected clipboard item |
+| `Space` | Run the configured clipboard action; open note details |
+| `C` / `P` / `F` / `Delete` | Copy, pin, favorite, or delete the focused card |
+| `N` (Clipboard) | Save the focused clipboard item as a note |
+| `E` (Notes) | Edit the focused note |
 | Double-click | Paste a compatible clipboard item |
 | `Escape` | Close the active modal |
 
@@ -139,7 +165,7 @@ Download the installer or portable executable from the project’s [GitHub Relea
 
 ### Prerequisites
 
-- Node.js 18 or newer
+- Node.js 22.12 or newer
 - npm
 - Windows for native paste integration and final packaging tests
 
@@ -166,6 +192,7 @@ npm run rebuild
 | `npm run dev` | Start in development mode with DevTools |
 | `npm run check` | Validate JavaScript syntax |
 | `npm test` | Run automated tests using Electron’s Node runtime |
+| `npm run test:e2e` | Exercise onboarding, themes, window recovery, and workspace switching in Electron |
 | `npm run build` | Build Windows installer and portable packages |
 | `npm run rebuild` | Rebuild native dependencies for Electron |
 
@@ -194,15 +221,17 @@ Before submitting changes or producing a release:
 ```bash
 npm run check
 npm test
-npm run build -- --dir
+npm run test:e2e
+npm audit
+npm run build
 ```
 
-The automated suite covers encrypted-backup round trips, incorrect-password rejection, password-policy enforcement, worker-based backup generation, randomized sensitive-data encryption with HMAC duplicate detection, sensitive-item character counts, note import fidelity, and safe data-location migration.
+The 54-test suite covers encrypted-backup round trips, password-policy enforcement, worker-based database tasks, randomized sensitive-data encryption, search and retention rules, import fidelity, safe data-location migration, IPC boundaries, localization completeness, keyboard behavior, responsive UI contracts, and compact-workspace regressions. The Electron E2E runner additionally verifies onboarding, live theme previews, modal focus protection, shared window bounds, off-screen recovery, and renderer reload behavior.
 
-Production dependency security can be checked with:
+The complete dependency tree can be checked with:
 
 ```bash
-npm audit --omit=dev
+npm audit
 ```
 
 ## Data storage

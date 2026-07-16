@@ -26,6 +26,18 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { exec, execFile } = require('child_process');
 const { Worker } = require('worker_threads');
+const {
+  WORKSPACE_MODES,
+  normalizeWorkspaceMode,
+  workspaceBoundsKey,
+  defaultWorkspaceBounds: getDefaultWorkspaceBounds,
+} = require('./lib/window-profiles');
+const {
+  requireHexColor,
+  requireCategoryIcon,
+  validateExternalUrl,
+} = require('./lib/input-validation');
+const { htmlToPlainText, areFormatsEqual } = require('./lib/content-utils');
 
 // ─── Win32 API ve koffi Tanımlamaları ──────────────────────────
 let koffi = null;
@@ -36,6 +48,7 @@ let SendInput = null;
 let INPUT = null;
 let lastActiveWindowHwnd = null;
 let GetLastError = null;
+let IsUserAnAdmin = null;
 
 if (process.platform === 'win32') {
   try {
@@ -83,6 +96,8 @@ if (process.platform === 'win32') {
 
     const kernel32 = koffi.load('kernel32.dll');
     GetLastError = kernel32.func('uint32_t GetLastError()');
+    const shell32 = koffi.load('shell32.dll');
+    IsUserAnAdmin = shell32.func('bool IsUserAnAdmin()');
   } catch (err) {
     console.error('Koffi loading or Win32 API initialization failed:', err);
   }
@@ -131,6 +146,10 @@ function isValidTargetWindow(hwnd) {
 
 // Geliştirme modu ve Portable mod tespiti
 const isDev = process.argv.includes('--dev');
+const isE2E = process.argv.includes('--e2e') && Boolean(process.env.CBP_E2E_USER_DATA);
+if (isE2E) {
+  app.setPath('userData', path.resolve(process.env.CBP_E2E_USER_DATA));
+}
 const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
 
 // Taşınabilir (Portable) veya Geliştirme moduna göre userData dizini ata
@@ -282,7 +301,16 @@ const ALLOWED_SETTING_KEYS = new Set([
   'theme', 'appFontSize', 'maxHistory', 'pollingInterval', 'startWithWindows',
   'dataLocation', 'globalShortcut', 'showPreview', 'detectSensitive',
   'blurToTray', 'language', 'leftPanelWidth', 'leftPanelWidthRatio',
-  'windowBounds', 'trayBalloonShown',
+  'windowBounds', 'trayBalloonShown', 'clearSearchOnHide',
+  'clearNotesSearchOnHide', 'hideAfterPaste',
+  'windowOpenPosition', 'clipboardOpenFilter', 'notesOpenFilter',
+  'clipboardQuickActions', 'clipboardQuickActionOrder',
+  'workspaceMode', 'workspaceOpenMode', 'dualWindowBounds',
+  'clipboardWindowBounds', 'notesWindowBounds',
+  'spaceKeyAction', 'hoverPreviewEnabled', 'hoverPreviewDelay',
+  'retentionDays', 'retentionKeepFavorites', 'retentionTypeRules',
+  'onboardingCompleted',
+  'winVIntegration',
 ]);
 
 function validateSetting(key, value) {
@@ -293,12 +321,53 @@ function validateSetting(key, value) {
   return { key, value: requireString(value, 'Ayar değeri', 10_000) };
 }
 
-function validateExternalUrl(value) {
-  const parsed = new URL(requireString(value, 'Bağlantı', 2048));
-  if (!['https:', 'mailto:'].includes(parsed.protocol)) {
-    throw new Error('Yalnızca güvenli HTTPS ve e-posta bağlantıları açılabilir.');
-  }
-  return parsed.toString();
+/**
+ * Converts stored rich HTML into safe readable plain text for plain copy/paste.
+ */
+function getClipboardMenuLabels() {
+  const language = db.getSetting('language') || 'en';
+  const labels = {
+    tr: {
+      paste: 'Yapıştır',
+      pastePlain: 'Düz Metin Olarak Yapıştır',
+      copy: 'Kopyala',
+      copyPlain: 'Düz Metin Olarak Kopyala',
+      pin: 'Sabitle',
+      unpin: 'Sabitlemeyi Kaldır',
+      favorite: 'Favorilere Ekle',
+      unfavorite: 'Favorilerden Çıkar',
+      note: 'Not Olarak Kaydet',
+      details: 'Detayları Göster',
+      delete: 'Sil',
+    },
+    en: {
+      paste: 'Paste',
+      pastePlain: 'Paste as Plain Text',
+      copy: 'Copy',
+      copyPlain: 'Copy as Plain Text',
+      pin: 'Pin',
+      unpin: 'Unpin',
+      favorite: 'Add to Favorites',
+      unfavorite: 'Remove from Favorites',
+      note: 'Save as Note',
+      details: 'Show Details',
+      delete: 'Delete',
+    },
+    zh: {
+      paste: '粘贴',
+      pastePlain: '粘贴为纯文本',
+      copy: '复制',
+      copyPlain: '复制为纯文本',
+      pin: '固定',
+      unpin: '取消固定',
+      favorite: '添加到收藏夹',
+      unfavorite: '从收藏夹移除',
+      note: '保存为笔记',
+      details: '显示详情',
+      delete: '删除',
+    },
+  };
+  return labels[language] || labels.en;
 }
 
 function runDatabaseTask(action, payload = {}) {
@@ -329,6 +398,56 @@ function runDatabaseTask(action, payload = {}) {
       if (code !== 0) finish(reject, new Error(`Veritabanı worker işlemi ${code} koduyla kapandı.`));
     });
   });
+}
+
+function getLegacyBackupSearchDirectories() {
+  const directories = new Set();
+  const add = (value) => {
+    if (value && fs.existsSync(value)) directories.add(path.resolve(value));
+  };
+  for (const name of ['documents', 'downloads', 'desktop']) {
+    try { add(app.getPath(name)); } catch {}
+  }
+  const appData = app.getPath('appData');
+  ['clipboard-pro-app', 'clipboard-pro-app-dev', 'clipboard-prime-app',
+    'clipboard-prime-app-dev', 'ClipBoardPrime', 'ClipboardPro']
+    .forEach((name) => add(path.join(appData, name)));
+  add(activeDataDir);
+  return [...directories];
+}
+
+function findLegacyBackups() {
+  const results = [];
+  for (const directory of getLegacyBackupSearchDirectories()) {
+    let entries = [];
+    try { entries = fs.readdirSync(directory, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      const extension = path.extname(entry.name).toLowerCase();
+      if (!entry.isFile() || !['.json', '.cpbackup'].includes(extension)) continue;
+      if (!/(clipboard|clip-board|pano|backup|yedek)/i.test(entry.name)) continue;
+      const filePath = path.join(directory, entry.name);
+      try {
+        const stat = fs.statSync(filePath);
+        if (stat.size <= 0 || stat.size > 512 * 1024 * 1024) continue;
+        results.push({
+          path: filePath,
+          name: entry.name,
+          size: stat.size,
+          modifiedAt: stat.mtime.toISOString(),
+          encrypted: extension === '.cpbackup',
+        });
+      } catch {}
+    }
+  }
+  return results.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt)).slice(0, 12);
+}
+
+function validateDetectedBackupPath(filePath) {
+  const resolved = path.resolve(requireString(filePath, 'Yedek yolu', 4096));
+  if (!findLegacyBackups().some((item) => path.resolve(item.path) === resolved)) {
+    throw new Error('Seçilen dosya güvenli yedek taramasında bulunamadı.');
+  }
+  return resolved;
 }
 
 /**
@@ -396,6 +515,7 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow = null;
 let tray = null;
 let clipboardWatcher = null;
+let historyCleanupTimer = null;
 let isQuitting = false;
 let lastClipboardText = '';
 let lastClipboardHtml = '';
@@ -409,6 +529,11 @@ let trayBalloonShown = false;
 let activeDataDir = null;
 let isModalOpen = false;
 let lastBlurTime = 0;
+let isApplyingWorkspaceBounds = false;
+let workspaceBoundsTransitionId = 0;
+let workspaceBoundsReleaseTimer = null;
+let fatalErrorInProgress = false;
+let modalProtectionUntil = 0;
 const startHidden = process.argv.includes('--hidden') || process.argv.includes('--startup');
 
 /**
@@ -451,7 +576,7 @@ function setWindowsAutostart(enabled) {
 
 
 
-const gotTheLock = app.requestSingleInstanceLock();
+const gotTheLock = isE2E || app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 }
@@ -463,16 +588,23 @@ if (!gotTheLock) {
 function createWindow() {
   // Kaydedilmiş pencere konumu ve boyutunu oku
   // Varsayılan olarak en küçük boyutta (900x600) başlasın
-  let windowBounds = { width: 900, height: 600 };
+  let windowBounds = { width: 540, height: 640 };
   let isFirstRun = false;
+  let initialMode = 'clipboard';
   try {
     if (db.isReady()) {
-      const savedBounds = db.getSetting('windowBounds');
+      initialMode = resolveWorkspaceOpenMode();
+      db.saveSetting('workspaceMode', initialMode);
+      const savedBounds = db.getSetting(workspaceBoundsKey(initialMode));
       if (savedBounds) {
         windowBounds = { ...windowBounds, ...JSON.parse(savedBounds) };
       } else {
         isFirstRun = true;
       }
+      windowBounds = constrainBoundsToDisplay({
+        ...defaultWorkspaceBounds(initialMode),
+        ...windowBounds,
+      });
     }
   } catch (err) {
     // Kayıtlı konum yoksa varsayılan kullan
@@ -488,13 +620,23 @@ function createWindow() {
     } catch (e) { /* merkeze bırak */ }
   }
 
+  const bootstrapSettings = db.isReady()
+    ? {
+        theme: db.getSetting('theme') || 'dark',
+      }
+    : {};
+  const bootstrapArgument = Buffer.from(
+    JSON.stringify(bootstrapSettings),
+    'utf8'
+  ).toString('base64url');
+
   mainWindow = new BrowserWindow({
     width: windowBounds.width,
     height: windowBounds.height,
     x: windowBounds.x,
     y: windowBounds.y,
-    minWidth: 900,
-    minHeight: 600,
+    minWidth: 420,
+    minHeight: 520,
     frame: true,
     show: false, // ready-to-show ile göster (flicker engelleme)
     icon: getAppIconPath(),
@@ -504,25 +646,26 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       spellcheck: false,
+      additionalArguments: [`--cbp-bootstrap=${bootstrapArgument}`],
     },
   });
 
-  // Off-screen prevention: Pencerenin görünür bir ekran sınırında olduğundan emin ol
-  if (windowBounds.x !== undefined && windowBounds.y !== undefined) {
-    const displays = screen.getAllDisplays();
-    const isVisible = displays.some(display => {
-      const { x, y, width, height } = display.bounds;
-      return windowBounds.x >= x && 
-             windowBounds.x < x + width && 
-             windowBounds.y >= y && 
-             windowBounds.y < y + height;
-    });
-    if (!isVisible) {
-      mainWindow.center();
-    }
-  }
-
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== mainWindow.webContents.getURL()) event.preventDefault();
+  });
+  mainWindow.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
+  if (isE2E) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      runE2EScenarios().catch((error) => {
+        process.stdout.write(`CBP_E2E_ERROR:${error.stack || error.message}\n`);
+        app.exit(1);
+      });
+    });
+  }
 
   // DevTools sadece --dev argümanı varken aç
   if (isDev) {
@@ -533,8 +676,19 @@ function createWindow() {
   // --hidden veya --startup argümanıyla başlatıldıysa pencereyi gösterme
   mainWindow.once('ready-to-show', () => {
     if (!startHidden) {
-      mainWindow.show();
+      showWindow();
     }
+  });
+
+  mainWindow.on('show', () => {
+    mainWindow.webContents.send('window-visibility-changed', {
+      visible: true,
+      mode: normalizeWorkspaceMode(db.getSetting('workspaceMode')),
+    });
+  });
+
+  mainWindow.on('hide', () => {
+    mainWindow.webContents.send('window-visibility-changed', { visible: false });
   });
 
   // Kapatma → tray'e küçült (gerçekten kapatma)
@@ -565,10 +719,10 @@ function createWindow() {
 
   // Pencere boyutu/konumu değişince kaydet
   const saveBoundsDebounced = debounce(() => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow && !mainWindow.isDestroyed() && !isApplyingWorkspaceBounds) {
       try {
         const bounds = mainWindow.getBounds();
-        db.saveSetting('windowBounds', JSON.stringify(bounds));
+        db.saveSetting(workspaceBoundsKey(db.getSetting('workspaceMode')), JSON.stringify(bounds));
       } catch (err) {
         // Kayıt hatası görmezden gel
       }
@@ -689,11 +843,20 @@ function updateTrayMenu() {
   const showLabel = getTranslation('tray.show');
   const settingsLabel = getTranslation('tray.settings');
   const exitLabel = getTranslation('tray.exit');
-
+  const clipboardLabel = getTranslation('tray.openClipboard');
+  const notesLabel = getTranslation('tray.openNotes');
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: showLabel,
+      label: clipboardLabel,
       click: () => {
+        applyWorkspaceMode('clipboard');
+        showWindow();
+      },
+    },
+    {
+      label: notesLabel,
+      click: () => {
+        applyWorkspaceMode('notes');
         showWindow();
       },
     },
@@ -766,14 +929,214 @@ function showWindow() {
     }
   }
   if (mainWindow.isMinimized()) mainWindow.restore();
+  positionWindowForOpen();
+  // Windows Snap/Aero tek pencere yöneticisi olsun. Ekran dışı kalmış bir
+  // konumu yalnızca pencere gizliyken, gösterilmeden hemen önce düzelt.
+  if (!mainWindow.isVisible() && !mainWindow.isMaximized() && !mainWindow.isFullScreen()) {
+    const current = mainWindow.getBounds();
+    const constrained = constrainBoundsToDisplay(current);
+    const changed = ['x', 'y', 'width', 'height']
+      .some((key) => current[key] !== constrained[key]);
+    if (changed) mainWindow.setBounds(constrained, false);
+  }
   mainWindow.show();
   mainWindow.focus();
+}
+
+async function runE2EScenarios() {
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  mainWindow.show();
+  mainWindow.focus();
+  await wait(250);
+  const initialBounds = mainWindow.getBounds();
+  mainWindow.setSize(initialBounds.width, 520, false);
+  await wait(200);
+  const onboarding = await mainWindow.webContents.executeJavaScript(`(() => {
+    const modal = document.getElementById('onboarding-modal');
+    const dialog = modal.querySelector('.onboarding-modal');
+    return {
+      active: modal.classList.contains('active'),
+      clientHeight: dialog.clientHeight,
+      scrollHeight: dialog.scrollHeight,
+      viewportHeight: window.innerHeight,
+      theme: document.documentElement.getAttribute('data-theme'),
+    };
+  })()`);
+
+  await mainWindow.webContents.executeJavaScript(
+    `document.getElementById('onboarding-theme').value = 'light';
+     document.getElementById('onboarding-theme').dispatchEvent(new Event('change', { bubbles: true }));`
+  );
+  const liveTheme = await mainWindow.webContents.executeJavaScript(
+    `document.documentElement.getAttribute('data-theme')`
+  );
+
+  await mainWindow.webContents.executeJavaScript(`window.api.setModalOpen(true)`);
+  db.saveSetting('blurToTray', 'true');
+  mainWindow.emit('blur');
+  await wait(160);
+  const modalBlurProtected = mainWindow.isVisible();
+  await mainWindow.webContents.executeJavaScript(`window.api.setModalOpen(false)`);
+  db.saveSetting('blurToTray', 'false');
+
+  applyWorkspaceMode('clipboard');
+  await wait(450);
+  const compact = {
+    bounds: mainWindow.getBounds(),
+    resizable: mainWindow.isResizable(),
+    rendererMode: await mainWindow.webContents.executeJavaScript(
+      `document.getElementById('app').classList.contains('workspace-clipboard')`
+    ),
+  };
+
+  applyWorkspaceMode('notes');
+  await wait(450);
+  const notes = {
+    bounds: mainWindow.getBounds(),
+    resizable: mainWindow.isResizable(),
+    rendererMode: await mainWindow.webContents.executeJavaScript(
+      `document.getElementById('app').classList.contains('workspace-notes')`
+    ),
+  };
+
+  const switchBoundsBefore = mainWindow.getBounds();
+  for (let index = 0; index < 12; index += 1) {
+    applyWorkspaceMode(index % 2 === 0 ? 'clipboard' : 'notes');
+  }
+  await wait(200);
+  const switchBoundsAfter = mainWindow.getBounds();
+  const workspaceSwitchKeepsBounds = ['x', 'y', 'width', 'height']
+    .every((key) => switchBoundsBefore[key] === switchBoundsAfter[key]);
+
+  applyWorkspaceMode('clipboard', {
+    persist: false,
+    bounds: { x: -100000, y: -100000, width: 540, height: 640 },
+  });
+  await wait(450);
+  const recoveredBounds = mainWindow.getBounds();
+  const nearestArea = screen.getDisplayNearestPoint({
+    x: recoveredBounds.x,
+    y: recoveredBounds.y,
+  }).workArea;
+  const boundsRecovered = (
+    recoveredBounds.x >= nearestArea.x
+    && recoveredBounds.y >= nearestArea.y
+    && recoveredBounds.x + recoveredBounds.width <= nearestArea.x + nearestArea.width
+    && recoveredBounds.y + recoveredBounds.height <= nearestArea.y + nearestArea.height
+  );
+
+  const reloaded = new Promise((resolve) => {
+    mainWindow.webContents.once('did-finish-load', resolve);
+  });
+  mainWindow.webContents.reload();
+  await reloaded;
+  await wait(350);
+  const reloadState = await mainWindow.webContents.executeJavaScript(`({
+    appReady: Boolean(window.App && window.App.settings),
+    mainVisible: getComputedStyle(document.querySelector('.main-content')).opacity === '1',
+    onboardingPresent: Boolean(document.getElementById('onboarding-modal')),
+  })`);
+
+  process.stdout.write(`CBP_E2E_RESULT:${JSON.stringify({
+    onboarding,
+    liveTheme,
+    modalBlurProtected,
+    compact,
+    notes,
+    workspaceSwitchKeepsBounds,
+    boundsRecovered,
+    reloadState,
+  })}\n`);
+  isQuitting = true;
+  app.quit();
+}
+
+function resolveWorkspaceOpenMode() {
+  if (!db.isReady()) return 'clipboard';
+  const openMode = db.getSetting('workspaceOpenMode') || 'last';
+  if (WORKSPACE_MODES.includes(openMode)) return openMode;
+  const lastMode = db.getSetting('workspaceMode') || 'clipboard';
+  return normalizeWorkspaceMode(lastMode);
+}
+
+function defaultWorkspaceBounds(mode) {
+  const current = mainWindow ? mainWindow.getBounds() : { x: 100, y: 100 };
+  return getDefaultWorkspaceBounds(mode, current);
+}
+
+function constrainBoundsToDisplay(bounds) {
+  const safeWidth = Number.isFinite(Number(bounds.width)) ? Number(bounds.width) : 900;
+  const safeHeight = Number.isFinite(Number(bounds.height)) ? Number(bounds.height) : 600;
+  const safeX = Number.isFinite(Number(bounds.x)) ? Number(bounds.x) : 100;
+  const safeY = Number.isFinite(Number(bounds.y)) ? Number(bounds.y) : 100;
+  const display = screen.getDisplayNearestPoint({
+    x: safeX + Math.round(safeWidth / 2),
+    y: safeY + Math.round(safeHeight / 2),
+  });
+  const area = display.workArea;
+  const width = Math.max(320, Math.min(safeWidth, area.width));
+  const height = Math.max(400, Math.min(safeHeight, area.height));
+  return {
+    width,
+    height,
+    x: Math.min(Math.max(safeX, area.x), area.x + area.width - width),
+    y: Math.min(Math.max(safeY, area.y), area.y + area.height - height),
+  };
+}
+
+function applyWorkspaceMode(mode, options = {}) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const persist = options.persist !== false;
+  const safeMode = normalizeWorkspaceMode(mode);
+  if (persist) {
+    db.saveSetting(workspaceBoundsKey(), JSON.stringify(mainWindow.getBounds()));
+  }
+  if (persist) db.saveSetting('workspaceMode', safeMode);
+  mainWindow.webContents.send('workspace-mode-changed', { mode: safeMode });
+
+  // Pano ve Notlar ortak pencere profilini kullandığı için normal görünüm
+  // geçişinde bounds'a dokunma; bu, Windows Snap durumunu da aynen korur.
+  if (!options.bounds) return;
+
+  const constrained = constrainBoundsToDisplay(options.bounds);
+  const transitionId = ++workspaceBoundsTransitionId;
+  isApplyingWorkspaceBounds = true;
+  if (workspaceBoundsReleaseTimer) clearTimeout(workspaceBoundsReleaseTimer);
+  mainWindow.setMinimumSize(420, 520);
+  mainWindow.setResizable(true);
+  mainWindow.setBounds(constrained, true);
+  workspaceBoundsReleaseTimer = setTimeout(() => {
+    if (transitionId === workspaceBoundsTransitionId) {
+      isApplyingWorkspaceBounds = false;
+      workspaceBoundsReleaseTimer = null;
+    }
+  }, 350);
 }
 
 function hideWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.hide();
   }
+}
+
+/**
+ * Applies the configured window position before the main window is shown.
+ */
+function positionWindowForOpen() {
+  if (!mainWindow || mainWindow.isDestroyed() || !db.isReady()) return;
+  if (db.getSetting('windowOpenPosition') !== 'cursor') return;
+
+  const cursor = screen.getCursorScreenPoint();
+  const display = screen.getDisplayNearestPoint(cursor);
+  const bounds = mainWindow.getBounds();
+  const workArea = display.workArea;
+  const gap = 12;
+  const maxX = workArea.x + workArea.width - bounds.width;
+  const maxY = workArea.y + workArea.height - bounds.height;
+  const x = Math.min(Math.max(cursor.x + gap, workArea.x), maxX);
+  const y = Math.min(Math.max(cursor.y + gap, workArea.y), maxY);
+
+  mainWindow.setPosition(Math.round(x), Math.round(y), false);
 }
 
 function sendPasteWithMshta() {
@@ -812,6 +1175,7 @@ function toggleWindow() {
         lastActiveWindowHwnd = activeHwnd;
       }
     }
+    applyWorkspaceMode(resolveWorkspaceOpenMode());
     showWindow();
   }
 }
@@ -869,10 +1233,29 @@ function stopClipboardWatcher() {
   }
 }
 
+function runHistoryCleanup() {
+  if (!db.isReady()) return;
+  try {
+    const deleted = db.cleanupExpiredHistory();
+    if (deleted > 0 && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('history-cleaned', { deleted });
+    }
+  } catch (err) {
+    console.error('Otomatik geçmiş temizliği başarısız:', err);
+  }
+}
+
+function startHistoryCleanupTimer() {
+  if (historyCleanupTimer) clearInterval(historyCleanupTimer);
+  runHistoryCleanup();
+  historyCleanupTimer = setInterval(runHistoryCleanup, 60 * 60 * 1000);
+}
+
 // Blur handler hızlı tetiklenmeye karşı debounce - pencere focus dalgalanmalarını engeller
 const _blurHandlerDebounced = debounce(() => {
   try {
     if (!db.isReady()) return;
+    if (isModalOpen || Date.now() < modalProtectionUntil) return;
 
     // Uygulama odağı kaybettiğinde, yeni odaklanılan geçerli pencereyi (örn. Tarayıcıyı) hedef pencere olarak kaydet.
     // Bu sayede pano açıkken başka bir uygulamaya tıklansa bile hedef pencere her zaman güncel kalır!
@@ -894,14 +1277,6 @@ const _blurHandlerDebounced = debounce(() => {
     // Sessizce geç
   }
 }, 80);
-
-function areFormatsEqual(f1, f2) {
-  if (f1.length !== f2.length) return false;
-  // Sıra bağımsız karşılaştırma — [png, bitmap] === [bitmap, png] olmalı
-  const s1 = [...f1].sort();
-  const s2 = [...f2].sort();
-  return s1.every((v, i) => v === s2[i]);
-}
 
 function updateLastClipboardState() {
   lastClipboardText = clipboard.readText() || '';
@@ -1294,9 +1669,103 @@ function registerGlobalShortcuts() {
     if (!registered) {
       console.warn(`Global kısayol kaydedilemedi: ${shortcut}`);
     }
+
+    if (db.isReady() && db.getSetting('winVIntegration') === 'true') {
+      const winVRegistered = registerWinVShortcut();
+      if (!winVRegistered) db.saveSetting('winVIntegration', 'false');
+    }
   } catch (err) {
     console.error('Global kısayol kayıt hatası:', err);
   }
+}
+
+function updateGlobalShortcut(nextShortcut) {
+  const shortcut = requireString(nextShortcut, 'Global kısayol', 60).trim();
+  if (!/^(?=.*(?:Ctrl|Alt|Shift|Meta|Super)\+).+\+[^+]+$/i.test(shortcut)) {
+    throw new Error('Global kısayol en az bir değiştirici ve bir ana tuş içermelidir.');
+  }
+  const normalized = shortcut.replace(/\s+/g, '').toLowerCase();
+  const reserved = new Set([
+    'ctrl+c', 'ctrl+v', 'ctrl+x', 'ctrl+a', 'ctrl+z', 'ctrl+y', 'ctrl+f',
+    'ctrl+1', 'ctrl+2', 'ctrl+shift+m', 'alt+f4', 'super+v', 'meta+v',
+  ]);
+  if (reserved.has(normalized)) {
+    throw new Error('Bu kombinasyon sistem veya uygulama içinde kullanılan bir kısayolla çakışıyor.');
+  }
+
+  const previous = db.getSetting('globalShortcut') || 'Ctrl+Shift+V';
+  if (shortcut === previous && globalShortcut.isRegistered(previous)) return shortcut;
+
+  globalShortcut.unregister(previous);
+  const registered = globalShortcut.register(shortcut, () => toggleWindow());
+  if (!registered) {
+    globalShortcut.register(previous, () => toggleWindow());
+    throw new Error('Bu kısayol başka bir uygulama tarafından kullanılıyor. Önceki kısayol korundu.');
+  }
+  db.saveSetting('globalShortcut', shortcut);
+  return shortcut;
+}
+
+function registerWinVShortcut() {
+  if (process.platform !== 'win32') return false;
+  try {
+    globalShortcut.unregister('Super+V');
+    return globalShortcut.register('Super+V', () => showWindow());
+  } catch (err) {
+    console.error('Win+V kaydı başarısız:', err);
+    return false;
+  }
+}
+
+function setWinVIntegration(enabled) {
+  if (!enabled) {
+    globalShortcut.unregister('Super+V');
+    db.saveSetting('winVIntegration', 'false');
+    return { enabled: false };
+  }
+  if (!registerWinVShortcut()) {
+    db.saveSetting('winVIntegration', 'false');
+    throw new Error('Win+V Windows veya başka bir uygulama tarafından kullanılıyor.');
+  }
+  db.saveSetting('winVIntegration', 'true');
+  return { enabled: true };
+}
+
+function isRunningAsAdministrator() {
+  if (process.platform !== 'win32' || !IsUserAnAdmin) return false;
+  try {
+    return !!IsUserAnAdmin();
+  } catch {
+    return false;
+  }
+}
+
+function relaunchAsAdministrator() {
+  if (process.platform !== 'win32') {
+    throw new Error('Yönetici modu yalnızca Windows üzerinde kullanılabilir.');
+  }
+  if (isRunningAsAdministrator()) return { alreadyElevated: true };
+  if (!app.isPackaged) {
+    throw new Error('Yönetici olarak yeniden başlatma paketlenmiş uygulamada kullanılabilir.');
+  }
+
+  const exePath = getApplicationExePath();
+  const escapedPath = exePath.replace(/'/g, "''");
+  const command = `Start-Process -FilePath '${escapedPath}' -Verb RunAs`;
+  execFile(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-Command', command],
+    { windowsHide: true },
+    (error) => {
+      if (error) {
+        console.error('Yönetici olarak yeniden başlatma başarısız:', error);
+        return;
+      }
+      isQuitting = true;
+      app.quit();
+    }
+  );
+  return { requested: true };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1304,19 +1773,6 @@ function registerGlobalShortcuts() {
 // ═══════════════════════════════════════════════════════════════
 
 function registerIPCHandlers() {
-  ipcMain.on('get-cached-settings', (event) => {
-    try {
-      if (db.isReady()) {
-        event.returnValue = db.getAllSettings();
-      } else {
-        event.returnValue = null;
-      }
-    } catch (err) {
-      console.error('get-cached-settings hatası:', err);
-      event.returnValue = null;
-    }
-  });
-
   ipcMain.handle('get-app-info', async () => {
     try {
       return {
@@ -1423,9 +1879,10 @@ function registerIPCHandlers() {
     isWritingToClipboard = true;
     try {
       if (!payload || typeof payload !== 'object') throw new Error('Geçersiz pano isteği.');
-      let { id, content, type, ignoreChange = true } = payload;
+      let { id, content, type, ignoreChange = true, plainText = false } = payload;
       id = id ? requirePositiveInteger(id) : null;
       ignoreChange = requireBoolean(ignoreChange, 'Değişikliği yok say');
+      plainText = requireBoolean(plainText, 'Düz metin');
       let actualContent = content;
       if (id) {
         const item = db.getClipboardItemById(id);
@@ -1448,16 +1905,16 @@ function registerIPCHandlers() {
         } else {
           return { success: false, error: 'Görsel dosyası bulunamadı' };
         }
-      } else if (type === 'html') {
+      } else if (type === 'html' && !plainText) {
         clipboard.writeHTML(actualContent);
         // Metin olarak da yaz ki düz metin yapıştırma çalışsın
-        const plainText = actualContent.replace(/<[^>]*>/g, '');
+        const plainContent = htmlToPlainText(actualContent);
         clipboard.write({
-          text: plainText,
+          text: plainContent,
           html: actualContent,
         });
       } else {
-        clipboard.writeText(actualContent);
+        clipboard.writeText(type === 'html' ? htmlToPlainText(actualContent) : actualContent);
       }
 
       if (!ignoreChange) {
@@ -1561,10 +2018,12 @@ function registerIPCHandlers() {
   });
 
   ipcMain.handle('paste-to-active-window', async (_event, params) => {
-    let id, content;
+    let id, content, plainText = false, type = 'text';
     if (params && typeof params === 'object') {
       id = params.id;
       content = params.content;
+      plainText = params.plainText === true;
+      type = params.type || type;
     } else {
       content = params;
     }
@@ -1576,11 +2035,23 @@ function registerIPCHandlers() {
         const item = db.getClipboardItemById(id);
         if (item) {
           actualContent = item.content;
+          type = item.content_type;
         }
       }
       actualContent = requireString(actualContent, 'Yapıştırılacak içerik', 10_000_000);
+      type = requireString(type, 'İçerik türü', 20);
 
-      clipboard.writeText(actualContent);
+      const databaseContent = type === 'html' && plainText
+        ? htmlToPlainText(actualContent)
+        : actualContent;
+      if (type === 'html' && !plainText) {
+        clipboard.write({
+          text: htmlToPlainText(actualContent),
+          html: actualContent,
+        });
+      } else {
+        clipboard.writeText(databaseContent);
+      }
 
       // Clipboard değerlerini güncelle
       updateLastClipboardState();
@@ -1591,11 +2062,11 @@ function registerIPCHandlers() {
           let isSensitive = 0;
           const detectSensitive = db.getSetting('detectSensitive');
           if (detectSensitive === 'true') {
-            isSensitive = detectSensitiveContent(actualContent) ? 1 : 0;
+            isSensitive = detectSensitiveContent(databaseContent) ? 1 : 0;
           }
 
           let contentType = 'text';
-          const trimmed = actualContent.trim();
+          const trimmed = databaseContent.trim();
           if (/^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+$/i.test(trimmed)) {
             contentType = 'url';
           } else if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
@@ -1605,10 +2076,10 @@ function registerIPCHandlers() {
           }
 
           const item = db.addClipboardItem({
-            content: actualContent,
+            content: databaseContent,
             content_type: contentType,
             is_sensitive: isSensitive,
-            char_count: actualContent.length,
+            char_count: databaseContent.length,
           });
 
           // Renderer'a bildir ki arayüzde en üste çıksın
@@ -1633,7 +2104,7 @@ function registerIPCHandlers() {
         // 2. Kısa bir süre bekleyip odağın geçişini sağla, ardından ClipBoardPrime'ı gizle
         return await new Promise((resolve) => setTimeout(async () => {
           try {
-            if (mainWindow && !mainWindow.isDestroyed()) {
+            if (mainWindow && !mainWindow.isDestroyed() && db.getSetting('hideAfterPaste') !== 'false') {
               mainWindow.hide();
             }
 
@@ -1709,7 +2180,7 @@ function registerIPCHandlers() {
       } else {
         // Fallback: mshta yöntemi (koffi yüklenemezse yedek olarak çalışır)
         // Aktif pencereye yapıştırmak için ClipBoardPrime'ın odağı kaybetmesi (gizlenmesi) şarttır.
-        if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow && !mainWindow.isDestroyed() && db.getSetting('hideAfterPaste') !== 'false') {
           mainWindow.hide();
         }
         await new Promise(resolve => setTimeout(resolve, 150));
@@ -1834,6 +2305,8 @@ function registerIPCHandlers() {
         ...cat,
         id: cat.id ? requirePositiveInteger(cat.id, 'Kategori kimliği') : undefined,
         name: requireString(cat.name || '', 'Kategori adı', 100).trim(),
+        color: requireHexColor(cat.color || '#6366f1', 'Kategori rengi'),
+        icon: requireCategoryIcon(cat.icon),
       };
       if (!cat.name) throw new Error('Kategori adı boş olamaz.');
       let result;
@@ -1876,6 +2349,11 @@ function registerIPCHandlers() {
     try {
       if (!payload || typeof payload !== 'object') throw new Error('Geçersiz ayar verisi.');
       const { key, value } = validateSetting(payload.key, payload.value);
+      if (key === 'globalShortcut') {
+        const shortcut = updateGlobalShortcut(value);
+        mainWindow?.webContents.send('settings-changed', { key, value: shortcut });
+        return { success: true, data: shortcut };
+      }
       const result = db.saveSetting(key, value);
 
       // Belirli ayarlar değişince anlık tepki ver
@@ -1951,7 +2429,8 @@ function registerIPCHandlers() {
 
   ipcMain.handle('import-data', async (_event, options = {}) => {
     try {
-      const password = requireString(options.password, 'Yedek parolası', 1024);
+      const password = String(options.password || '');
+      if (password.length > 1024) throw new Error('Yedek parolası çok uzun.');
       const result = await dialog.showOpenDialog(mainWindow, {
         title: getTranslation('nativeDialog.importBackupTitle'),
         filters: [
@@ -2002,8 +2481,143 @@ function registerIPCHandlers() {
 
   // ── Modal Durum Bildirimi ─────────────────────────────────────
   // Renderer, modal açıkken blur→hide engellenmesi için bunu bildirir
-  ipcMain.on('set-modal-open', (_event, value) => {
-    if (typeof value === 'boolean') isModalOpen = value;
+  ipcMain.handle('set-modal-open', async (_event, value) => {
+    if (typeof value !== 'boolean') {
+      return { success: false, error: 'Modal durumu doğru/yanlış olmalıdır.' };
+    }
+    isModalOpen = value;
+    if (value) modalProtectionUntil = Date.now() + 500;
+    return { success: true };
+  });
+
+  ipcMain.handle('find-legacy-backups', async () => {
+    try {
+      return { success: true, data: findLegacyBackups() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('import-detected-backup', async (_event, options = {}) => {
+    try {
+      const filePath = validateDetectedBackupPath(options.filePath);
+      const password = String(options.password || '');
+      if (password.length > 1024) throw new Error('Yedek parolası çok uzun.');
+      const data = await runDatabaseTask('importBackup', { filePath, password });
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('show-clipboard-context-menu', async (_event, payload) => {
+    try {
+      if (!payload || typeof payload !== 'object') throw new Error('Geçersiz menü isteği.');
+      const id = requirePositiveInteger(payload.id);
+      const type = requireString(payload.type, 'İçerik türü', 20);
+      const isPinned = requireBoolean(payload.isPinned, 'Sabit durumu');
+      const isFavorite = requireBoolean(payload.isFavorite, 'Favori durumu');
+      const labels = getClipboardMenuLabels();
+      const sendAction = (action) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('clipboard-context-action', { action, id });
+        }
+      };
+      const template = [];
+
+      if (type !== 'image') {
+        template.push(
+          { label: labels.paste, click: () => sendAction('paste') },
+          { label: labels.pastePlain, click: () => sendAction('pastePlain') },
+        );
+      }
+      template.push(
+        { label: labels.copy, click: () => sendAction('copy') },
+        ...(type === 'html' ? [{ label: labels.copyPlain, click: () => sendAction('copyPlain') }] : []),
+        { type: 'separator' },
+        { label: isPinned ? labels.unpin : labels.pin, click: () => sendAction('pin') },
+        { label: isFavorite ? labels.unfavorite : labels.favorite, click: () => sendAction('favorite') },
+        { label: labels.note, enabled: type !== 'image', click: () => sendAction('note') },
+        { label: labels.details, click: () => sendAction('details') },
+        { type: 'separator' },
+        { label: labels.delete, click: () => sendAction('delete') },
+      );
+
+      Menu.buildFromTemplate(template).popup({ window: mainWindow });
+      return { success: true };
+    } catch (err) {
+      console.error('show-clipboard-context-menu hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('set-workspace-mode', async (_event, mode) => {
+    try {
+      mode = requireString(mode, 'Çalışma alanı modu', 20);
+      if (!WORKSPACE_MODES.includes(mode)) {
+        throw new Error('Desteklenmeyen çalışma alanı modu.');
+      }
+      applyWorkspaceMode(mode);
+      return { success: true, data: { mode } };
+    } catch (err) {
+      console.error('set-workspace-mode hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('reset-window-bounds', async () => {
+    try {
+      if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Uygulama penceresi hazır değil.');
+      if (mainWindow.isMaximized()) mainWindow.unmaximize();
+      const current = mainWindow.getBounds();
+      const display = screen.getDisplayMatching(current);
+      const area = display.workArea;
+      const width = Math.min(540, area.width);
+      const height = Math.min(640, area.height);
+      const bounds = constrainBoundsToDisplay({
+        width,
+        height,
+        x: area.x + Math.round((area.width - width) / 2),
+        y: area.y + Math.round((area.height - height) / 2),
+      });
+      mainWindow.setBounds(bounds, true);
+      db.saveSetting(workspaceBoundsKey(), JSON.stringify(bounds));
+      return { success: true, data: bounds };
+    } catch (err) {
+      console.error('reset-window-bounds hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('set-win-v-integration', async (_event, enabled) => {
+    try {
+      const data = setWinVIntegration(enabled === true);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('settings-changed', {
+          key: 'winVIntegration',
+          value: String(data.enabled),
+        });
+      }
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('get-privilege-status', async () => ({
+    success: true,
+    data: {
+      isAdministrator: isRunningAsAdministrator(),
+      canRelaunch: process.platform === 'win32' && app.isPackaged,
+    },
+  }));
+
+  ipcMain.handle('relaunch-as-administrator', async () => {
+    try {
+      return { success: true, data: relaunchAsAdministrator() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 }
 
@@ -2019,12 +2633,6 @@ function handleSettingChange(key, value) {
       startClipboardWatcher();
       break;
 
-    case 'globalShortcut':
-      // Global kısayolu güncelle
-      globalShortcut.unregisterAll();
-      registerGlobalShortcuts();
-      break;
-
     case 'startWithWindows':
       // Başlangıçta aç ayarını güncelle
       setWindowsAutostart(value === 'true');
@@ -2033,6 +2641,11 @@ function handleSettingChange(key, value) {
     case 'language':
       // Sistem tepsisi dilini güncelle
       updateTrayMenu();
+      break;
+    case 'retentionDays':
+    case 'retentionKeepFavorites':
+    case 'retentionTypeRules':
+      runHistoryCleanup();
       break;
   }
 }
@@ -2099,7 +2712,7 @@ app.whenReady().then(() => {
   }
 
   // local-file protokolünü tanımla (yerel görselleri güvenle yüklemek için)
-  protocol.handle('local-file', (request) => {
+  protocol.handle('local-file', async (request) => {
     try {
       let urlPath = request.url.replace('local-file:///', '');
       if (request.url.startsWith('local-file://') && !request.url.startsWith('local-file:///')) {
@@ -2121,7 +2734,6 @@ app.whenReady().then(() => {
       }
 
       if (fs.existsSync(decodedPath)) {
-        const data = fs.readFileSync(decodedPath);
         // Dosya uzantısından MIME tipini belirle
         const ext = path.extname(decodedPath).toLowerCase();
         const mimeTypes = {
@@ -2132,11 +2744,18 @@ app.whenReady().then(() => {
           '.webp': 'image/webp',
           '.bmp': 'image/bmp',
           '.ico': 'image/x-icon',
-          '.svg': 'image/svg+xml',
         };
-        const contentType = mimeTypes[ext] || 'application/octet-stream';
+        const contentType = mimeTypes[ext];
+        if (!contentType) {
+          return new Response('Desteklenmeyen görsel biçimi', { status: 415 });
+        }
+        const data = await fs.promises.readFile(decodedPath);
         return new Response(data, {
-          headers: { 'Content-Type': contentType }
+          headers: {
+            'Content-Type': contentType,
+            'X-Content-Type-Options': 'nosniff',
+            'Cache-Control': 'private, max-age=300',
+          }
         });
       } else {
         return new Response('Dosya bulunamadı', { status: 404 });
@@ -2192,7 +2811,7 @@ app.whenReady().then(() => {
 
     // Başlangıçta aç ayarını veritabanından oku ve uygula
     const startWithWindows = db.getSetting('startWithWindows') !== 'false';
-    setWindowsAutostart(startWithWindows);
+    if (!isE2E) setWindowsAutostart(startWithWindows);
 
     // Yetim görsel dosyalarını temizle
     db.cleanupOrphanImages();
@@ -2207,20 +2826,25 @@ app.whenReady().then(() => {
     return;
   }
 
+  // Renderer yüklenmeye başlamadan önce bütün IPC handler'larını hazırla.
+  // Aksi halde hızlı sistemlerde ilk get-settings çağrısı handlersız kalıp
+  // renderer başlangıcını yarıda kesebilir ve pencere boş görünebilir.
+  registerIPCHandlers();
+
   // Pencereyi oluştur
   createWindow();
 
   // System tray oluştur
-  createTray();
+  if (!isE2E) createTray();
 
   // Global kısayolları kaydet
-  registerGlobalShortcuts();
-
-  // IPC handler'ları kaydet
-  registerIPCHandlers();
+  if (!isE2E) registerGlobalShortcuts();
 
   // Clipboard izlemeyi başlat
-  startClipboardWatcher();
+  if (!isE2E) {
+    startClipboardWatcher();
+    startHistoryCleanupTimer();
+  }
 });
 
 // macOS'ta tüm pencereler kapatılınca uygulamayı kapatma
@@ -2246,6 +2870,7 @@ app.on('will-quit', () => {
   // Kaynakları temizle
   globalShortcut.unregisterAll();
   stopClipboardWatcher();
+  if (historyCleanupTimer) clearInterval(historyCleanupTimer);
   db.close();
 
   // Tray'i temizle
@@ -2256,10 +2881,25 @@ app.on('will-quit', () => {
 });
 
 // Beklenmeyen hataları yakala
+function handleFatalProcessError(label, error) {
+  console.error(label, error);
+  if (fatalErrorInProgress) return;
+  fatalErrorInProgress = true;
+  isQuitting = true;
+  const message = error instanceof Error ? error.message : String(error);
+  try {
+    dialog.showErrorBox(
+      'ClipBoardPrime Kritik Hata',
+      `Uygulama güvenli olmayan bir duruma girdi ve kapatılacak.\n\n${message}`
+    );
+  } catch {}
+  app.exit(1);
+}
+
 process.on('uncaughtException', (err) => {
-  console.error('Yakalanmamış hata:', err);
+  handleFatalProcessError('Yakalanmamış hata:', err);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('İşlenmemiş Promise hatası:', reason);
+  handleFatalProcessError('İşlenmemiş Promise hatası:', reason);
 });

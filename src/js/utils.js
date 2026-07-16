@@ -189,14 +189,21 @@ const Utils = (() => {
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
     const closeLabel = window.i18n ? window.i18n.t('tooltip.closeToast') : 'Kapat';
-    toast.innerHTML = `
-      <span class="toast-icon">${icons[type] || icons.info}</span>
-      <span class="toast-message">${escapeHtml(message)}</span>
-      <button class="toast-close" data-tooltip="${closeLabel}">✕</button>
-    `;
-
-    const closeBtn = toast.querySelector('.toast-close');
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.innerHTML = icons[type] || icons.info;
+    const messageElement = document.createElement('span');
+    messageElement.className = 'toast-message';
+    messageElement.textContent = String(message);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.type = 'button';
+    closeBtn.dataset.tooltip = closeLabel;
+    closeBtn.setAttribute('aria-label', closeLabel);
+    closeBtn.textContent = '✕';
+    toast.append(icon, messageElement, closeBtn);
     closeBtn.addEventListener('click', () => removeToast(toast));
 
     container.appendChild(toast);

@@ -15,11 +15,30 @@ const SettingsPanel = (() => {
     // Form Inputs
     theme: document.getElementById('setting-theme'),
     autostart: document.getElementById('setting-autostart'),
+    winV: document.getElementById('setting-win-v'),
+    adminStatus: document.getElementById('setting-admin-status'),
+    restartAsAdminBtn: document.getElementById('restart-as-admin-btn'),
     sensitive: document.getElementById('setting-sensitive'),
     historyLimit: document.getElementById('setting-history-limit'),
+    retentionDays: document.getElementById('setting-retention-days'),
+    retentionKeepFavorites: document.getElementById('setting-retention-keep-favorites'),
+    retentionTypeInputs: document.querySelectorAll('[data-retention-type]'),
     pollInterval: document.getElementById('setting-poll-interval'),
     shortcut: document.getElementById('setting-shortcut'),
     blurToTray: document.getElementById('setting-blur-to-tray'),
+    clearSearchOnHide: document.getElementById('setting-clear-search-on-hide'),
+    clearNotesSearchOnHide: document.getElementById('setting-clear-notes-search-on-hide'),
+    hideAfterPaste: document.getElementById('setting-hide-after-paste'),
+    windowOpenPosition: document.getElementById('setting-window-open-position'),
+    clipboardOpenFilter: document.getElementById('setting-clipboard-open-filter'),
+    notesOpenFilter: document.getElementById('setting-notes-open-filter'),
+    quickActionInputs: document.querySelectorAll('[data-quick-action]'),
+    quickActionList: document.getElementById('quick-action-settings-list'),
+    workspaceOpenMode: document.getElementById('setting-workspace-open-mode'),
+    resetWindowBoundsBtn: document.getElementById('reset-window-bounds-btn'),
+    spaceKeyAction: document.getElementById('setting-space-key-action'),
+    hoverPreview: document.getElementById('setting-hover-preview'),
+    hoverPreviewDelay: document.getElementById('setting-hover-preview-delay'),
     appFontSize: document.getElementById('setting-app-font-size'),
     language: document.getElementById('setting-language'),
     
@@ -28,6 +47,7 @@ const SettingsPanel = (() => {
     changeLocationBtn: document.getElementById('change-data-location-btn'),
     exportBtn: document.getElementById('export-data-btn'),
     importBtn: document.getElementById('import-data-btn'),
+    openOnboardingBtn: document.getElementById('open-onboarding-btn'),
   };
 
   let currentSettings = {};
@@ -50,10 +70,6 @@ const SettingsPanel = (() => {
     elements.footerCloseBtn.addEventListener('click', () => closeSettingsModal());
 
     // Boşluğa tıklayarak kapatma
-    elements.modal.addEventListener('click', (e) => {
-      if (e.target === elements.modal) closeSettingsModal();
-    });
-
     // Tab geçişleri
     elements.tabs.forEach((tab) => {
       tab.addEventListener('click', () => {
@@ -69,11 +85,74 @@ const SettingsPanel = (() => {
     // ─── Ayarların Değişimi Kayıt Dinleyicileri ───
     elements.theme.addEventListener('change', (e) => saveSetting('theme', e.target.value));
     elements.autostart.addEventListener('change', (e) => saveSetting('startWithWindows', String(e.target.checked)));
+    elements.winV?.addEventListener('change', async (e) => {
+      const response = await window.api.setWinVIntegration(e.target.checked);
+      if (!response?.success) {
+        e.target.checked = false;
+        Utils.showToast(response?.error || 'Win+V etkinleştirilemedi', 'warning');
+        return;
+      }
+      currentSettings.winVIntegration = String(response.data.enabled);
+      Utils.showToast(
+        response.data.enabled
+          ? (window.i18n ? window.i18n.t('settings.winVEnabled') : 'Win+V etkinleştirildi.')
+          : (window.i18n ? window.i18n.t('settings.winVDisabled') : 'Win+V kapatıldı.'),
+        'success'
+      );
+    });
+    elements.restartAsAdminBtn?.addEventListener('click', restartAsAdministrator);
     elements.sensitive.addEventListener('change', (e) => saveSetting('detectSensitive', String(e.target.checked)));
     elements.historyLimit.addEventListener('change', (e) => saveSetting('maxHistory', e.target.value));
+    elements.retentionDays?.addEventListener('change', (e) => saveSetting('retentionDays', e.target.value));
+    elements.retentionKeepFavorites?.addEventListener('change', (e) => {
+      saveSetting('retentionKeepFavorites', String(e.target.checked));
+    });
+    setupRetentionTypeSettings();
     elements.pollInterval.addEventListener('change', (e) => saveSetting('pollingInterval', e.target.value));
     if (elements.blurToTray) {
       elements.blurToTray.addEventListener('change', (e) => saveSetting('blurToTray', String(e.target.checked)));
+    }
+    if (elements.clearSearchOnHide) {
+      elements.clearSearchOnHide.addEventListener('change', (e) => saveSetting('clearSearchOnHide', String(e.target.checked)));
+    }
+    elements.clearNotesSearchOnHide?.addEventListener('change', (e) => saveSetting('clearNotesSearchOnHide', String(e.target.checked)));
+    elements.hideAfterPaste?.addEventListener('change', (e) => saveSetting('hideAfterPaste', String(e.target.checked)));
+    if (elements.windowOpenPosition) {
+      elements.windowOpenPosition.addEventListener('change', (e) => saveSetting('windowOpenPosition', e.target.value));
+    }
+    if (elements.clipboardOpenFilter) {
+      elements.clipboardOpenFilter.addEventListener('change', (e) => saveSetting('clipboardOpenFilter', e.target.value));
+    }
+    if (elements.notesOpenFilter) {
+      elements.notesOpenFilter.addEventListener('change', (e) => saveSetting('notesOpenFilter', e.target.value));
+    }
+    elements.quickActionInputs.forEach((input) => {
+      input.addEventListener('change', () => {
+        const selected = getOrderedQuickActionInputs()
+          .filter((candidate) => candidate.checked)
+          .map((candidate) => candidate.dataset.quickAction);
+        saveSetting('clipboardQuickActions', JSON.stringify(selected));
+      });
+    });
+    setupQuickActionSorting();
+    if (elements.workspaceOpenMode) {
+      elements.workspaceOpenMode.addEventListener('change', async (e) => {
+        const mode = e.target.value;
+        await saveSetting('workspaceOpenMode', mode);
+        if (mode !== 'last') await window.App?.setWorkspaceMode(mode, true);
+      });
+    }
+    elements.resetWindowBoundsBtn?.addEventListener('click', resetWindowBounds);
+    if (elements.spaceKeyAction) {
+      elements.spaceKeyAction.addEventListener('change', (e) => saveSetting('spaceKeyAction', e.target.value));
+    }
+    if (elements.hoverPreview) {
+      elements.hoverPreview.addEventListener('change', (e) => {
+        saveSetting('hoverPreviewEnabled', String(e.target.checked));
+      });
+    }
+    if (elements.hoverPreviewDelay) {
+      elements.hoverPreviewDelay.addEventListener('change', (e) => saveSetting('hoverPreviewDelay', e.target.value));
     }
     elements.appFontSize.addEventListener('change', (e) => {
       saveSetting('appFontSize', e.target.value);
@@ -101,6 +180,10 @@ const SettingsPanel = (() => {
     elements.changeLocationBtn.addEventListener('click', () => changeDataLocation());
     elements.exportBtn.addEventListener('click', () => exportData());
     elements.importBtn.addEventListener('click', () => importData());
+    elements.openOnboardingBtn?.addEventListener('click', () => {
+      closeSettingsModal();
+      window.Onboarding?.open(true);
+    });
 
     // ─── Hakkında Bağlantıları Dinleyicileri ───
     document.querySelectorAll('.about-link').forEach((link) => {
@@ -116,6 +199,9 @@ const SettingsPanel = (() => {
     // Main process'ten ayar değişimi olaylarını dinle (örn. arka planda güncellenirse)
     window.api.onSettingsChanged(({ key, value }) => {
       currentSettings[key] = value;
+      if (window.App && window.App.settings) {
+        window.App.settings[key] = value;
+      }
       updateUIField(key, value);
     });
 
@@ -131,15 +217,13 @@ const SettingsPanel = (() => {
 
     elements.shortcut.addEventListener('focus', () => {
       isListeningShortcut = true;
-      elements.shortcut.style.borderColor = 'var(--accent-primary)';
-      elements.shortcut.style.boxShadow = '0 0 0 3px var(--accent-subtle)';
+      elements.shortcut.classList.add('is-capturing');
       elements.shortcut.value = window.i18n ? window.i18n.t('settings.shortcutListening') : 'Kombinasyona bas...';
     });
 
     elements.shortcut.addEventListener('blur', () => {
       isListeningShortcut = false;
-      elements.shortcut.style.borderColor = '';
-      elements.shortcut.style.boxShadow = '';
+      elements.shortcut.classList.remove('is-capturing');
       elements.shortcut.value = currentSettings.globalShortcut || 'Ctrl+Shift+V';
     });
 
@@ -219,12 +303,52 @@ const SettingsPanel = (() => {
         // UI alanlarını doldur
         elements.theme.value = currentSettings.theme || 'dark';
         elements.autostart.checked = currentSettings.startWithWindows === 'true' || currentSettings.startWithWindows === undefined || currentSettings.startWithWindows === null || currentSettings.startWithWindows === '';
+        if (elements.winV) elements.winV.checked = currentSettings.winVIntegration === 'true';
+        await refreshPrivilegeStatus();
         elements.sensitive.checked = currentSettings.detectSensitive === 'true';
         elements.historyLimit.value = currentSettings.maxHistory || '0';
+        if (elements.retentionDays) {
+          elements.retentionDays.value = currentSettings.retentionDays || '0';
+        }
+        if (elements.retentionKeepFavorites) {
+          elements.retentionKeepFavorites.checked = currentSettings.retentionKeepFavorites !== 'false';
+        }
+        applyRetentionTypeRules(currentSettings.retentionTypeRules);
         elements.pollInterval.value = currentSettings.pollingInterval || '500';
         elements.shortcut.value = currentSettings.globalShortcut || 'Ctrl+Shift+V';
         if (elements.blurToTray) {
           elements.blurToTray.checked = currentSettings.blurToTray === 'true';
+        }
+        if (elements.clearSearchOnHide) {
+          elements.clearSearchOnHide.checked = currentSettings.clearSearchOnHide === 'true';
+        }
+        if (elements.clearNotesSearchOnHide) {
+          elements.clearNotesSearchOnHide.checked = currentSettings.clearNotesSearchOnHide === 'true';
+        }
+        if (elements.hideAfterPaste) {
+          elements.hideAfterPaste.checked = currentSettings.hideAfterPaste !== 'false';
+        }
+        if (elements.windowOpenPosition) {
+          elements.windowOpenPosition.value = currentSettings.windowOpenPosition || 'remember';
+        }
+        if (elements.clipboardOpenFilter) {
+          elements.clipboardOpenFilter.value = currentSettings.clipboardOpenFilter || 'preserve';
+        }
+        await populateNotesOpenFilter(currentSettings.notesOpenFilter || 'preserve');
+        applyQuickActionSettings(currentSettings.clipboardQuickActions);
+        applyQuickActionOrder(currentSettings.clipboardQuickActionOrder);
+        if (elements.workspaceOpenMode) {
+          const openMode = currentSettings.workspaceOpenMode;
+          elements.workspaceOpenMode.value = ['clipboard', 'notes'].includes(openMode) ? openMode : 'last';
+        }
+        if (elements.spaceKeyAction) {
+          elements.spaceKeyAction.value = currentSettings.spaceKeyAction || 'copy';
+        }
+        if (elements.hoverPreview) {
+          elements.hoverPreview.checked = currentSettings.hoverPreviewEnabled === 'true';
+        }
+        if (elements.hoverPreviewDelay) {
+          elements.hoverPreviewDelay.value = currentSettings.hoverPreviewDelay || '500';
         }
         elements.appFontSize.value = currentSettings.appFontSize || '13px';
 
@@ -269,7 +393,7 @@ const SettingsPanel = (() => {
 
               const locationContainer = elements.changeLocationBtn.parentElement;
               if (locationContainer) {
-                locationContainer.style.display = 'none';
+                locationContainer.classList.add('hidden');
 
                 const parentElement = locationContainer.parentElement;
                 if (parentElement && !document.getElementById('portable-warning-box')) {
@@ -326,11 +450,39 @@ const SettingsPanel = (() => {
   function updateUIField(key, value) {
     if (key === 'theme') elements.theme.value = value;
     else if (key === 'startWithWindows') elements.autostart.checked = value === 'true';
+    else if (key === 'winVIntegration' && elements.winV) elements.winV.checked = value === 'true';
     else if (key === 'detectSensitive') elements.sensitive.checked = value === 'true';
     else if (key === 'maxHistory') elements.historyLimit.value = value;
+    else if (key === 'retentionDays' && elements.retentionDays) elements.retentionDays.value = value;
+    else if (key === 'retentionKeepFavorites' && elements.retentionKeepFavorites) {
+      elements.retentionKeepFavorites.checked = value !== 'false';
+    }
+    else if (key === 'retentionTypeRules') applyRetentionTypeRules(value);
     else if (key === 'pollingInterval') elements.pollInterval.value = value;
     else if (key === 'globalShortcut') elements.shortcut.value = value;
     else if (key === 'blurToTray' && elements.blurToTray) elements.blurToTray.checked = value === 'true';
+    else if (key === 'clearSearchOnHide' && elements.clearSearchOnHide) elements.clearSearchOnHide.checked = value === 'true';
+    else if (key === 'clearNotesSearchOnHide' && elements.clearNotesSearchOnHide) elements.clearNotesSearchOnHide.checked = value === 'true';
+    else if (key === 'hideAfterPaste' && elements.hideAfterPaste) elements.hideAfterPaste.checked = value !== 'false';
+    else if (key === 'windowOpenPosition' && elements.windowOpenPosition) elements.windowOpenPosition.value = value;
+    else if (key === 'clipboardOpenFilter' && elements.clipboardOpenFilter) elements.clipboardOpenFilter.value = value;
+    else if (key === 'notesOpenFilter' && elements.notesOpenFilter) {
+      populateNotesOpenFilter(value);
+    }
+    else if (key === 'clipboardQuickActions') {
+      applyQuickActionSettings(value);
+      if (window.ClipboardPanel) window.ClipboardPanel.loadHistory(false, true);
+    }
+    else if (key === 'clipboardQuickActionOrder') {
+      applyQuickActionOrder(value);
+      if (window.ClipboardPanel) window.ClipboardPanel.loadHistory(false, true);
+    }
+    else if (key === 'workspaceOpenMode' && elements.workspaceOpenMode) elements.workspaceOpenMode.value = value;
+    else if (key === 'spaceKeyAction' && elements.spaceKeyAction) elements.spaceKeyAction.value = value;
+    else if (key === 'hoverPreviewEnabled' && elements.hoverPreview) {
+      elements.hoverPreview.checked = value === 'true';
+    }
+    else if (key === 'hoverPreviewDelay' && elements.hoverPreviewDelay) elements.hoverPreviewDelay.value = value;
     else if (key === 'appFontSize') {
       elements.appFontSize.value = value;
       applyFontSizes(value);
@@ -338,6 +490,126 @@ const SettingsPanel = (() => {
     else if (key === 'language' && elements.language) {
       elements.language.value = value;
     }
+  }
+
+  async function resetWindowBounds() {
+    const response = await window.api.resetWindowBounds();
+    if (response?.success) {
+      Utils.showToast(
+        window.i18n ? window.i18n.t('toast.windowBoundsReset') : 'Pencere boyutu ve konumu sıfırlandı.',
+        'success'
+      );
+      return;
+    }
+    Utils.showToast(response?.error || 'Pencere sıfırlanamadı.', 'error');
+  }
+
+  function applyQuickActionSettings(value) {
+    let selected = ['copy', 'pin', 'favorite', 'note', 'delete'];
+    try {
+      const parsed = JSON.parse(value || '[]');
+      if (Array.isArray(parsed)) selected = parsed;
+    } catch (err) {
+      // Keep safe defaults for legacy or manually edited settings.
+    }
+    elements.quickActionInputs.forEach((input) => {
+      input.checked = selected.includes(input.dataset.quickAction);
+    });
+  }
+
+  function getOrderedQuickActionInputs() {
+    if (!elements.quickActionList) return Array.from(elements.quickActionInputs);
+    return Array.from(elements.quickActionList.querySelectorAll('[data-quick-action]'));
+  }
+
+  function normalizeQuickActionOrder(value) {
+    const fallback = ['copy', 'pin', 'favorite', 'note', 'delete'];
+    try {
+      const parsed = JSON.parse(value || '[]');
+      if (!Array.isArray(parsed)) return fallback;
+      return [...new Set([...parsed.filter((item) => fallback.includes(item)), ...fallback])];
+    } catch {
+      return fallback;
+    }
+  }
+
+  function applyQuickActionOrder(value) {
+    if (!elements.quickActionList) return;
+    normalizeQuickActionOrder(value).forEach((action) => {
+      const row = elements.quickActionList.querySelector(`[data-quick-action-row="${action}"]`);
+      if (row) elements.quickActionList.appendChild(row);
+    });
+  }
+
+  function setupQuickActionSorting() {
+    if (!elements.quickActionList) return;
+    let draggedRow = null;
+
+    elements.quickActionList.addEventListener('dragstart', (event) => {
+      const row = event.target.closest('[data-quick-action-row]');
+      if (!row) return;
+      draggedRow = row;
+      row.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+    });
+
+    elements.quickActionList.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      if (!draggedRow) return;
+      const target = event.target.closest('[data-quick-action-row]');
+      if (!target || target === draggedRow) return;
+      const rect = target.getBoundingClientRect();
+      const insertAfter = event.clientY > rect.top + rect.height / 2;
+      elements.quickActionList.insertBefore(
+        draggedRow,
+        insertAfter ? target.nextSibling : target
+      );
+    });
+
+    elements.quickActionList.addEventListener('dragend', async () => {
+      if (!draggedRow) return;
+      draggedRow.classList.remove('dragging');
+      draggedRow = null;
+      const order = getOrderedQuickActionInputs().map((input) => input.dataset.quickAction);
+      await saveSetting('clipboardQuickActionOrder', JSON.stringify(order), false);
+      if (window.ClipboardPanel) window.ClipboardPanel.loadHistory(false, true);
+    });
+  }
+
+  function setupRetentionTypeSettings() {
+    const options = [
+      ['0', 'settings.retentionUseGeneral', 'Genel süreyi kullan'],
+      ['1', 'settings.retentionOneDay', '1 gün'],
+      ['7', 'settings.retentionSevenDays', '7 gün'],
+      ['30', 'settings.retentionThirtyDays', '30 gün'],
+      ['90', 'settings.retentionNinetyDays', '90 gün'],
+      ['365', 'settings.retentionOneYear', '1 yıl'],
+    ];
+    elements.retentionTypeInputs.forEach((select) => {
+      select.innerHTML = options.map(([value, key, fallback]) =>
+        `<option value="${value}" data-i18n="${key}">${window.i18n ? window.i18n.t(key) : fallback}</option>`
+      ).join('');
+      select.addEventListener('change', saveRetentionTypeRules);
+    });
+  }
+
+  function applyRetentionTypeRules(value) {
+    let rules = {};
+    try {
+      const parsed = JSON.parse(value || '{}');
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) rules = parsed;
+    } catch {}
+    elements.retentionTypeInputs.forEach((select) => {
+      select.value = String(rules[select.dataset.retentionType] || '0');
+    });
+  }
+
+  function saveRetentionTypeRules() {
+    const rules = {};
+    elements.retentionTypeInputs.forEach((select) => {
+      if (select.value !== '0') rules[select.dataset.retentionType] = Number(select.value);
+    });
+    saveSetting('retentionTypeRules', JSON.stringify(rules));
   }
 
   /**
@@ -527,7 +799,64 @@ const SettingsPanel = (() => {
     }
   }
 
-  function openSettingsModal() {
+  async function populateNotesOpenFilter(selectedValue = 'preserve') {
+    if (!elements.notesOpenFilter || !window.api?.getCategories) return;
+    const fixedOptions = Array.from(elements.notesOpenFilter.options)
+      .filter((option) => !option.dataset.dynamicCategory);
+    elements.notesOpenFilter.replaceChildren(...fixedOptions);
+
+    try {
+      const response = await window.api.getCategories();
+      if (response?.success) {
+        response.data.forEach((category) => {
+          const option = document.createElement('option');
+          option.value = `category:${category.id}`;
+          option.dataset.dynamicCategory = 'true';
+          option.textContent = window.NotesPanel?.getLocalizedCategoryName
+            ? window.NotesPanel.getLocalizedCategoryName(category.name)
+            : category.name;
+          elements.notesOpenFilter.appendChild(option);
+        });
+      }
+    } catch (error) {
+      console.error('Açılış not kategorileri yüklenemedi:', error);
+    }
+
+    const hasSelectedValue = Array.from(elements.notesOpenFilter.options)
+      .some((option) => option.value === selectedValue);
+    elements.notesOpenFilter.value = hasSelectedValue ? selectedValue : 'all';
+  }
+
+  async function refreshPrivilegeStatus() {
+    if (!elements.adminStatus || !window.api?.getPrivilegeStatus) return;
+    const response = await window.api.getPrivilegeStatus();
+    if (!response?.success) return;
+    const status = response.data;
+    elements.adminStatus.textContent = status.isAdministrator
+      ? (window.i18n ? window.i18n.t('settings.adminActive') : 'Aktif')
+      : (window.i18n ? window.i18n.t('settings.adminNormal') : 'Normal');
+    elements.adminStatus.classList.toggle('active', status.isAdministrator);
+    if (elements.restartAsAdminBtn) {
+      elements.restartAsAdminBtn.disabled = status.isAdministrator || !status.canRelaunch;
+      elements.restartAsAdminBtn.title = !status.canRelaunch
+        ? (window.i18n ? window.i18n.t('settings.adminPackagedOnly') : 'Kurulu sürümde kullanılabilir.')
+        : '';
+    }
+  }
+
+  async function restartAsAdministrator() {
+    const confirmed = await window.App.confirm(
+      window.i18n ? window.i18n.t('settings.adminConfirmTitle') : 'Yönetici olarak yeniden başlat',
+      window.i18n ? window.i18n.t('settings.adminConfirmDesc') : 'Bu özellik zorunlu değildir. Uygulama kapanacak ve Windows UAC onayı isteyecektir.',
+      Utils.Icons.settings || Utils.Icons.lock
+    );
+    if (!confirmed) return;
+    const response = await window.api.relaunchAsAdministrator();
+    if (!response?.success) Utils.showToast(response?.error || 'Yeniden başlatılamadı', 'error');
+  }
+
+  async function openSettingsModal() {
+    await populateNotesOpenFilter(currentSettings.notesOpenFilter || 'preserve');
     elements.modal.classList.add('active');
     Utils.initFocusTrap(elements.modal);
     

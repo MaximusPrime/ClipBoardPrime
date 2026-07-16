@@ -49,8 +49,28 @@ const DEFAULT_SETTINGS = {
   globalShortcut: 'Ctrl+Shift+V',
   showPreview: 'true',
   detectSensitive: 'true',
-  blurToTray: 'true',
+  blurToTray: 'false',
+  clearSearchOnHide: 'true',
+  clearNotesSearchOnHide: 'false',
+  hideAfterPaste: 'true',
+  windowOpenPosition: 'remember',
+  clipboardOpenFilter: 'preserve',
+  notesOpenFilter: 'preserve',
+  clipboardQuickActions: '["copy","pin","favorite","note","delete"]',
+  clipboardQuickActionOrder: '["copy","pin","favorite","note","delete"]',
+  workspaceMode: 'clipboard',
+  workspaceOpenMode: 'last',
+  spaceKeyAction: 'copy',
+  hoverPreviewEnabled: 'false',
+  hoverPreviewDelay: '500',
+  retentionDays: '0',
+  retentionKeepFavorites: 'true',
+  retentionTypeRules: '{}',
+  onboardingCompleted: 'false',
+  winVIntegration: 'false',
 };
+
+let ftsAvailable = false;
 
 // ─── Varsayılan Kategoriler ──────────────────────────────────
 const DEFAULT_CATEGORIES = [
@@ -97,6 +117,7 @@ function initialize(userDataPath, customLocation, options = {}) {
 
     const legacyDbPath = path.join(baseDir, 'clipboard-pro.db');
     dbPath = path.join(baseDir, 'clipboard-prime.db');
+    const isExistingInstallation = fs.existsSync(dbPath) || fs.existsSync(legacyDbPath);
     migrateLegacyDatabaseFiles(legacyDbPath, dbPath);
     db = new Database(dbPath);
 
@@ -108,6 +129,9 @@ function initialize(userDataPath, customLocation, options = {}) {
 
     // Tabloları oluştur
     createTables();
+    const hadOnboardingSetting = !!db.prepare(
+      "SELECT 1 FROM settings WHERE key = 'onboardingCompleted'"
+    ).get();
 
     // Migrasyon: Notes sort_order
     migrateNoteSortOrder();
@@ -115,6 +139,7 @@ function initialize(userDataPath, customLocation, options = {}) {
     // Migrasyon: Notes is_favorite
     migrateNoteIsFavorite();
     migrateClipboardContentHash();
+    initializeClipboardFts();
 
     // Migrasyon: Eski emoji kategorilerini temizle
     migrateCategoryIcons();
@@ -124,6 +149,9 @@ function initialize(userDataPath, customLocation, options = {}) {
 
     // Varsayılan verileri ekle
     seedDefaults();
+    if (isExistingInstallation && !hadOnboardingSetting) {
+      saveSetting('onboardingCompleted', 'true');
+    }
 
     return true;
   } catch (err) {
@@ -202,6 +230,7 @@ function migrateNoteSortOrder() {
     }
   } catch (err) {
     console.error('Notes sort_order migration hatası:', err);
+    throw err;
   }
 }
 
@@ -218,6 +247,7 @@ function migrateNoteIsFavorite() {
     }
   } catch (err) {
     console.error('Notes is_favorite migration hatası:', err);
+    throw err;
   }
 }
 
@@ -269,6 +299,7 @@ function migrateCategoryIcons() {
     })();
   } catch (err) {
     console.error('Kategori ikon migrasyon hatası:', err);
+    throw err;
   }
 }
 
@@ -285,6 +316,7 @@ function migrateExistingUrls() {
     `);
   } catch (err) {
     console.error('URL migrasyon hatası:', err);
+    throw err;
   }
 }
 
@@ -433,30 +465,63 @@ function getClipboardHistory(params = {}) {
 
   let whereClauses = [];
   let queryParams = [];
+  let tableSQL = 'clipboard_history AS ch';
 
   // Arama filtresi
   if (params.search && params.search.trim().length > 0) {
-    whereClauses.push('(content LIKE ? OR preview LIKE ?)');
-    const searchTerm = `%${params.search.trim()}%`;
-    queryParams.push(searchTerm, searchTerm);
+    const keyword = params.search.trim();
+    if (ftsAvailable) {
+      tableSQL += ' JOIN clipboard_history_fts ON clipboard_history_fts.rowid = ch.id';
+      whereClauses.push('clipboard_history_fts MATCH ?');
+      queryParams.push(toFtsQuery(keyword));
+    } else {
+      whereClauses.push('(ch.content LIKE ? OR ch.preview LIKE ?)');
+      const searchTerm = `%${keyword}%`;
+      queryParams.push(searchTerm, searchTerm);
+    }
   }
 
   // Tür filtresi
   if (params.type && params.type !== 'all') {
-    whereClauses.push('content_type = ?');
+    whereClauses.push('ch.content_type = ?');
     queryParams.push(params.type);
   }
 
   // Pinned filtresi
   if (params.pinned !== undefined && params.pinned !== null) {
-    whereClauses.push('is_pinned = ?');
+    whereClauses.push('ch.is_pinned = ?');
     queryParams.push(params.pinned ? 1 : 0);
   }
 
   // Favorite filtresi
   if (params.favorite !== undefined && params.favorite !== null) {
-    whereClauses.push('is_favorite = ?');
+    whereClauses.push('ch.is_favorite = ?');
     queryParams.push(params.favorite ? 1 : 0);
+  }
+
+  const recentDays = Math.max(0, Math.min(3650, parseInt(params.recentDays, 10) || 0));
+  if (recentDays > 0) {
+    whereClauses.push("ch.created_at >= datetime('now', 'localtime', ?)");
+    queryParams.push(`-${recentDays} days`);
+  }
+
+  if (params.sourceApp && String(params.sourceApp).trim()) {
+    whereClauses.push('ch.source_app LIKE ?');
+    queryParams.push(`%${String(params.sourceApp).trim().slice(0, 200)}%`);
+  }
+
+  if (params.length === 'short') {
+    whereClauses.push('ch.char_count < 100');
+  } else if (params.length === 'medium') {
+    whereClauses.push('ch.char_count BETWEEN 100 AND 999');
+  } else if (params.length === 'long') {
+    whereClauses.push('ch.char_count >= 1000');
+  }
+
+  if (params.sensitive === 'yes') {
+    whereClauses.push('ch.is_sensitive = 1');
+  } else if (params.sensitive === 'no') {
+    whereClauses.push('ch.is_sensitive = 0');
   }
 
   const whereSQL = whereClauses.length > 0
@@ -464,14 +529,16 @@ function getClipboardHistory(params = {}) {
     : '';
 
   // Toplam sayı
-  const countStmt = db.prepare(`SELECT COUNT(*) as total FROM clipboard_history ${whereSQL}`);
+  const countStmt = db.prepare(`SELECT COUNT(*) as total FROM ${tableSQL} ${whereSQL}`);
   const { total } = countStmt.get(...queryParams);
 
   // Öğeler — pinned öğeler her zaman üstte
-  const orderClause = params.pinned ? 'ORDER BY is_pinned DESC, created_at DESC' : 'ORDER BY created_at DESC';
+  const orderClause = params.pinned
+    ? 'ORDER BY ch.is_pinned DESC, ch.created_at DESC'
+    : 'ORDER BY ch.created_at DESC';
   
   const itemsStmt = db.prepare(`
-    SELECT * FROM clipboard_history ${whereSQL}
+    SELECT ch.* FROM ${tableSQL} ${whereSQL}
     ${orderClause}
     LIMIT ? OFFSET ?
   `);
@@ -486,6 +553,15 @@ function getClipboardHistory(params = {}) {
   });
 
   return { items, total, page, limit };
+}
+
+function toFtsQuery(value) {
+  const tokens = String(value)
+    .split(/\s+/)
+    .map((token) => token.replace(/"/g, '""').trim())
+    .filter(Boolean);
+  if (tokens.length === 0) return '""';
+  return tokens.map((token) => `"${token}"*`).join(' AND ');
 }
 
 /**
@@ -552,6 +628,71 @@ function deleteClipboardItem(id) {
   }
 
   return result.changes > 0;
+}
+
+/**
+ * Creates and rebuilds the FTS5 index. Sensitive content is never indexed.
+ */
+function initializeClipboardFts() {
+  try {
+    db.exec(`
+      DROP TRIGGER IF EXISTS clipboard_history_fts_ai;
+      DROP TRIGGER IF EXISTS clipboard_history_fts_ad;
+      DROP TRIGGER IF EXISTS clipboard_history_fts_au;
+      DROP TABLE IF EXISTS clipboard_history_fts;
+
+      CREATE VIRTUAL TABLE clipboard_history_fts USING fts5(
+        content,
+        preview,
+        content_type,
+        content='clipboard_history',
+        content_rowid='id',
+        tokenize='unicode61 remove_diacritics 2'
+      );
+
+      CREATE TRIGGER IF NOT EXISTS clipboard_history_fts_ai
+      AFTER INSERT ON clipboard_history
+      WHEN new.is_sensitive = 0
+      BEGIN
+        INSERT INTO clipboard_history_fts(rowid, content, preview, content_type)
+        VALUES (new.id, new.content, COALESCE(new.preview, ''), new.content_type);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS clipboard_history_fts_ad
+      AFTER DELETE ON clipboard_history
+      WHEN old.is_sensitive = 0
+      BEGIN
+        INSERT INTO clipboard_history_fts(
+          clipboard_history_fts, rowid, content, preview, content_type
+        ) VALUES (
+          'delete', old.id, old.content, COALESCE(old.preview, ''), old.content_type
+        );
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS clipboard_history_fts_au
+      AFTER UPDATE ON clipboard_history
+      BEGIN
+        INSERT INTO clipboard_history_fts(
+          clipboard_history_fts, rowid, content, preview, content_type
+        )
+        SELECT 'delete', old.id, old.content, COALESCE(old.preview, ''), old.content_type
+        WHERE old.is_sensitive = 0;
+
+        INSERT INTO clipboard_history_fts(rowid, content, preview, content_type)
+        SELECT new.id, new.content, COALESCE(new.preview, ''), new.content_type
+        WHERE new.is_sensitive = 0;
+      END;
+
+      INSERT INTO clipboard_history_fts(rowid, content, preview, content_type)
+      SELECT id, content, COALESCE(preview, ''), content_type
+      FROM clipboard_history
+      WHERE is_sensitive = 0;
+    `);
+    ftsAvailable = true;
+  } catch (err) {
+    ftsAvailable = false;
+    console.warn('FTS5 kullanılamıyor, LIKE aramasına dönülecek:', err.message);
+  }
 }
 
 function migrateLegacyDatabaseFiles(legacyPath, primePath) {
@@ -674,6 +815,67 @@ function enforceMaxHistory() {
     }
 
   }
+}
+
+/**
+ * Deletes expired unpinned records and their image files.
+ */
+function cleanupExpiredHistory() {
+  const retentionDays = Math.max(0, parseInt(getSetting('retentionDays'), 10) || 0);
+  let typeRules = {};
+  try {
+    const parsed = JSON.parse(getSetting('retentionTypeRules') || '{}');
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) typeRules = parsed;
+  } catch {}
+  const normalizedRules = {};
+  for (const type of ['text', 'html', 'url', 'email', 'code', 'image']) {
+    const days = Math.max(0, Math.min(3650, parseInt(typeRules[type], 10) || 0));
+    if (days > 0) normalizedRules[type] = days;
+  }
+  if (retentionDays <= 0 && Object.keys(normalizedRules).length === 0) return 0;
+
+  const favoriteClause = getSetting('retentionKeepFavorites') !== 'false'
+    ? 'AND is_favorite = 0'
+    : '';
+  const expirationClauses = [];
+  const expirationParams = [];
+  for (const [type, days] of Object.entries(normalizedRules)) {
+    expirationClauses.push("(content_type = ? AND created_at < datetime('now', 'localtime', ?))");
+    expirationParams.push(type, `-${days} days`);
+  }
+  if (retentionDays > 0) {
+    const overriddenTypes = Object.keys(normalizedRules);
+    const typeExclusion = overriddenTypes.length
+      ? `content_type NOT IN (${overriddenTypes.map(() => '?').join(', ')}) AND `
+      : '';
+    expirationClauses.push(`(${typeExclusion}created_at < datetime('now', 'localtime', ?))`);
+    expirationParams.push(...overriddenTypes, `-${retentionDays} days`);
+  }
+  const expirationSQL = expirationClauses.join(' OR ');
+  const images = db.prepare(`
+    SELECT image_path FROM clipboard_history
+    WHERE is_pinned = 0
+      ${favoriteClause}
+      AND (${expirationSQL})
+      AND image_path IS NOT NULL
+  `).all(...expirationParams);
+  const result = db.prepare(`
+    DELETE FROM clipboard_history
+    WHERE is_pinned = 0
+      ${favoriteClause}
+      AND (${expirationSQL})
+  `).run(...expirationParams);
+
+  for (const image of images) {
+    try {
+      if (image.image_path && fs.existsSync(image.image_path)) {
+        fs.unlinkSync(image.image_path);
+      }
+    } catch (err) {
+      console.error('Süresi dolan görsel silinemedi:', err);
+    }
+  }
+  return result.changes;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1660,6 +1862,7 @@ module.exports = {
   clearHistory,
   togglePin,
   toggleFavorite,
+  cleanupExpiredHistory,
 
   // Notes
   addNote,

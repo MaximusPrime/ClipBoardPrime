@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-07-17
+
+### Öne Çıkanlar
+
+- **Yeni kompakt çalışma alanı:** Geniş/çift panel modu kaldırıldı. Pano ve Notlar artık aynı, kullanıcı tarafından değiştirilebilir pencere boyutunu paylaşır ve üst çubuktaki ortalanmış düğmelerle anında değiştirilebilir.
+- **Daha hızlı içerik inceleme:** Pano ve not kartları kısa, okunabilir özetler halinde gösterilir. `Space` veya **Devamını Gör** ile açılan ortalanmış hızlı önizlemede tam metin seçilebilir ve kopyalanabilir.
+- **Akıcı klavye kullanımı:** Fareyle üzerine gelinen kart otomatik odaklanır; `Space`, yön tuşları, `Home`, `End` ve kart işlem kısayolları tıklama gerektirmeden çalışır.
+- **Yenilenen ilk kurulum:** Dil, koyu/açık/sistem teması, başlangıç ekranı, pencere konumu ve Windows başlangıç tercihlerinin canlı önizlemeli üç adımlı kurulum akışı eklendi.
+
+### Eklendi
+
+- Pano ve Notlar arasında doğrudan geçiş için `Ctrl+1`, `Ctrl+2` ve `Ctrl+Shift+M` kısayolları.
+- Aktif ekranda aramaya geçmek için `Ctrl+F`; kart listelerinde `Home` ve `End` desteği.
+- Pano kartlarında `C`, `P`, `F`, `N`, `Delete`; not kartlarında `C`, `E`, `P`, `F`, `Delete` hızlı işlemleri.
+- Pano ve Notlar için ortak, kalıcı pencere boyutu ve konumu; Ayarlar içinde varsayılan kompakt boyuta döndürme seçeneği.
+- Pencere ekran dışında kaldığında güvenli çalışma alanına geri getiren monitör kurtarma mantığı.
+- Pano açılış filtresi, Notlar açılış grubu ve uygulamanın Pano/Notlar başlangıç ekranı tercihleri.
+- Pano kartı hızlı işlemlerini gösterme, gizleme ve sürükleyerek sıralama ayarı.
+- İçerik türüne göre saklama süresi, favorileri otomatik silmeden koruma ve gelişmiş pano filtreleri.
+- Parola korumalı `.cpbackup` yedekleri, eski JSON yedeklerini algılama ve ilk kurulum sırasında güvenli içe aktarma.
+- Türkçe, İngilizce ve Basitleştirilmiş Çince için güncellenmiş kurulum ve ayar açıklamaları.
+
+### Değiştirildi
+
+- Pano ve Not kartlarının yüksekliği içerik uzunluğundan bağımsız, daha yoğun ve kullanıcı dostu hale getirildi.
+- Not akordiyonu tam detay görünümünün yerini almayacak şekilde kısaltıldı; açma/kapatma okları daha görünür ve hafif animasyonlu hale getirildi.
+- Koyu tema daha derin obsidyen tonlarına taşındı; açık temada panel, kart, girdi, hover, sınır ve içerik türü ayrımları güçlendirildi.
+- Ayarlar sayfası kompakt çalışma düzenine göre sadeleştirildi; veri konumu, pencere davranışı, hızlı önizleme ve klavye seçeneklerinin açıklamaları netleştirildi.
+- Yedekleme açıklamaları gerçek davranışla eşleştirildi: yeni dışa aktarımlar şifreli `.cpbackup` oluşturur, içe aktarma mevcut içeriği silmeden eksik kayıtları birleştirir.
+- Portable veri açıklamasındaki kapsamı aşan “sıfır iz” ifadesi kaldırıldı.
+- Electron `43.1.1`, `better-sqlite3 12.11.1` ve uyumlu paketleme zincirine yükseltildi.
+
+### Düzeltildi
+
+- Pano/Notlar düğmelerine her basıldığında pencere boyutunun küçük miktarda büyümesi giderildi.
+- Pencere kenarı sınırlama mantığının Windows Snap ile çakışması ve sürükleme sırasında oluşan titreme giderildi.
+- Pano hızlı önizlemesinin sola kayması düzeltildi; önizleme kompakt pencerenin merkezine sabitlendi.
+- Hızlı önizlemede metin seçmeye çalışırken pencerenin kapanması önlendi.
+- Pano görünümüne ikinci kez dönüldüğünde fare odağı çalışsa bile odak çerçevesinin gecikmeli görünmesi düzeltildi.
+- Ayarlar > Veri sayfasındaki uzun veri konumu yolunun seçim satırından taşması giderildi.
+- Pano ve Notlar geçişinde pencere boyutu/konumunun değişmesi ve gizli panel odağının tutarsız kalması önlendi.
+- Özelleştirilmiş global kısayolun başarısız kayıtta kaybolması önlendi; doğrulama, geri alma ve Windows tarafından ayrılmış kombinasyon koruması eklendi.
+- Modal açıkken pencerenin odağı kaybedip sistem tepsisine erken gizlenmesine neden olan yarış durumu giderildi.
+- Renderer yeniden yüklendiğinde uygulama, kurulum ve ana görünüm durumlarının eksik kurulması giderildi.
+
+### Güvenlik ve Veri Bütünlüğü
+
+- Hassas pano içerikleri AES-256-GCM ile şifreli saklanır; mükerrer algılama gerçek içeriği açığa çıkarmayan HMAC değerleriyle yapılır.
+- Renderer sandbox, context isolation, IPC girdi doğrulama, harici URL kısıtlaması ve varsayılan izin reddi güçlendirildi.
+- Şifreli yedek oluşturma ve bakım işlemleri arayüzü bloklamayan veritabanı worker görevlerine taşındı.
+- Yerel görsel protokolünde yol sınırı ve içerik türü kontrolleri sıkılaştırıldı.
+- Üretim ve geliştirme bağımlılıkları tarandı; `npm audit` sonucu **0 güvenlik açığı**.
+
+### Kalite Güvencesi
+
+- Otomatik test kapsamı **54 teste** çıkarıldı.
+- Gerçek Electron E2E akışı; ilk kurulum, canlı tema, modal koruması, Pano/Notlar geçişi, ortak pencere boyutu, ekran dışı kurtarma ve renderer yeniden yüklemeyi doğrular.
+- Windows Setup ve Portable paketleri gerçek paket içinden native SQLite smoke testiyle doğrulandı.
+- Gereksiz native derleme artıkları dağıtım paketinden çıkarılarak paket boyutu ve saldırı yüzeyi azaltıldı.
+
+---
+
 ## [1.0.0] - 2026-06-13
 
 ### ✨ Added — Pano Geçmişi
@@ -94,4 +156,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.0.1]: https://github.com/MaximusPrime77/ClipBoardPrime/releases/tag/v1.0.1
 [1.0.0]: https://github.com/MaximusPrime77/ClipBoardPrime/releases/tag/v1.0.0

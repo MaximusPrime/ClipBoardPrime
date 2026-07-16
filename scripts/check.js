@@ -3,7 +3,7 @@ const { readdirSync, statSync } = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const targets = ['main.js', 'preload.js', 'database', path.join('src', 'js')];
+const targets = ['main.js', 'preload.js', 'database', 'lib', path.join('src', 'js')];
 const files = [];
 
 function collect(relativePath) {

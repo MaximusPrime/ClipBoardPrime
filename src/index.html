@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: local-file:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; form-action 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: local-file:;">
   <title>ClipBoardPrime</title>
   <script src="./js/init.js"></script>
   <script src="./js/i18n.js"></script>
@@ -21,7 +21,16 @@
         <span class="logo-text">ClipBoardPrime</span>
       </div>
 
-      <div class="titlebar-search-placeholder" style="flex: 1;"></div>
+      <nav class="workspace-switcher" aria-label="Çalışma alanı" data-i18n="[aria-label]nav.workspace">
+        <button class="workspace-switcher-btn" id="workspace-clipboard-btn" type="button" data-workspace="clipboard" aria-pressed="true">
+          <svg class="icon-svg" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span data-i18n="nav.clipboardShort">Pano</span>
+        </button>
+        <button class="workspace-switcher-btn" id="workspace-notes-btn" type="button" data-workspace="notes" aria-pressed="false">
+          <svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          <span data-i18n="nav.notesShort">Notlar</span>
+        </button>
+      </nav>
 
       <div class="titlebar-actions">
         <button class="titlebar-btn" id="theme-toggle" data-tooltip="Tema Değiştir" data-i18n="[data-tooltip]tooltip.changeTheme" aria-label="Temayı değiştir"></button>
@@ -54,33 +63,69 @@
           <input type="text" id="clipboard-search" class="panel-search-input" placeholder="Panoda ara... (Ctrl+F)" data-i18n="[placeholder]search.clipboard" autocomplete="off" spellcheck="false" aria-label="Pano geçmişinde ara">
           <button class="search-clear-btn" id="clipboard-search-clear" aria-label="Aramayı temizle" data-i18n="[aria-label]search.clearAria" type="button">✕</button>
         </div>
+        <div class="clipboard-advanced-filters" id="clipboard-advanced-filters">
+          <select class="setting-select" id="clipboard-filter-period" aria-label="Kayıt dönemi">
+            <option value="0" data-i18n="advancedFilter.anyTime">Tüm zamanlar</option>
+            <option value="1" data-i18n="advancedFilter.today">Son 24 saat</option>
+            <option value="7" data-i18n="advancedFilter.lastWeek">Son 7 gün</option>
+            <option value="30" data-i18n="advancedFilter.lastMonth">Son 30 gün</option>
+            <option value="365" data-i18n="advancedFilter.lastYear">Son 1 yıl</option>
+          </select>
+          <input class="form-input" id="clipboard-filter-source" type="text" data-i18n="[placeholder]advancedFilter.sourcePlaceholder" placeholder="Kaynak uygulama">
+          <select class="setting-select" id="clipboard-filter-length" aria-label="İçerik uzunluğu">
+            <option value="any" data-i18n="advancedFilter.anyLength">Tüm uzunluklar</option>
+            <option value="short" data-i18n="advancedFilter.short">Kısa (&lt;100)</option>
+            <option value="medium" data-i18n="advancedFilter.medium">Orta (100–999)</option>
+            <option value="long" data-i18n="advancedFilter.long">Uzun (1000+)</option>
+          </select>
+          <select class="setting-select" id="clipboard-filter-sensitive" aria-label="Hassas veri durumu">
+            <option value="any" data-i18n="advancedFilter.anySensitivity">Tüm güvenlik durumları</option>
+            <option value="no" data-i18n="advancedFilter.normalOnly">Yalnızca normal</option>
+            <option value="yes" data-i18n="advancedFilter.sensitiveOnly">Yalnızca hassas</option>
+          </select>
+          <button class="btn btn-ghost" id="clipboard-filter-reset" type="button" data-i18n="advancedFilter.clear">Filtreleri Temizle</button>
+        </div>
 
+        <div class="clipboard-filter-toolbar">
         <div id="clipboard-filters" role="tablist" aria-label="Pano geçmişi filtreleri">
           <button class="filter-btn active" data-filter="all" role="tab" aria-selected="true" aria-label="Tüm geçmiş öğelerini göster">
-            <span class="filter-emoji" style="color: #6366f1;"><svg class="icon-svg" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg></span> <span data-i18n="filter.all">Tümü</span>
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg></span> <span data-i18n="filter.all">Tümü</span>
           </button>
           <button class="filter-btn" data-filter="pinned" role="tab" aria-selected="false" aria-label="Sadece sabitlenmiş öğeleri göster">
-            <span class="filter-emoji" style="color: #2563eb;"><svg class="icon-svg" viewBox="0 0 24 24"><line x1="18" y1="8" x2="22" y2="8"></line><line x1="12" y1="2" x2="12" y2="6"></line><path d="M12 6H8a2 2 0 0 0-2 2v2a6 6 0 0 0 6 6h2a6 6 0 0 0 6-6V8a2 2 0 0 0-2-2h-4"></path><line x1="12" y1="16" x2="12" y2="22"></line></svg></span> <span data-i18n="filter.pinned">Sabitler</span>
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><line x1="18" y1="8" x2="22" y2="8"></line><line x1="12" y1="2" x2="12" y2="6"></line><path d="M12 6H8a2 2 0 0 0-2 2v2a6 6 0 0 0 6 6h2a6 6 0 0 0 6-6V8a2 2 0 0 0-2-2h-4"></path><line x1="12" y1="16" x2="12" y2="22"></line></svg></span> <span data-i18n="filter.pinned">Sabitler</span>
           </button>
           <button class="filter-btn" data-filter="favorites" role="tab" aria-selected="false" aria-label="Sadece favorilere eklenmiş öğeleri göster">
-            <span class="filter-emoji" style="color: #eab308;"><svg class="icon-svg" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span> <span data-i18n="filter.favorites">Favoriler</span>
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span> <span data-i18n="filter.favorites">Favoriler</span>
           </button>
           <div class="filter-separator"></div>
           <button class="filter-btn" data-filter="text" role="tab" aria-selected="false" aria-label="Sadece metin öğelerini göster">
-            <span class="filter-emoji" style="color: #3b82f6;"><svg class="icon-svg" viewBox="0 0 24 24"><line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg></span> <span data-i18n="filter.text">Metin</span>
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg></span> <span data-i18n="filter.text">Metin</span>
           </button>
           <button class="filter-btn" data-filter="image" role="tab" aria-selected="false" aria-label="Sadece görsel öğelerini göster">
-            <span class="filter-emoji" style="color: #ec4899;"><svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></span> <span data-i18n="filter.image">Görsel</span>
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></span> <span data-i18n="filter.image">Görsel</span>
           </button>
           <button class="filter-btn" data-filter="url" role="tab" aria-selected="false" aria-label="Sadece URL öğelerini göster">
-            <span class="filter-emoji" style="color: #10b981;"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></span> <span data-i18n="filter.url">URL</span>
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></span> <span data-i18n="filter.url">URL</span>
           </button>
           <button class="filter-btn" data-filter="email" role="tab" aria-selected="false" aria-label="Sadece e-posta öğelerini göster">
-            <span class="filter-emoji" style="color: #f97316;"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span> <span data-i18n="filter.email">E-posta</span>
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></span> <span data-i18n="filter.email">E-posta</span>
           </button>
           <button class="filter-btn" data-filter="code" role="tab" aria-selected="false" aria-label="Sadece kod öğelerini göster">
-            <span class="filter-emoji" style="color: #06b6d4;"><svg class="icon-svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></span> <span data-i18n="filter.code">Kod</span>
+            <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></span> <span data-i18n="filter.code">Kod</span>
           </button>
+        </div>
+          <button class="advanced-filter-toolbar-btn" id="clipboard-advanced-filter-btn" type="button" aria-expanded="false" data-tooltip="Gelişmiş Filtreler" data-i18n="[data-tooltip]advancedFilter.title">
+            <svg class="icon-svg" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+            <span data-i18n="advancedFilter.title">Gelişmiş</span>
+            <b id="clipboard-advanced-filter-count"></b>
+          </button>
+        </div>
+        <div class="clipboard-keyboard-help" aria-label="Pano kartı klavye kısayolları">
+          <span><kbd>C</kbd> <span data-i18n="keyboard.copy">Kopyala</span></span>
+          <span><kbd>P</kbd> <span data-i18n="keyboard.pin">Sabitle</span></span>
+          <span><kbd>F</kbd> <span data-i18n="keyboard.favorite">Favori</span></span>
+          <span><kbd>N</kbd> <span data-i18n="keyboard.note">Nota aktar</span></span>
+          <span><kbd>Del</kbd> <span data-i18n="keyboard.delete">Sil</span></span>
         </div>
 
         <div id="clipboard-list">
@@ -119,6 +164,13 @@
           <div id="notes-category-filters"></div>
         </div>
 
+        <div class="clipboard-keyboard-help" aria-label="Not kartı klavye kısayolları">
+          <span><kbd>C</kbd> <span data-i18n="keyboard.copy">Kopyala</span></span>
+          <span><kbd>E</kbd> <span data-i18n="keyboard.edit">Düzenle</span></span>
+          <span><kbd>P</kbd> <span data-i18n="keyboard.pin">Sabitle</span></span>
+          <span><kbd>F</kbd> <span data-i18n="keyboard.favorite">Favori</span></span>
+          <span><kbd>Del</kbd> <span data-i18n="keyboard.delete">Sil</span></span>
+        </div>
         <div id="notes-list">
           <!-- Note items rendered here by JS -->
         </div>
@@ -138,12 +190,12 @@
       </div>
     </footer>
 
-    <!-- ═══════ SETTINGS MODAL ═══════ -->
-    <div class="modal-overlay" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-      <div class="modal">
+    <!-- ═══════ SETTINGS PAGE ═══════ -->
+    <div class="modal-overlay settings-page" id="settings-modal" role="region" aria-labelledby="settings-title">
+      <div class="modal settings-page-surface">
         <div class="modal-header">
           <h3 id="settings-title"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> <span data-i18n="settings.title">Ayarlar</span></h3>
-          <button class="modal-close" id="settings-close-btn" aria-label="Ayarlar modalını kapat" type="button">✕</button>
+          <button class="modal-close" id="settings-close-btn" aria-label="Ayarlar sayfasından çık" type="button">←</button>
         </div>
         <div class="settings-tabs" role="tablist" aria-label="Ayarlar sekmeleri">
           <button class="settings-tab active" data-tab="general" role="tab" aria-selected="true" aria-label="Genel ayarlar sekmesi" data-i18n="settings.tabGeneral">Genel</button>
@@ -217,7 +269,7 @@
               <div class="setting-row">
                 <div class="setting-label">
                   <span data-i18n="settings.sensitiveLabel">Hassas Veri Algılama</span>
-                  <small data-i18n="settings.sensitiveDesc">Şifre ve kredi kartı gibi verileri algıla</small>
+                  <small data-i18n="settings.sensitiveDesc">Algılanan hassas içerikleri önizlemede maskele ve şifreli sakla</small>
                 </div>
                 <div class="setting-value">
                   <label class="toggle-switch">
@@ -240,7 +292,183 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span data-i18n="settings.historyLimitLabel">Geçmiş Limiti</span>
+                  <span data-i18n="settings.winVLabel">Win+V ile ClipBoardPrime'ı Aç</span>
+                  <small data-i18n="settings.winVDesc">İsteğe bağlıdır. Windows pano geçmişi yerine ClipBoardPrime'ı açmayı dener; çalışmazsa normal kısayolunuz kullanılmaya devam eder.</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-win-v" aria-label="Win+V entegrasyonunu etkinleştir">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.adminModeLabel">Yönetici Modu</span>
+                  <small data-i18n="settings.adminModeDesc">Zorunlu değildir. Yalnızca yönetici olarak çalışan programlara yapıştırmanız gerekiyorsa kullanın; UAC onayı ister.</small>
+                </div>
+                <div class="setting-value setting-admin-actions">
+                  <span class="setting-status" id="setting-admin-status"></span>
+                  <button class="btn btn-default" id="restart-as-admin-btn" type="button" data-i18n="settings.restartAsAdmin">Yönetici Olarak Yeniden Başlat</button>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.clearSearchOnHideLabel">Gizlenince Aramayı Temizle</span>
+                  <small data-i18n="settings.clearSearchOnHideDesc">Pencere kapandığında pano aramasını sıfırla</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-clear-search-on-hide" aria-label="Pencere gizlendiğinde pano aramasını temizle">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.clearNotesSearchOnHideLabel">Gizlenince Not Aramasını Temizle</span>
+                  <small data-i18n="settings.clearNotesSearchOnHideDesc">Pencere gizlendiğinde not aramasını sıfırla</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-clear-notes-search-on-hide" aria-label="Pencere gizlendiğinde not aramasını temizle">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.hideAfterPasteLabel">Yapıştırdıktan Sonra Gizle</span>
+                  <small data-i18n="settings.hideAfterPasteDesc">Aktif pencereye yapıştırma tamamlanınca ClipBoardPrime'ı gizle</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-hide-after-paste" aria-label="Yapıştırma sonrasında uygulamayı gizle">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.windowOpenPositionLabel">Pencere Açılış Konumu</span>
+                  <small data-i18n="settings.windowOpenPositionDesc">Uygulama penceresinin nerede açılacağını seçin</small>
+                </div>
+                <div class="setting-value">
+                  <select class="setting-select" id="setting-window-open-position" aria-label="Pencere açılış konumu">
+                    <option value="remember" data-i18n="settings.windowOpenPositionRemember">Son konumu hatırla</option>
+                    <option value="cursor" data-i18n="settings.windowOpenPositionCursor">Fare imlecinin yanında</option>
+                  </select>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.resetWindowLabel">Pencere Boyutu ve Konumu</span>
+                  <small data-i18n="settings.resetWindowDesc">Pencereyi varsayılan kompakt boyuta döndürüp monitörde ortalar</small>
+                </div>
+                <div class="setting-value">
+                  <button class="btn btn-default" id="reset-window-bounds-btn" type="button" data-i18n="settings.resetWindowButton">Varsayılana Dön</button>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.clipboardOpenFilterLabel">Açılış Pano Görünümü</span>
+                  <small data-i18n="settings.clipboardOpenFilterDesc">Pencere açıldığında seçilecek pano filtresi</small>
+                </div>
+                <div class="setting-value">
+                  <select class="setting-select" id="setting-clipboard-open-filter" aria-label="Pano açılış filtresi">
+                    <option value="preserve" data-i18n="settings.clipboardOpenFilterPreserve">Son seçimi koru</option>
+                    <option value="all" data-i18n="filter.all">Tümü</option>
+                    <option value="pinned" data-i18n="filter.pinned">Sabitler</option>
+                    <option value="favorites" data-i18n="filter.favorites">Favoriler</option>
+                    <option value="text" data-i18n="filter.text">Metin</option>
+                    <option value="image" data-i18n="filter.image">Görsel</option>
+                    <option value="url" data-i18n="filter.url">URL</option>
+                    <option value="email" data-i18n="filter.email">E-posta</option>
+                    <option value="code" data-i18n="filter.code">Kod</option>
+                  </select>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.notesOpenFilterLabel">Açılış Not Görünümü</span>
+                  <small data-i18n="settings.notesOpenFilterDesc">Pencere açıldığında seçilecek not grubu veya özel kategori</small>
+                </div>
+                <div class="setting-value">
+                  <select class="setting-select" id="setting-notes-open-filter" aria-label="Notlar açılış filtresi">
+                    <option value="preserve" data-i18n="settings.notesOpenFilterPreserve">Son seçimi koru</option>
+                    <option value="all" data-i18n="filter.allCategories">Tümü</option>
+                    <option value="pinned" data-i18n="filter.pinned">Sabitler</option>
+                    <option value="favorites" data-i18n="filter.favorites">Favoriler</option>
+                    <option value="uncategorized" data-i18n="settings.notesOpenFilterUncategorized">Kategorisiz</option>
+                  </select>
+                </div>
+              </div>
+              <div class="setting-row setting-row-stacked">
+                <div class="setting-label">
+                  <span data-i18n="settings.quickActionsLabel">Pano Kartı Hızlı İşlemleri</span>
+                  <small data-i18n="settings.quickActionsDesc">Pano kartı işlemlerini gösterin, gizleyin veya sürükleyerek sıralayın</small>
+                </div>
+                <div class="quick-action-settings" id="quick-action-settings-list">
+                  <label draggable="true" data-quick-action-row="copy"><span class="quick-action-drag" aria-hidden="true">⠿</span><input type="checkbox" data-quick-action="copy"> <span data-i18n="btn.copy">Kopyala</span></label>
+                  <label draggable="true" data-quick-action-row="pin"><span class="quick-action-drag" aria-hidden="true">⠿</span><input type="checkbox" data-quick-action="pin"> <span data-i18n="tooltip.pin">Sabitle</span></label>
+                  <label draggable="true" data-quick-action-row="favorite"><span class="quick-action-drag" aria-hidden="true">⠿</span><input type="checkbox" data-quick-action="favorite"> <span data-i18n="tooltip.favorite">Favorilere Ekle</span></label>
+                  <label draggable="true" data-quick-action-row="note"><span class="quick-action-drag" aria-hidden="true">⠿</span><input type="checkbox" data-quick-action="note"> <span data-i18n="tooltip.saveAsNote">Not Olarak Kaydet</span></label>
+                  <label draggable="true" data-quick-action-row="delete"><span class="quick-action-drag" aria-hidden="true">⠿</span><input type="checkbox" data-quick-action="delete"> <span data-i18n="btn.delete">Sil</span></label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.workspaceOpenModeLabel">Açılış Ekranı</span>
+                  <small data-i18n="settings.workspaceOpenModeDesc">Global kısayol veya sistem tepsisinden açıldığında gösterilecek ekran</small>
+                </div>
+                <div class="setting-value">
+                  <select class="setting-select" id="setting-workspace-open-mode" aria-label="Açılış ekranı">
+                    <option value="last" data-i18n="settings.workspaceModeLast">Son görüntülenen ekran</option>
+                    <option value="clipboard" data-i18n="settings.workspaceModeClipboard">Pano</option>
+                    <option value="notes" data-i18n="settings.workspaceModeNotes">Notlar</option>
+                  </select>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.spaceKeyActionLabel">Space Tuşu Davranışı</span>
+                  <small data-i18n="settings.spaceKeyActionDesc">Seçili pano öğesinde Space tuşunun yapacağı işlem</small>
+                </div>
+                <div class="setting-value">
+                  <select class="setting-select" id="setting-space-key-action" aria-label="Space tuşu davranışı">
+                    <option value="copy" data-i18n="settings.spaceKeyCopy">Panoya kopyala</option>
+                    <option value="preview" data-i18n="settings.spaceKeyPreview">Hızlı önizleme</option>
+                  </select>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.hoverPreviewLabel">Hover Önizleme</span>
+                  <small data-i18n="settings.hoverPreviewDesc">İmleç pano kartında beklediğinde hızlı önizleme göster</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-hover-preview" aria-label="Pano kartlarında hover önizlemeyi etkinleştir">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.hoverPreviewDelayLabel">Hover Gecikmesi</span>
+                  <small data-i18n="settings.hoverPreviewDelayDesc">Önizleme açılmadan önce beklenecek süre</small>
+                </div>
+                <div class="setting-value">
+                  <select class="setting-select" id="setting-hover-preview-delay" aria-label="Hover önizleme gecikmesi">
+                    <option value="300">300ms</option>
+                    <option value="500">500ms</option>
+                    <option value="1000">1000ms</option>
+                  </select>
+                </div>
+              </div>
+                <div class="setting-row">
+                  <div class="setting-label">
+                    <span data-i18n="settings.historyLimitLabel">Geçmiş Limiti</span>
                   <small data-i18n="settings.historyLimitDesc">Maksimum saklanan öğe sayısı</small>
                 </div>
                 <div class="setting-value">
@@ -250,10 +478,52 @@
                     <option value="1000">1.000</option>
                     <option value="5000">5.000</option>
                     <option value="10000">10.000</option>
-                  </select>
+                    </select>
+                  </div>
                 </div>
-              </div>
-              <div class="setting-row">
+                <div class="setting-row">
+                  <div class="setting-label">
+                    <span data-i18n="settings.retentionDaysLabel">Otomatik Saklama Süresi</span>
+                    <small data-i18n="settings.retentionDaysDesc">Süresi dolan sabitlenmemiş pano öğelerini otomatik sil</small>
+                  </div>
+                  <div class="setting-value">
+                    <select class="setting-select" id="setting-retention-days" aria-label="Otomatik saklama süresi">
+                      <option value="0" data-i18n="settings.retentionForever">Süresiz</option>
+                      <option value="1" data-i18n="settings.retentionOneDay">1 gün</option>
+                      <option value="7" data-i18n="settings.retentionSevenDays">7 gün</option>
+                      <option value="30" data-i18n="settings.retentionThirtyDays">30 gün</option>
+                      <option value="90" data-i18n="settings.retentionNinetyDays">90 gün</option>
+                      <option value="365" data-i18n="settings.retentionOneYear">1 yıl</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <div class="setting-label">
+                    <span data-i18n="settings.retentionFavoritesLabel">Favorileri Koru</span>
+                    <small data-i18n="settings.retentionFavoritesDesc">Favori öğeleri saklama süresi dolsa bile silme</small>
+                  </div>
+                  <div class="setting-value">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="setting-retention-keep-favorites">
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+                <div class="setting-row setting-row-stacked">
+                  <div class="setting-label">
+                    <span data-i18n="settings.retentionTypesLabel">İçerik Türüne Göre Süre</span>
+                    <small data-i18n="settings.retentionTypesDesc">İsteğe bağlıdır. Seçilmeyen türler genel saklama süresini kullanır.</small>
+                  </div>
+                  <div class="retention-type-settings" id="retention-type-settings">
+                    <label><span data-i18n="filter.text">Metin</span><select class="setting-select" data-retention-type="text"></select></label>
+                    <label><span>HTML</span><select class="setting-select" data-retention-type="html"></select></label>
+                    <label><span data-i18n="filter.url">URL</span><select class="setting-select" data-retention-type="url"></select></label>
+                    <label><span data-i18n="filter.email">E-posta</span><select class="setting-select" data-retention-type="email"></select></label>
+                    <label><span data-i18n="filter.code">Kod</span><select class="setting-select" data-retention-type="code"></select></label>
+                    <label><span data-i18n="filter.image">Görsel</span><select class="setting-select" data-retention-type="image"></select></label>
+                  </div>
+                </div>
+                <div class="setting-row">
                 <div class="setting-label">
                   <span data-i18n="settings.pollIntervalLabel">Pano İzleme Aralığı</span>
                   <small data-i18n="settings.pollIntervalDesc">Pano kontrolü arasındaki süre</small>
@@ -272,7 +542,7 @@
                   <small data-i18n="settings.shortcutDesc">Uygulamayı açmak/gizlemek için kısayol</small>
                 </div>
                 <div class="setting-value">
-                  <input type="text" id="setting-shortcut" readonly placeholder="Kısayola bas..." data-i18n="[placeholder]settings.shortcutListening" style="width: 140px; text-align: center; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 11.5px; cursor: pointer; color: var(--text-primary); transition: all var(--transition-fast);" aria-label="Uygulamayı açıp kapatmak için global klavye kısayolu">
+                  <input type="text" id="setting-shortcut" class="shortcut-capture-input" readonly placeholder="Kısayola bas..." data-i18n="[placeholder]settings.shortcutListening" aria-label="Uygulamayı açıp kapatmak için global klavye kısayolu">
                 </div>
               </div>
             </div>
@@ -282,8 +552,8 @@
           <div class="settings-section" id="settings-data" role="tabpanel" aria-label="Veri Ayarları">
             <div class="setting-group">
               <div class="setting-group-title" data-i18n="settings.groupDataLocation">Veri Konumu</div>
-              <div class="setting-row" style="flex-direction:column;align-items:stretch;">
-                <div class="setting-label" style="margin-bottom:8px;">
+              <div class="setting-row setting-row-stacked">
+                <div class="setting-label setting-label-spaced">
                   <span data-i18n="settings.dbLocationLabel">Veritabanı Konumu</span>
                   <small data-i18n="settings.dbLocationDesc">Verilerinizin saklandığı dizin</small>
                 </div>
@@ -299,7 +569,7 @@
               <div class="setting-row">
                 <div class="setting-label">
                   <span data-i18n="settings.exportLabel">Dışa Aktar</span>
-                  <small data-i18n="settings.exportDesc">Tüm verileri JSON olarak dışa aktarın</small>
+                  <small data-i18n="settings.exportDesc">Tüm pano, not ve ayarlarınızı parola korumalı .cpbackup dosyasına yedekleyin</small>
                 </div>
                 <div class="setting-value">
                   <button class="btn btn-default" id="export-data-btn" aria-label="Tüm verileri dışa aktar (JSON)"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> <span data-i18n="btn.export">Dışa Aktar</span></button>
@@ -308,10 +578,19 @@
               <div class="setting-row">
                 <div class="setting-label">
                   <span data-i18n="settings.importLabel">İçe Aktar</span>
-                  <small data-i18n="settings.importDesc">Daha önce dışa aktarılan verileri geri yükle</small>
+                  <small data-i18n="settings.importDesc">Şifreli .cpbackup veya eski JSON yedeğindeki eksik verileri mevcut içeriğe ekleyin</small>
                 </div>
                 <div class="setting-value">
                   <button class="btn btn-default" id="import-data-btn" aria-label="Dışa aktarılmış yedek dosyasından veri aktar"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> <span data-i18n="btn.import">İçe Aktar</span></button>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.onboardingAgainLabel">Başlangıç Sihirbazı</span>
+                  <small data-i18n="settings.onboardingAgainDesc">Tanıtımı ve başlangıç tercihlerini yeniden göster; mevcut verileriniz silinmez.</small>
+                </div>
+                <div class="setting-value">
+                  <button class="btn btn-default" id="open-onboarding-btn" type="button" data-i18n="settings.onboardingAgainButton">Sihirbazı Aç</button>
                 </div>
               </div>
             </div>
@@ -328,22 +607,22 @@
               <p class="about-app-version" id="about-app-version">Sürüm 1.0.1</p>
               
               <!-- Uygulama Detay Kartı (App Info Card) -->
-              <div class="developer-profile-card" style="padding: 16px; background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: var(--radius-md); text-align: left; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px;">
-                <div class="developer-avatar" style="width: 36px; height: 36px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><img src="../assets/logo.png" alt="Logo" style="width: 100%; height: 100%; object-fit: cover;"></div>
-                <div class="developer-info" style="margin-left: 0; flex: 1;">
-                  <h4 class="developer-name" id="about-app-author" style="font-size: 13.5px; color: var(--text-primary); margin-bottom: 2px; font-weight: 600;">ClipBoardPrime</h4>
-                  <p class="developer-title" style="font-size: 11.5px; margin-bottom: 8px; color: var(--text-secondary);" data-i18n="about.tagline">Yerel SQLite veritabanı ile hızlı, güvenli ve çevrimdışı.</p>
-                  <div class="developer-meta" style="display:flex; flex-direction:column; gap:4px; font-size: 11px; color: var(--text-muted);">
-                    <span class="meta-item" style="display:flex; align-items:center; gap:5px;"><svg class="icon-svg" style="width:12px; height:12px; color: var(--success);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> <span data-i18n="about.featureSensitive">Hassas veri algılama ve maskeleme koruması</span></span>
-                    <span class="meta-item" style="display:flex; align-items:center; gap:5px;"><svg class="icon-svg" style="width:12px; height:12px; color: var(--success);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v6c0 1.66 4 3 9 3s9-1.34 9-3V5"></path><path d="M3 11v6c0 1.66 4 3 9 3s9-1.34 9-3v-6"></path></svg> <span data-i18n="about.featureDb">Asenkron multi-threaded veritabanı motoru</span></span>
-                    <span class="meta-item" style="display:flex; align-items:center; gap:5px;"><svg class="icon-svg" style="width:12px; height:12px; color: var(--success);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="8" x2="22" y2="8"></line><line x1="12" y1="2" x2="12" y2="6"></line><path d="M12 6H8a2 2 0 0 0-2 2v2a6 6 0 0 0 6 6h2a6 6 0 0 0 6-6V8a2 2 0 0 0-2-2h-4"></path><line x1="12" y1="16" x2="12" y2="22"></line></svg> <span data-i18n="about.featureTray">Global kısayol ve tepsi (tray) entegrasyonu</span></span>
+              <div class="developer-profile-card">
+                <div class="developer-avatar"><img src="../assets/logo.png" alt="Logo"></div>
+                <div class="developer-info">
+                  <h4 class="developer-name" id="about-app-author">ClipBoardPrime</h4>
+                  <p class="developer-title" data-i18n="about.tagline">Yerel SQLite veritabanı ile hızlı, güvenli ve çevrimdışı.</p>
+                  <div class="developer-meta">
+                    <span class="meta-item"><svg class="icon-svg meta-success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> <span data-i18n="about.featureSensitive">Hassas veri algılama ve maskeleme koruması</span></span>
+                    <span class="meta-item"><svg class="icon-svg meta-success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v6c0 1.66 4 3 9 3s9-1.34 9-3V5"></path><path d="M3 11v6c0 1.66 4 3 9 3s9-1.34 9-3v-6"></path></svg> <span data-i18n="about.featureDb">Asenkron multi-threaded veritabanı motoru</span></span>
+                    <span class="meta-item"><svg class="icon-svg meta-success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="8" x2="22" y2="8"></line><line x1="12" y1="2" x2="12" y2="6"></line><path d="M12 6H8a2 2 0 0 0-2 2v2a6 6 0 0 0 6 6h2a6 6 0 0 0 6-6V8a2 2 0 0 0-2-2h-4"></path><line x1="12" y1="16" x2="12" y2="22"></line></svg> <span data-i18n="about.featureTray">Global kısayol ve tepsi (tray) entegrasyonu</span></span>
                   </div>
                 </div>
               </div>
 
               <!-- Proje Detayları -->
               <div class="project-details">
-                <p style="margin-bottom:12px;" data-i18n="about.projectDesc">ClipBoardPrime, panonuzu akıllıca yönetmenizi ve sık kullandığınız içerikleri pratik not defteriyle entegre saklamanızı sağlayan premium bir masaüstü uygulamasıdır.</p>
+                <p class="project-description" data-i18n="about.projectDesc">ClipBoardPrime, panonuzu akıllıca yönetmenizi ve sık kullandığınız içerikleri pratik not defteriyle entegre saklamanızı sağlayan premium bir masaüstü uygulamasıdır.</p>
                 <div class="company-brand-card">
                   <img src="../assets/maximus-prime-software.png" alt="Maximus Prime Software">
                   <div>
@@ -352,9 +631,9 @@
                     <a href="mailto:b.maximus.prime@gmail.com">b.maximus.prime@gmail.com</a>
                   </div>
                 </div>
-                <div class="about-buttons" style="display:flex; justify-content:center; gap:8px;">
-                  <button class="btn btn-default about-link" id="about-dev-link" data-url="https://github.com/MaximusPrime77" style="height:32px; font-size:11.5px;"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg> <span data-i18n="about.devProfile">Geliştirici Profili</span></button>
-                  <button class="btn btn-primary about-link" id="about-source-link" data-url="https://github.com/MaximusPrime77/ClipBoardPrime" style="height:32px; font-size:11.5px;"><svg class="icon-svg" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg> <span data-i18n="about.sourceCode">Kaynak Kodlar</span></button>
+                <div class="about-buttons">
+                  <button class="btn btn-default about-link" id="about-dev-link" data-url="https://github.com/MaximusPrime77"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg> <span data-i18n="about.devProfile">Geliştirici Profili</span></button>
+                  <button class="btn btn-primary about-link" id="about-source-link" data-url="https://github.com/MaximusPrime77/ClipBoardPrime"><svg class="icon-svg" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg> <span data-i18n="about.sourceCode">Kaynak Kodlar</span></button>
                 </div>
               </div>
               
@@ -363,8 +642,97 @@
           </div>
 
         </div>
-        <div class="modal-footer" style="padding: 12px 20px; border-top: 1px solid var(--border-primary); display: flex; justify-content: flex-end; background: var(--bg-secondary);">
-          <button class="btn btn-default" id="settings-footer-close-btn" style="height: 30px; padding: 0 16px; font-size: 12px;" aria-label="Ayarlar modalını kapat" data-i18n="btn.close">Kapat</button>
+        <div class="modal-footer settings-page-footer">
+          <button class="btn btn-default compact-dialog-action" id="settings-footer-close-btn" aria-label="Ayarlar modalını kapat" data-i18n="btn.close">Kapat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ NOTE EDITOR MODAL ═══════ -->
+    <div class="modal-overlay onboarding-overlay" id="onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+      <div class="modal onboarding-modal">
+        <div class="onboarding-progress" aria-hidden="true">
+          <span class="active" data-onboarding-dot="0"></span>
+          <span data-onboarding-dot="1"></span>
+          <span data-onboarding-dot="2"></span>
+        </div>
+
+        <div class="onboarding-step active" data-onboarding-step="0">
+          <div class="onboarding-hero">
+            <img src="../assets/logo.png" alt="" class="onboarding-logo">
+            <div>
+              <span class="onboarding-kicker" data-i18n="onboarding.kicker">Başlangıç</span>
+              <h2 id="onboarding-title" data-i18n="onboarding.welcomeTitle">ClipBoardPrime'a Hoş Geldiniz</h2>
+            </div>
+          </div>
+          <p data-i18n="onboarding.welcomeDesc">Pano geçmişinizi, favorilerinizi ve notlarınızı tek bir hızlı çalışma alanında yönetin.</p>
+          <div class="onboarding-feature-grid">
+            <div><strong data-i18n="onboarding.featureSmartTitle">Akıllı sınıflandırma</strong><span data-i18n="onboarding.featureSmartDesc">Metin, görsel, bağlantı ve kodları otomatik tanır.</span></div>
+            <div><strong data-i18n="onboarding.featureSearchTitle">Hızlı arama</strong><span data-i18n="onboarding.featureSearchDesc">Binlerce kayıtta bile yazarken sonuçları bulur.</span></div>
+            <div><strong data-i18n="onboarding.featureWorkspaceTitle">Hızlı ekran geçişi</strong><span data-i18n="onboarding.featureWorkspaceDesc">Pano geçmişiniz ve notlarınız arasında tek tıkla geçiş yapın.</span></div>
+          </div>
+        </div>
+
+        <div class="onboarding-step" data-onboarding-step="1">
+          <span class="onboarding-kicker" data-i18n="onboarding.preferencesKicker">Kişiselleştirme</span>
+          <h2 data-i18n="onboarding.preferencesTitle">Çalışma biçiminizi seçin</h2>
+          <p data-i18n="onboarding.preferencesDesc">Bunların tamamını daha sonra Ayarlar bölümünden değiştirebilirsiniz.</p>
+          <div class="onboarding-options">
+            <label>
+              <span><strong data-i18n="onboarding.languageLabel">Dil</strong><small data-i18n="onboarding.languageDesc">Kurulum ve uygulama arayüz dili</small></span>
+              <select class="setting-select" id="onboarding-language">
+                <option value="tr">Türkçe</option>
+                <option value="en">English</option>
+                <option value="zh">中文 (简体)</option>
+              </select>
+            </label>
+            <label>
+              <span><strong data-i18n="onboarding.themeLabel">Tema</strong><small data-i18n="onboarding.themeDesc">Arayüz görünümü</small></span>
+              <select class="setting-select" id="onboarding-theme">
+                <option value="dark" data-i18n="settings.themeDark">Koyu</option>
+                <option value="light" data-i18n="settings.themeLight">Açık</option>
+                <option value="system" data-i18n="settings.themeSystem">Sistem</option>
+              </select>
+            </label>
+            <label>
+              <span><strong data-i18n="onboarding.workspaceLabel">Başlangıç ekranı</strong><small data-i18n="onboarding.workspaceDesc">Uygulama açıldığında gösterilecek Pano veya Notlar ekranı</small></span>
+              <select class="setting-select" id="onboarding-workspace">
+                <option value="clipboard" data-i18n="settings.workspaceModeClipboard">Pano</option>
+                <option value="notes" data-i18n="settings.workspaceModeNotes">Notlar</option>
+              </select>
+            </label>
+            <label>
+              <span><strong data-i18n="onboarding.cursorLabel">İmlecin yanında aç</strong><small data-i18n="onboarding.cursorDesc">Kısayolla çağrıldığında pencereyi fareye yakın konumlandırır</small></span>
+              <input type="checkbox" id="onboarding-cursor" checked>
+            </label>
+            <label>
+              <span><strong data-i18n="onboarding.autostartLabel">Windows ile başlat</strong><small data-i18n="onboarding.autostartDesc">ClipBoardPrime arka planda hazır olur</small></span>
+              <input type="checkbox" id="onboarding-autostart" checked>
+            </label>
+          </div>
+        </div>
+
+        <div class="onboarding-step" data-onboarding-step="2">
+          <span class="onboarding-kicker" data-i18n="onboarding.importKicker">Verilerinizi getirin</span>
+          <h2 data-i18n="onboarding.importTitle">Eski verileriniz var mı?</h2>
+          <p data-i18n="onboarding.importDesc">Eski ClipBoardPrime/ClipboardPro JSON yedeğini veya şifreli .cpbackup dosyasını şimdi içe aktarabilirsiniz.</p>
+          <div class="onboarding-import-card">
+            <div>
+              <strong data-i18n="onboarding.importCardTitle">Yedekten içe aktar</strong>
+              <span data-i18n="onboarding.importCardDesc">Mevcut içerik korunur; yalnızca eksik pano öğeleri, notlar ve kategoriler eklenir.</span>
+            </div>
+            <input class="form-input" id="onboarding-import-password" type="password" data-i18n="[placeholder]onboarding.passwordPlaceholder" placeholder="Şifreli yedek parolası (isteğe bağlı)">
+            <button class="btn btn-default" id="onboarding-import-btn" type="button" data-i18n="btn.import">İçe Aktar</button>
+          </div>
+          <div class="onboarding-detected-backups" id="onboarding-detected-backups"></div>
+          <div class="onboarding-import-result" id="onboarding-import-result" aria-live="polite"></div>
+          <p class="onboarding-ready" data-i18n="onboarding.readyDesc">Hazırsınız. Global kısayolunuz: Ctrl+Shift+V</p>
+        </div>
+
+        <div class="onboarding-footer">
+          <button class="btn btn-ghost" id="onboarding-back-btn" type="button" data-i18n="btn.back">Geri</button>
+          <span class="onboarding-step-label" id="onboarding-step-label">1 / 3</span>
+          <button class="btn btn-primary" id="onboarding-next-btn" type="button" data-i18n="btn.next">İleri</button>
         </div>
       </div>
     </div>
@@ -394,16 +762,16 @@
               <label data-i18n="note.categoryLabel">Kategori / Etiket</label>
               <div class="custom-select" id="note-edit-category-container">
                 <button class="custom-select-trigger" id="note-edit-category-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-                  <span class="selected-value-icon" id="note-edit-category-selected-icon" style="display:flex;align-items:center;"></span>
+                  <span class="selected-value-icon" id="note-edit-category-selected-icon"></span>
                   <span class="selected-value-text" id="note-edit-category-selected-text">(Kategorisiz)</span>
                   <svg class="icon-svg select-arrow" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </button>
                 <div class="custom-select-options hidden" id="note-edit-category-options" role="listbox"></div>
                 <input type="hidden" id="note-edit-category" value="">
               </div>
-              <div id="note-edit-category-preview" style="margin-top: 8px; display: none;"></div>
+              <div class="category-preview hidden" id="note-edit-category-preview"></div>
             </div>
-            <div class="form-group" style="display: none;">
+            <div class="form-group hidden">
               <label id="note-edit-color-label">Not Rengi</label>
               <div class="color-picker" id="note-edit-color-picker" role="radiogroup" aria-labelledby="note-edit-color-label">
                 <span class="color-swatch active" data-color="charcoal"></span>
@@ -429,7 +797,7 @@
 
     <!-- ═══════ NOTE DETAIL MODAL ═══════ -->
     <div class="modal-overlay" id="note-detail-modal" role="dialog" aria-modal="true" aria-labelledby="note-detail-title-text">
-      <div class="modal" style="width: 640px;">
+      <div class="modal detail-dialog">
         <div class="modal-header">
           <h3 id="note-detail-title">
             <span class="modal-title-icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span>
@@ -437,21 +805,21 @@
           </h3>
           <button class="modal-close" id="note-detail-close-btn" aria-label="Not detay modalını kapat" type="button">✕</button>
         </div>
-        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
-          <div id="note-detail-category-tag" style="margin-bottom: 12px;"></div>
-          <div id="note-detail-content" style="white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.6; color: var(--text-primary); padding: 4px 0;"></div>
+        <div class="modal-body detail-dialog-body">
+          <div id="note-detail-category-tag" class="detail-dialog-tag"></div>
+          <div id="note-detail-content" class="detail-dialog-content"></div>
         </div>
-        <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
-          <span class="note-date" id="note-detail-date" style="font-size: 10.5px;"></span>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-ghost" id="note-detail-edit-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="Notu düzenle" type="button">
-              <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"></path></svg> Düzenle
+        <div class="modal-footer detail-dialog-footer">
+          <span class="note-date detail-dialog-date" id="note-detail-date"></span>
+          <div class="detail-dialog-actions">
+            <button class="btn btn-ghost compact-dialog-action" id="note-detail-edit-btn" aria-label="Notu düzenle" type="button">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"></path></svg> Düzenle
             </button>
-            <button class="btn btn-ghost" id="note-detail-copy-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="Not içeriğini kopyala" type="button">
-              <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Kopyala
+            <button class="btn btn-ghost compact-dialog-action" id="note-detail-copy-btn" aria-label="Not içeriğini kopyala" type="button">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Kopyala
             </button>
-            <button class="btn btn-ghost" id="note-detail-close-bottom-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="Not detay modalını kapat" type="button">
-              <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Kapat
+            <button class="btn btn-ghost compact-dialog-action" id="note-detail-close-bottom-btn" aria-label="Not detay modalını kapat" type="button">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Kapat
             </button>
           </div>
         </div>
@@ -460,7 +828,7 @@
 
     <!-- ═══════ CLIP DETAIL MODAL ═══════ -->
     <div class="modal-overlay" id="clip-detail-modal" role="dialog" aria-modal="true" aria-labelledby="clip-detail-title-text">
-      <div class="modal" style="width: 640px;">
+      <div class="modal detail-dialog">
         <div class="modal-header">
           <h3 id="clip-detail-title">
             <span class="modal-title-icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg></span>
@@ -468,21 +836,21 @@
           </h3>
           <button class="modal-close" id="clip-detail-close-btn" aria-label="Pano detay modalını kapat" type="button">✕</button>
         </div>
-        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
-          <div id="clip-detail-type-tag" style="margin-bottom: 12px;"></div>
-          <div id="clip-detail-content" style="white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.6; color: var(--text-primary); padding: 4px 0; user-select: text; -webkit-user-select: text;"></div>
+        <div class="modal-body detail-dialog-body">
+          <div id="clip-detail-type-tag" class="detail-dialog-tag"></div>
+          <div id="clip-detail-content" class="detail-dialog-content selectable-content"></div>
         </div>
-        <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
-          <span class="clip-date" id="clip-detail-date" style="font-size: 10.5px;"></span>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-ghost" id="clip-detail-edit-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="Notu düzenle" type="button">
-              <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"></path></svg> <span data-i18n="btn.edit">Düzenle</span>
+        <div class="modal-footer detail-dialog-footer">
+          <span class="clip-date detail-dialog-date" id="clip-detail-date"></span>
+          <div class="detail-dialog-actions">
+            <button class="btn btn-ghost compact-dialog-action" id="clip-detail-edit-btn" aria-label="Notu düzenle" type="button">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"></path></svg> <span data-i18n="btn.edit">Düzenle</span>
             </button>
-            <button class="btn btn-ghost" id="clip-detail-copy-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="İçeriği kopyala" type="button">
-              <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> <span data-i18n="btn.copy">Kopyala</span>
+            <button class="btn btn-ghost compact-dialog-action" id="clip-detail-copy-btn" aria-label="İçeriği kopyala" type="button">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> <span data-i18n="btn.copy">Kopyala</span>
             </button>
-            <button class="btn btn-ghost" id="clip-detail-close-bottom-btn" style="height:30px; padding:0 10px; font-size:11.5px;" aria-label="Pano detay modalını kapat" type="button">
-              <svg class="icon-svg" style="width:13px; height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> <span data-i18n="btn.close">Kapat</span>
+            <button class="btn btn-ghost compact-dialog-action" id="clip-detail-close-bottom-btn" aria-label="Pano detay modalını kapat" type="button">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> <span data-i18n="btn.close">Kapat</span>
             </button>
           </div>
         </div>
@@ -491,7 +859,7 @@
 
     <!-- ═══════ CLIP EDITOR MODAL ═══════ -->
     <div class="modal-overlay" id="clip-editor-modal" role="dialog" aria-modal="true" aria-labelledby="clip-editor-title">
-      <div class="modal" style="width: 560px;">
+      <div class="modal clip-editor-dialog">
         <div class="modal-header">
           <h3 id="clip-editor-title">
             <span class="modal-title-icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"></path></svg></span>
@@ -504,7 +872,7 @@
             <input type="hidden" id="clip-edit-id">
             <div class="form-group">
               <label for="clip-edit-content" data-i18n="clipEditor.contentLabel">Pano İçeriği</label>
-              <textarea class="form-input form-textarea" id="clip-edit-content" required placeholder="Pano içeriği..." style="height: 240px; font-family: inherit; font-size: 13px;" aria-label="Pano içeriği"></textarea>
+              <textarea class="form-input form-textarea clip-editor-content" id="clip-edit-content" required placeholder="Pano içeriği..." aria-label="Pano içeriği"></textarea>
             </div>
           </form>
         </div>
@@ -520,16 +888,16 @@
 
     <!-- ═══════ CATEGORY MANAGER MODAL ═══════ -->
     <div class="modal-overlay" id="category-manager-modal" role="dialog" aria-modal="true" aria-labelledby="category-manager-title">
-      <div class="modal" style="width:420px;">
+      <div class="modal category-manager-dialog">
         <div class="modal-header">
           <h3 id="category-manager-title"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg> <span data-i18n="category.title">Kategoriler</span></h3>
           <button class="modal-close" id="category-manager-close-btn" aria-label="Kategori yönetim modalını kapat" type="button">✕</button>
         </div>
         <div class="modal-body">
-          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px; border-bottom:1px solid var(--border-primary); padding-bottom:16px;">
-            <div style="display:flex; gap:8px;">
-              <input type="text" class="form-input" id="new-category-name" placeholder="Kategori adı..." data-i18n="[placeholder]category.namePlaceholder" style="flex:1; height:32px;" aria-label="Yeni kategori adı">
-              <select class="form-input" id="new-category-icon" style="width:110px; height:32px; font-size:11.5px; cursor:pointer; padding:0 8px;" aria-label="Yeni kategori simgesi">
+          <div class="category-create-form">
+            <div class="category-create-fields">
+              <input type="text" class="form-input category-name-input" id="new-category-name" placeholder="Kategori adı..." data-i18n="[placeholder]category.namePlaceholder" aria-label="Yeni kategori adı">
+              <select class="form-input category-icon-select" id="new-category-icon" aria-label="Yeni kategori simgesi">
                 <option value="folder" data-i18n="category.iconFolder">📁 Klasör</option>
                 <option value="briefcase" data-i18n="category.iconBriefcase">💼 İş</option>
                 <option value="code" data-i18n="category.iconCode">💻 Kod</option>
@@ -538,18 +906,18 @@
                 <option value="tag" data-i18n="category.iconTag">🏷️ Etiket</option>
               </select>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-              <div style="display:flex; gap:6px;" id="new-category-color-picker" role="radiogroup" aria-label="Kategori Rengi Seçimi">
-                <span class="category-color-swatch active" data-color="#2563eb" style="background:#2563eb; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid #fff;" data-tooltip="Safir Mavi" role="radio" aria-checked="true" aria-label="Safir Mavi" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#8b5cf6" style="background:#8b5cf6; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Ametist Mor" role="radio" aria-checked="false" aria-label="Ametist Mor" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#10b981" style="background:#10b981; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Zümrüt Yeşil" role="radio" aria-checked="false" aria-label="Zümrüt Yeşil" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#f59e0b" style="background:#f59e0b; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Kehribar Altın" role="radio" aria-checked="false" aria-label="Kehribar Altın" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#ef4444" style="background:#ef4444; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Yakut Kırmızı" role="radio" aria-checked="false" aria-label="Yakut Kırmızı" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#06b6d4" style="background:#06b6d4; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Okyanus Turkuaz" role="radio" aria-checked="false" aria-label="Okyanus Turkuaz" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#ec4899" style="background:#ec4899; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Gül Pembe" role="radio" aria-checked="false" aria-label="Gül Pembe" tabindex="0"></span>
-                <span class="category-color-swatch" data-color="#475569" style="background:#475569; width:18px; height:18px; border-radius:50%; display:inline-block; cursor:pointer; border:2px solid transparent;" data-tooltip="Kömür" role="radio" aria-checked="false" aria-label="Kömür" tabindex="0"></span>
+            <div class="category-create-actions">
+              <div class="category-color-picker" id="new-category-color-picker" role="radiogroup" aria-label="Kategori Rengi Seçimi">
+                <span class="category-color-swatch active" data-color="#2563eb" data-tooltip="Safir Mavi" role="radio" aria-checked="true" aria-label="Safir Mavi" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#8b5cf6" data-tooltip="Ametist Mor" role="radio" aria-checked="false" aria-label="Ametist Mor" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#10b981" data-tooltip="Zümrüt Yeşil" role="radio" aria-checked="false" aria-label="Zümrüt Yeşil" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#f59e0b" data-tooltip="Kehribar Altın" role="radio" aria-checked="false" aria-label="Kehribar Altın" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#ef4444" data-tooltip="Yakut Kırmızı" role="radio" aria-checked="false" aria-label="Yakut Kırmızı" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#06b6d4" data-tooltip="Okyanus Turkuaz" role="radio" aria-checked="false" aria-label="Okyanus Turkuaz" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#ec4899" data-tooltip="Gül Pembe" role="radio" aria-checked="false" aria-label="Gül Pembe" tabindex="0"></span>
+                <span class="category-color-swatch" data-color="#475569" data-tooltip="Kömür" role="radio" aria-checked="false" aria-label="Kömür" tabindex="0"></span>
               </div>
-              <button class="btn btn-primary" id="add-category-btn" style="height:32px;" aria-label="Yeni kategori ekle" type="button">Kategori Ekle</button>
+              <button class="btn btn-primary category-add-btn" id="add-category-btn" aria-label="Yeni kategori ekle" type="button">Kategori Ekle</button>
             </div>
           </div>
           <div id="category-list">
@@ -578,7 +946,7 @@
     </div>
 
     <!-- ═══════ TOAST CONTAINER ═══════ -->
-    <div id="toast-container"></div>
+    <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <!-- ═══════ CONTEXT MENU (dynamically positioned) ═══════ -->
     <div class="context-menu hidden" id="context-menu"></div>
@@ -590,6 +958,7 @@
   <script src="./js/clipboard-panel.js"></script>
   <script src="./js/notes-panel.js"></script>
   <script src="./js/settings.js"></script>
+  <script src="./js/onboarding.js"></script>
   <script src="./js/app.js"></script>
 </body>
 </html>

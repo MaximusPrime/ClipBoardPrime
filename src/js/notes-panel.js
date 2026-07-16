@@ -79,8 +79,10 @@ const NotesPanel = (() => {
    */
   function init() {
     setupEventListeners();
-    loadCategories();
-    loadNotes();
+    loadCategories().then(() => {
+      applyOpenFilter();
+      loadNotes();
+    });
   }
 
   /**
@@ -127,6 +129,17 @@ const NotesPanel = (() => {
       setSearch('');
       elements.search.focus();
     });
+
+    if (window.api.onWindowVisibilityChanged) {
+      window.api.onWindowVisibilityChanged(({ visible }) => {
+        if (!visible && window.App?.settings?.clearNotesSearchOnHide === 'true') {
+          elements.search.value = '';
+          elements.searchClear.classList.remove('visible');
+          setSearch('');
+        }
+        if (visible && applyOpenFilter()) loadNotes();
+      });
+    }
 
     // Yeni Not butonu
     elements.newNoteBtn.addEventListener('click', () => {
@@ -214,10 +227,8 @@ const NotesPanel = (() => {
 
       elements.noteColorPicker.querySelectorAll('.color-swatch').forEach(s => {
         s.classList.remove('active');
-        s.style.border = '2px solid transparent';
       });
       swatch.classList.add('active');
-      swatch.style.border = '2px solid #fff';
       selectedColor = swatch.dataset.color || 'charcoal';
     });
 
@@ -235,10 +246,10 @@ const NotesPanel = (() => {
 
       elements.categoryColorInput.querySelectorAll('.category-color-swatch').forEach(s => {
         s.classList.remove('active');
-        s.style.border = '2px solid transparent';
+        s.setAttribute('aria-checked', 'false');
       });
       swatch.classList.add('active');
-      swatch.style.border = '2px solid #fff';
+      swatch.setAttribute('aria-checked', 'true');
     });
 
     // ─── Detay Modalı Dinleyicileri ───
@@ -292,10 +303,42 @@ const NotesPanel = (() => {
         
         updateCategoryDropdowns();
         renderCategoryList();
+        ensureActiveCategoryExists();
       }
     } catch (err) {
       console.error('loadCategories hatası:', err);
     }
+  }
+
+  function ensureActiveCategoryExists() {
+    if (!/^\d+$/.test(activeCategoryFilter)) return;
+    const exists = categoriesList.some((category) => String(category.id) === activeCategoryFilter);
+    if (!exists) {
+      activeCategoryFilter = '';
+      updateCategoryDropdowns();
+    }
+  }
+
+  function applyOpenFilter() {
+    const configured = window.App?.settings?.notesOpenFilter;
+    if (!configured || configured === 'preserve') return false;
+
+    let nextFilter = '';
+    if (configured === 'pinned' || configured === 'favorites') {
+      nextFilter = configured;
+    } else if (configured === 'uncategorized') {
+      nextFilter = 'null';
+    } else if (configured.startsWith('category:')) {
+      const categoryId = configured.slice('category:'.length);
+      if (categoriesList.some((category) => String(category.id) === categoryId)) {
+        nextFilter = categoryId;
+      }
+    }
+
+    if (activeCategoryFilter === nextFilter) return false;
+    activeCategoryFilter = nextFilter;
+    updateCategoryDropdowns();
+    return true;
   }
 
   /**
@@ -326,25 +369,54 @@ const NotesPanel = (() => {
     elements.categoryFilter.innerHTML = '';
     
     // "Tüm Kategoriler" butonu
-    const allBtn = document.createElement('button');
-    allBtn.className = `filter-btn${activeCategoryFilter === '' ? ' active' : ''}`;
-    allBtn.dataset.category = '';
-    allBtn.innerHTML = `<span class="filter-emoji" style="color: #6366f1;">${Utils.Icons.tag}</span> ${window.i18n ? window.i18n.t('filter.allCategories') : 'Tüm Kategoriler'}`;
+    const createCategoryFilterButton = (value, label, icon, color) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `filter-btn${activeCategoryFilter === value ? ' active' : ''}`;
+      button.dataset.category = value;
+      const iconElement = document.createElement('span');
+      iconElement.className = 'filter-emoji';
+      iconElement.style.setProperty('--category-color', color);
+      iconElement.innerHTML = icon;
+      const labelElement = document.createElement('span');
+      labelElement.textContent = label;
+      button.append(iconElement, labelElement);
+      return button;
+    };
+
+    const allBtn = createCategoryFilterButton(
+      '',
+      window.i18n ? window.i18n.t('filter.allCategories') : 'Tüm Kategoriler',
+      Utils.Icons.tag,
+      '#6366f1'
+    );
     elements.categoryFilter.appendChild(allBtn);
 
     // "Sabitler" butonu
-    const pinnedBtn = document.createElement('button');
-    pinnedBtn.className = `filter-btn${activeCategoryFilter === 'pinned' ? ' active' : ''}`;
-    pinnedBtn.dataset.category = 'pinned';
-    pinnedBtn.innerHTML = `<span class="filter-emoji" style="color: #2563eb;">${Utils.Icons.pin}</span> ${window.i18n ? window.i18n.t('filter.pinned') : 'Sabitler'}`;
+    const pinnedBtn = createCategoryFilterButton(
+      'pinned',
+      window.i18n ? window.i18n.t('filter.pinned') : 'Sabitler',
+      Utils.Icons.pin,
+      '#2563eb'
+    );
     elements.categoryFilter.appendChild(pinnedBtn);
 
     // "Favoriler" butonu
-    const favBtn = document.createElement('button');
-    favBtn.className = `filter-btn${activeCategoryFilter === 'favorites' ? ' active' : ''}`;
-    favBtn.dataset.category = 'favorites';
-    favBtn.innerHTML = `<span class="filter-emoji" style="color: #eab308;">${Utils.Icons.star}</span> ${window.i18n ? window.i18n.t('filter.favorites') : 'Favoriler'}`;
+    const favBtn = createCategoryFilterButton(
+      'favorites',
+      window.i18n ? window.i18n.t('filter.favorites') : 'Favoriler',
+      Utils.Icons.star,
+      '#eab308'
+    );
     elements.categoryFilter.appendChild(favBtn);
+
+    const uncategorizedBtn = createCategoryFilterButton(
+      'null',
+      window.i18n ? window.i18n.t('settings.notesOpenFilterUncategorized') : 'Kategorisiz',
+      Utils.Icons.folder,
+      '#64748b'
+    );
+    elements.categoryFilter.appendChild(uncategorizedBtn);
 
     // Separatör çizgi
     const separator = document.createElement('div');
@@ -353,16 +425,12 @@ const NotesPanel = (() => {
 
     // Kategori butonları
     categoriesList.forEach((cat) => {
-      const btn = document.createElement('button');
-      btn.className = `filter-btn${activeCategoryFilter === String(cat.id) ? ' active' : ''}`;
-      btn.dataset.category = cat.id;
-      
-      const iconColor = cat.color || 'var(--text-secondary)';
-      const rawIcon = Utils.Icons[cat.icon] || Utils.Icons.folder;
-      // İkona renk ekleme
-      const iconSvg = rawIcon.replace('class="icon-svg"', `class="icon-svg" style="color: ${iconColor};"`);
-      
-      btn.innerHTML = `<span class="filter-emoji">${iconSvg}</span> ${Utils.escapeHtml(getLocalizedCategoryName(cat.name))}`;
+      const btn = createCategoryFilterButton(
+        String(cat.id),
+        getLocalizedCategoryName(cat.name),
+        Utils.Icons[cat.icon] || Utils.Icons.folder,
+        cat.color || 'var(--text-secondary)'
+      );
       elements.categoryFilter.appendChild(btn);
     });
 
@@ -376,7 +444,7 @@ const NotesPanel = (() => {
       nullOpt.className = 'custom-select-option';
       nullOpt.dataset.value = '';
       nullOpt.innerHTML = `
-        <span class="icon-svg" style="opacity: 0;"></span>
+        <span class="icon-svg category-option-placeholder"></span>
         <span>${window.i18n ? window.i18n.t('note.noCategoryOption') : '(Kategorisiz)'}</span>
       `;
       optionsContainer.appendChild(nullOpt);
@@ -386,14 +454,13 @@ const NotesPanel = (() => {
         opt.className = 'custom-select-option';
         opt.dataset.value = cat.id;
         
-        const iconColor = cat.color || 'var(--text-secondary)';
         const rawIcon = Utils.Icons[cat.icon] || Utils.Icons.folder;
-        const iconSvg = rawIcon.replace('class="icon-svg"', `class="icon-svg" style="color: ${iconColor};"`);
         
         opt.innerHTML = `
-          <span class="icon-svg" style="display:flex;align-items:center;">${iconSvg}</span>
+          <span class="selected-value-icon">${rawIcon}</span>
           <span>${Utils.escapeHtml(getLocalizedCategoryName(cat.name))}</span>
         `;
+        opt.querySelector('.selected-value-icon').style.setProperty('--category-color', cat.color || 'var(--text-secondary)');
         optionsContainer.appendChild(opt);
       });
       
@@ -507,7 +574,7 @@ const NotesPanel = (() => {
       }
       
       const categoryTagHTML = note.category_name
-        ? `<span class="note-category-tag" style="background: ${note.category_color}22; color: ${note.category_color}; border-color: ${note.category_color}44;">${note.category_icon_svg || ''} ${Utils.escapeHtml(getLocalizedCategoryName(note.category_name))}</span>`
+        ? `<span class="note-category-tag category-colored">${note.category_icon_svg || ''} ${Utils.escapeHtml(getLocalizedCategoryName(note.category_name))}</span>`
         : `<span class="note-category-tag uncategorized">${window.i18n ? window.i18n.t('note.noCategory') : 'Kategorisiz'}</span>`;
 
       el.innerHTML = `
@@ -525,22 +592,29 @@ const NotesPanel = (() => {
         <div class="note-item-accordion">
           <div class="note-item-accordion-content">${highlightedFullContent}</div>
         </div>
-        <div class="accordion-view-more" data-tooltip="${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}" aria-label="${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}">
+        <button type="button" class="accordion-view-more" data-tooltip="${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}" aria-label="${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}">
           <span>${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}</span>
           <svg class="icon-svg" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-        </div>
+        </button>
         <div class="accordion-footer-divider"></div>
         <div class="note-item-footer">
-          <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="note-footer-meta">
             ${categoryTagHTML}
             ${badgeHTML}
           </div>
-          <div class="accordion-close-btn" data-tooltip="${window.i18n ? window.i18n.t('note.closeAccordion') : 'Akordiyonu Kapat'}" aria-label="${window.i18n ? window.i18n.t('note.closeAccordion') : 'Akordiyonu Kapat'}">
+          <button type="button" class="note-accordion-toggle note-accordion-open-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.expand') : 'Genişlet'}" aria-label="${window.i18n ? window.i18n.t('tooltip.expand') : 'Notu genişlet'}">
+            <svg class="icon-svg discovery-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <button type="button" class="accordion-close-btn" data-tooltip="${window.i18n ? window.i18n.t('note.closeAccordion') : 'Akordiyonu Kapat'}" aria-label="${window.i18n ? window.i18n.t('note.closeAccordion') : 'Akordiyonu Kapat'}">
             <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></svg>
-          </div>
+          </button>
           <span class="note-date">${dateLabel}</span>
         </div>
       `;
+      const categoryTag = el.querySelector('.category-colored');
+      if (categoryTag) {
+        categoryTag.style.setProperty('--category-color', note.category_color);
+      }
 
       bindNoteEvents(el, note);
       fragment.appendChild(el);
@@ -597,8 +671,21 @@ const NotesPanel = (() => {
   }
 
   function bindNoteEvents(el, note) {
+    el.addEventListener('mouseenter', () => {
+      elements.list.querySelectorAll('.note-item.hover-focused').forEach((card) => {
+        if (card !== el) card.classList.remove('hover-focused');
+      });
+      el.classList.add('hover-focused');
+      if (!el.contains(document.activeElement)) el.focus({ preventScroll: true });
+    });
+
+    el.addEventListener('mouseleave', () => {
+      el.classList.remove('hover-focused');
+    });
+
     // Klavye navigasyonu (Ok tuşları ile odaklanma, Enter/Space ile detayı açma)
     el.addEventListener('keydown', (e) => {
+      if (e.target !== el) return;
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         openDetailModal(note);
@@ -606,19 +693,25 @@ const NotesPanel = (() => {
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        const next = el.nextElementSibling;
-        if (next && next.classList.contains('note-item')) {
-          next.focus();
-        }
+        const cards = [...elements.list.querySelectorAll('.note-item')];
+        cards[Math.min(cards.length - 1, cards.indexOf(el) + 1)]?.focus();
       }
 
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        const prev = el.previousElementSibling;
-        if (prev && prev.classList.contains('note-item')) {
-          prev.focus();
-        }
+        const cards = [...elements.list.querySelectorAll('.note-item')];
+        cards[Math.max(0, cards.indexOf(el) - 1)]?.focus();
       }
+      if (e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        const cards = [...elements.list.querySelectorAll('.note-item')];
+        (e.key === 'Home' ? cards[0] : cards[cards.length - 1])?.focus();
+      }
+      if (!e.repeat && e.key.toLowerCase() === 'c') el.querySelector('.copy-btn')?.click();
+      if (!e.repeat && e.key.toLowerCase() === 'e') el.querySelector('.edit-btn')?.click();
+      if (!e.repeat && e.key.toLowerCase() === 'p') el.querySelector('.pin-btn')?.click();
+      if (!e.repeat && e.key.toLowerCase() === 'f') el.querySelector('.fav-btn')?.click();
+      if (!e.repeat && e.key === 'Delete') el.querySelector('.delete-btn')?.click();
     });
 
     // Akordiyon kapatma ok butonu
@@ -630,6 +723,17 @@ const NotesPanel = (() => {
         updateNoteDraggableState(el);
       });
     }
+
+    const openBtn = el.querySelector('.note-accordion-open-btn');
+    openBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.note-item.accordion-open').forEach((item) => {
+        item.classList.remove('accordion-open');
+        updateNoteDraggableState(item);
+      });
+      el.classList.add('accordion-open');
+      updateNoteDraggableState(el);
+    });
 
     // Alt şeride tıklayınca akordiyonu kapat
     const footerEl = el.querySelector('.note-item-footer');
@@ -658,6 +762,7 @@ const NotesPanel = (() => {
       // Aksiyon butonları, akordiyon içeriği ve ok butonu hariç
       if (e.target.closest('.note-action-btn') ||
           e.target.closest('.note-item-accordion') ||
+          e.target.closest('.note-accordion-toggle') ||
           e.target.closest('.accordion-close-btn')) return;
 
       const isOpen = el.classList.contains('accordion-open');
@@ -827,14 +932,14 @@ const NotesPanel = (() => {
     elements.detailContent.textContent = note.content || '';
     
     if (note.category_name) {
-      elements.detailCategory.style.display = 'block';
+      elements.detailCategory.classList.remove('hidden');
       elements.detailCategory.innerHTML = `
         <span class="note-category-tag">
           ${Utils.Icons[note.category_icon] || Utils.Icons.folder} ${getLocalizedCategoryName(note.category_name)}
         </span>
       `;
     } else {
-      elements.detailCategory.style.display = 'none';
+      elements.detailCategory.classList.add('hidden');
     }
 
     elements.detailDate.textContent = Utils.formatDate(note.updated_at || note.created_at);
@@ -879,9 +984,9 @@ const NotesPanel = (() => {
 
     const cat = categoriesList.find(c => c.id === parseInt(val));
     if (cat) {
-      const iconColor = cat.color || 'var(--text-secondary)';
       const rawIcon = Utils.Icons[cat.icon] || Utils.Icons.folder;
-      triggerIcon.innerHTML = rawIcon.replace('class="icon-svg"', `class="icon-svg" style="color: ${iconColor};"`);
+      triggerIcon.innerHTML = rawIcon;
+      triggerIcon.style.setProperty('--category-color', cat.color || 'var(--text-secondary)');
       triggerText.textContent = getLocalizedCategoryName(cat.name);
     } else {
       triggerIcon.innerHTML = '';
@@ -931,10 +1036,8 @@ const NotesPanel = (() => {
     elements.noteColorPicker.querySelectorAll('.color-swatch').forEach(s => {
       if (s.dataset.color === selectedColor) {
         s.classList.add('active');
-        s.style.border = '2px solid #fff';
       } else {
         s.classList.remove('active');
-        s.style.border = '2px solid transparent';
       }
     });
 
@@ -949,7 +1052,7 @@ const NotesPanel = (() => {
     Utils.destroyFocusTrap(elements.editorModal);
     elements.editorForm.reset();
     updateCustomCategorySelectUI('');
-    elements.categoryPreview.style.display = 'none';
+    elements.categoryPreview.classList.add('hidden');
     selectedColor = 'charcoal';
   }
 
@@ -958,17 +1061,17 @@ const NotesPanel = (() => {
     if (catId) {
       const cat = categoriesList.find(c => c.id === parseInt(catId));
       if (cat) {
-        elements.categoryPreview.style.display = 'block';
+        elements.categoryPreview.classList.remove('hidden');
         elements.categoryPreview.innerHTML = `
-          <span class="note-category-tag" style="font-size: 11px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-full); margin-top: 4px;">
+          <span class="note-category-tag category-preview-tag">
             ${Utils.Icons[cat.icon] || Utils.Icons.folder} ${getLocalizedCategoryName(cat.name)}
           </span>
         `;
       } else {
-        elements.categoryPreview.style.display = 'none';
+        elements.categoryPreview.classList.add('hidden');
       }
     } else {
-      elements.categoryPreview.style.display = 'none';
+      elements.categoryPreview.classList.add('hidden');
     }
   }
 
@@ -1028,10 +1131,10 @@ const NotesPanel = (() => {
     elements.categoryColorInput.querySelectorAll('.category-color-swatch').forEach((s, idx) => {
       if (idx === 0) {
         s.classList.add('active');
-        s.style.border = '2px solid #fff';
+        s.setAttribute('aria-checked', 'true');
       } else {
         s.classList.remove('active');
-        s.style.border = '2px solid transparent';
+        s.setAttribute('aria-checked', 'false');
       }
     });
 
@@ -1054,10 +1157,10 @@ const NotesPanel = (() => {
 
     if (categoriesList.length === 0) {
       elements.categoryList.innerHTML = `
-        <div class="empty-state" style="padding: 20px 12px; background: transparent; border: none; min-height: auto;">
-          <span class="empty-state-icon" style="font-size: 18px; width: 36px; height: 36px; margin-bottom: 6px;">${Utils.Icons.folder}</span>
-          <p class="empty-state-title" style="font-size: 12px; margin-bottom: 2px;">${window.i18n ? window.i18n.t('empty.categoriesTitle') : 'Kategori Bulunmuyor'}</p>
-          <p class="empty-state-text" style="font-size: 10.5px;">${window.i18n ? window.i18n.t('empty.categoriesText') : 'Yukarıdan yeni bir kategori oluşturabilirsiniz.'}</p>
+        <div class="empty-state category-empty-state">
+          <span class="empty-state-icon category-empty-icon">${Utils.Icons.folder}</span>
+          <p class="empty-state-title category-empty-title">${window.i18n ? window.i18n.t('empty.categoriesTitle') : 'Kategori Bulunmuyor'}</p>
+          <p class="empty-state-text category-empty-text">${window.i18n ? window.i18n.t('empty.categoriesText') : 'Yukarıdan yeni bir kategori oluşturabilirsiniz.'}</p>
         </div>
       `;
       return;
@@ -1066,21 +1169,14 @@ const NotesPanel = (() => {
     categoriesList.forEach((cat) => {
       const row = document.createElement('div');
       row.className = 'category-manager-row';
-      row.style.display = 'flex';
-      row.style.alignItems = 'center';
-      row.style.justifyContent = 'space-between';
-      row.style.padding = '8px 12px';
-      row.style.marginBottom = '4px';
-      row.style.borderRadius = 'var(--radius-sm)';
-      row.style.background = 'var(--bg-input)';
-      row.style.border = '1px solid var(--border-primary)';
+      row.style.setProperty('--category-color', cat.color || 'var(--text-secondary)');
 
       row.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:14px;display:flex;align-items:center;color:${cat.color || 'var(--text-secondary)'}">${Utils.Icons[cat.icon] || Utils.Icons.folder}</span>
-          <span style="font-weight:500;color:var(--text-primary)">${Utils.escapeHtml(getLocalizedCategoryName(cat.name))}</span>
+        <div class="category-manager-identity">
+          <span class="category-manager-icon">${Utils.Icons[cat.icon] || Utils.Icons.folder}</span>
+          <span class="category-manager-name">${Utils.escapeHtml(getLocalizedCategoryName(cat.name))}</span>
         </div>
-        <button class="btn-delete-cat" data-id="${cat.id}" style="color:var(--text-muted);cursor:pointer;font-size:11px;transition:color var(--transition-fast);padding:4px 8px;" aria-label="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}">${window.i18n ? window.i18n.t('category.deleteBtn') : '✕ Sil'}</button>
+        <button class="btn-delete-cat" data-id="${cat.id}" type="button" aria-label="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}">${window.i18n ? window.i18n.t('category.deleteBtn') : '✕ Sil'}</button>
       `;
 
       // Kategori silme olayı
@@ -1163,6 +1259,7 @@ const NotesPanel = (() => {
     init,
     loadNotes,
     loadCategories,
+    getLocalizedCategoryName,
     setSearch,
   };
 })();

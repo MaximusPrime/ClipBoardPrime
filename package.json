@@ -6,19 +6,19 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "rebuild": "electron-rebuild",
+    "rebuild": "electron-builder install-app-deps",
     "build": "electron-builder",
     "test": "node scripts/test.js",
+    "test:e2e": "node scripts/e2e.js",
     "check": "node scripts/check.js",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
+    "better-sqlite3": "^12.11.1",
     "koffi": "^3.1.0"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.0.0",
-    "electron": "^33.0.0",
+    "electron": "^43.1.1",
     "electron-builder": "^26.15.3"
   },
   "author": "Maximus Prime",
@@ -49,6 +49,14 @@
       "main.js",
       "preload.js",
       "package.json",
+      "!node_modules/better-sqlite3/build/Release/obj/**/*",
+      "!node_modules/better-sqlite3/build/Release/test_extension*",
+      "!node_modules/better-sqlite3/build/Release/*.{lib,exp,iobj,ipdb}",
+      "!node_modules/better-sqlite3/build/deps/**/*",
+      "!node_modules/better-sqlite3/build/src/**/*",
+      "!node_modules/better-sqlite3/build/*.vcxproj*",
+      "!node_modules/better-sqlite3/deps/**/*",
+      "!node_modules/better-sqlite3/src/**/*",
       "!dist/**/*",
       "!build/**/*",
       "!.git/**/*",
@@ -56,7 +64,7 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "**/node_modules/better-sqlite3/**/*"
+      "**/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
     ]
   }
 }

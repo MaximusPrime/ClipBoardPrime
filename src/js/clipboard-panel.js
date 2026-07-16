@@ -12,6 +12,14 @@ const ClipboardPanel = (() => {
     clearBtn: document.getElementById('clear-history-btn'),
     search: document.getElementById('clipboard-search'),
     searchClear: document.getElementById('clipboard-search-clear'),
+    advancedFilterBtn: document.getElementById('clipboard-advanced-filter-btn'),
+    advancedFilters: document.getElementById('clipboard-advanced-filters'),
+    advancedFilterCount: document.getElementById('clipboard-advanced-filter-count'),
+    filterPeriod: document.getElementById('clipboard-filter-period'),
+    filterSource: document.getElementById('clipboard-filter-source'),
+    filterLength: document.getElementById('clipboard-filter-length'),
+    filterSensitive: document.getElementById('clipboard-filter-sensitive'),
+    filterReset: document.getElementById('clipboard-filter-reset'),
   };
 
   let historyItems = [];
@@ -20,6 +28,10 @@ const ClipboardPanel = (() => {
   let currentPage = 1;
   let hasMore = true;
   let isLoading = false;
+  let previewElement = null;
+  let previewTimer = null;
+  let previewOwner = null;
+  let previewPinned = false;
   const limit = 50;
 
   /**
@@ -27,6 +39,8 @@ const ClipboardPanel = (() => {
    */
   function init() {
     setupEventListeners();
+    setupContextMenuActions();
+    applyOpenFilter();
     loadHistory(false);
   }
 
@@ -55,6 +69,7 @@ const ClipboardPanel = (() => {
 
     // Sonsuz kaydırma (Infinite Scroll)
     elements.list.addEventListener('scroll', () => {
+      hideQuickPreview();
       if (isLoading || !hasMore) return;
 
       const { scrollTop, scrollHeight, clientHeight } = elements.list;
@@ -98,7 +113,87 @@ const ClipboardPanel = (() => {
       handleNewItem(item);
     });
 
+    elements.advancedFilterBtn?.addEventListener('click', () => {
+      const active = elements.advancedFilters.classList.toggle('active');
+      elements.advancedFilterBtn.setAttribute('aria-expanded', String(active));
+    });
+    const applyAdvancedFilters = Utils.debounce(() => {
+      updateAdvancedFilterCount();
+      loadHistory(false);
+    }, 250);
+    [elements.filterPeriod, elements.filterLength, elements.filterSensitive].forEach((element) => {
+      element?.addEventListener('change', applyAdvancedFilters);
+    });
+    elements.filterSource?.addEventListener('input', applyAdvancedFilters);
+    elements.filterReset?.addEventListener('click', () => {
+      elements.filterPeriod.value = '0';
+      elements.filterSource.value = '';
+      elements.filterLength.value = 'any';
+      elements.filterSensitive.value = 'any';
+      updateAdvancedFilterCount();
+      loadHistory(false);
+    });
+
+    if (window.api.onHistoryCleaned) {
+      window.api.onHistoryCleaned(() => {
+        loadHistory(false, true);
+      });
+    }
+
+    if (window.api.onWindowVisibilityChanged) {
+      window.api.onWindowVisibilityChanged(({ visible }) => {
+        if (visible) {
+          if (applyOpenFilter()) {
+            loadHistory(false);
+          }
+          return;
+        }
+        clearSearchOnHide();
+      });
+    }
+
     setupModalEventListeners();
+  }
+
+  /**
+   * Clears clipboard search when the window is hidden if enabled.
+   */
+  function clearSearchOnHide() {
+    const settings = window.App && window.App.settings;
+    if (!settings || settings.clearSearchOnHide !== 'true' || !searchQuery) return;
+
+    elements.search.value = '';
+    elements.searchClear.classList.remove('visible');
+    searchQuery = '';
+    loadHistory(false);
+  }
+
+  /**
+   * Applies the configured filter whenever the clipboard window opens.
+   */
+  function applyOpenFilter() {
+    const settings = window.App && window.App.settings;
+    const filter = settings && settings.clipboardOpenFilter;
+    const allowedFilters = new Set([
+      'all',
+      'pinned',
+      'favorites',
+      'text',
+      'image',
+      'url',
+      'email',
+      'code',
+    ]);
+
+    if (!filter || filter === 'preserve' || !allowedFilters.has(filter)) return false;
+    if (activeFilter === filter) return false;
+
+    activeFilter = filter;
+    elements.filters.querySelectorAll('.filter-btn').forEach((button) => {
+      button.classList.toggle('active', button.dataset.filter === filter);
+      button.setAttribute('aria-selected', String(button.dataset.filter === filter));
+    });
+    return true;
   }
 
   /**
@@ -126,6 +221,10 @@ const ClipboardPanel = (() => {
         limit: limit,
         search: searchQuery,
       };
+      params.recentDays = elements.filterPeriod?.value || '0';
+      params.sourceApp = elements.filterSource?.value.trim() || '';
+      params.length = elements.filterLength?.value || 'any';
+      params.sensitive = elements.filterSensitive?.value || 'any';
 
       // Filtre parametrelerini eşle
       if (activeFilter === 'pinned') {
@@ -198,13 +297,13 @@ const ClipboardPanel = (() => {
    */
   function showSkeleton() {
     elements.list.innerHTML = Array(5).fill(0).map(() => `
-      <div class="clip-item skeleton" style="height: 76px; margin-bottom: 4px; pointer-events: none;">
+      <div class="clip-item skeleton skeleton-clip">
         <div class="clip-item-left">
-          <div class="clip-item-icon" style="background: var(--border-primary);"></div>
+          <div class="clip-item-icon skeleton-icon"></div>
         </div>
-        <div class="clip-item-body" style="gap: 8px;">
-          <div style="width: 70%; height: 14px; background: var(--border-primary); border-radius: var(--radius-sm);"></div>
-          <div style="width: 40%; height: 10px; background: var(--border-primary); border-radius: var(--radius-sm);"></div>
+        <div class="clip-item-body skeleton-body">
+          <div class="skeleton-line skeleton-line-primary"></div>
+          <div class="skeleton-line skeleton-line-secondary"></div>
         </div>
       </div>
     `).join('');
@@ -313,6 +412,7 @@ const ClipboardPanel = (() => {
     const primaryActionTooltip = item.content_type === 'image'
       ? (window.i18n ? window.i18n.t('tooltip.copy') : 'Panoya kopyala')
       : (window.i18n ? window.i18n.t('tooltip.pasteHint') : 'Aktif pencereye yapıştır (Enter veya çift tık)');
+    const quickActions = getQuickActions();
 
     // Durum rozetleri (pin/fav)
     let badgesHTML = '';
@@ -332,7 +432,7 @@ const ClipboardPanel = (() => {
     // Uzun metinler için genişletme butonu (chevron-down)
     let expandBtnHTML = '';
     if (isLongText) {
-      const chevronDownIcon = `<svg class="icon-svg expand-icon" style="transition: transform 0.2s ease;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+      const chevronDownIcon = `<svg class="icon-svg expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
       expandBtnHTML = `<button class="clip-action-btn expand-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.expand') : 'Genişlet'}" aria-label="${window.i18n ? window.i18n.t('tooltip.expand') : 'Genişlet'}">${chevronDownIcon}</button>`;
     }
 
@@ -345,10 +445,10 @@ const ClipboardPanel = (() => {
       <div class="clip-item-body">
         ${contentHTML}
         ${isLongText ? `
-          <div class="accordion-view-more" data-tooltip="${window.i18n ? window.i18n.t('tooltip.viewMore') : 'Devamını Gör'}" aria-label="${window.i18n ? window.i18n.t('tooltip.viewMore') : 'Devamını Gör'}">
+          <button type="button" class="accordion-view-more" data-tooltip="${window.i18n ? window.i18n.t('tooltip.viewMore') : 'Devamını Gör'}" aria-label="${window.i18n ? window.i18n.t('tooltip.viewMore') : 'Devamını Gör'}">
             <span>${window.i18n ? window.i18n.t('note.viewMore') : 'Devamını Gör'}</span>
             <svg class="icon-svg" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-          </div>
+          </button>
         ` : ''}
         <div class="clip-item-meta">
           <span class="type-badge">${typeLabel}</span>
@@ -362,11 +462,7 @@ const ClipboardPanel = (() => {
           <span>${primaryActionLabel}</span>
           ${item.content_type === 'image' ? '' : '<kbd>Enter</kbd>'}
         </button>
-        ${item.content_type === 'image' ? '' : `<button class="clip-action-btn copy-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}">${Utils.Icons.copy}</button>`}
-        <button class="clip-action-btn pin-btn ${item.is_pinned ? 'pin-active' : ''}" data-tooltip="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi Kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}" aria-label="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}">${Utils.Icons.pin}</button>
-        <button class="clip-action-btn fav-btn ${item.is_favorite ? 'fav-active' : ''}" data-tooltip="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden Çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere Ekle')}" aria-label="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere ekle')}">${Utils.Icons.star}</button>
-        <button class="clip-action-btn note-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.saveAsNote') : 'Not Olarak Kaydet'}" aria-label="${window.i18n ? window.i18n.t('tooltip.saveAsNote') : 'Not olarak kaydet'}">${Utils.Icons.fileText}</button>
-        <button class="clip-action-btn delete-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}" aria-label="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}">${Utils.Icons.trash}</button>
+        ${renderQuickActionButtons(item, quickActions)}
       </div>
       ${expandBtnHTML}
     `;
@@ -379,8 +475,20 @@ const ClipboardPanel = (() => {
    * Pano geçmişi üzerindeki olayları bağlar
    */
   function bindItemEvents(el, item) {
+    el.addEventListener('contextmenu', async (e) => {
+      e.preventDefault();
+      el.focus();
+      await window.api.showClipboardContextMenu({
+        id: item.id,
+        type: item.content_type,
+        isPinned: Boolean(item.is_pinned),
+        isFavorite: Boolean(item.is_favorite),
+      });
+    });
     // Klavye navigasyonu (Ok tuşları ile odaklanma, Enter ile yapıştırma, Space ile kopyalama)
     el.addEventListener('keydown', async (e) => {
+      if (e.target !== el) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'Enter') {
         e.preventDefault();
         if (item.content_type === 'image' && item.image_path) {
@@ -390,27 +498,42 @@ const ClipboardPanel = (() => {
         }
       } else if (e.key === ' ') {
         e.preventDefault();
-        if (item.content_type === 'image' && item.image_path) {
-          openImageViewer(item.image_path);
+        if (e.repeat) return;
+        const spaceAction = window.App?.settings?.spaceKeyAction || 'copy';
+        if (spaceAction === 'preview') {
+          toggleQuickPreview(item, el);
+        } else if (item.content_type === 'image' && item.image_path) {
+          await copyToSystemClipboard(item, el);
         } else {
           await copyToSystemClipboard(item, el);
         }
+      } else if (!e.repeat && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        await copyToSystemClipboard(item, el);
+      } else if (!e.repeat && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        await toggleItemPin(item, el);
+      } else if (!e.repeat && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        await toggleItemFavorite(item, el);
+      } else if (!e.repeat && e.key.toLowerCase() === 'n' && item.content_type !== 'image') {
+        e.preventDefault();
+        await saveItemAsNote(item);
+      } else if (!e.repeat && e.key === 'Delete') {
+        e.preventDefault();
+        await deleteItem(item, el);
       }
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        const next = el.nextElementSibling;
-        if (next && next.classList.contains('clip-item')) {
-          next.focus();
-        }
+        const cards = [...elements.list.querySelectorAll('.clip-item')];
+        cards[Math.min(cards.length - 1, cards.indexOf(el) + 1)]?.focus();
       }
 
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        const prev = el.previousElementSibling;
-        if (prev && prev.classList.contains('clip-item')) {
-          prev.focus();
-        }
+        const cards = [...elements.list.querySelectorAll('.clip-item')];
+        cards[Math.max(0, cards.indexOf(el) - 1)]?.focus();
       }
     });
 
@@ -525,12 +648,12 @@ const ClipboardPanel = (() => {
       });
     }
 
-    // Devamını Gör butonu -> detay modalını aç
+    // Devamını Gör butonu -> Space ile aynı sabit hızlı önizlemeyi aç
     const viewMoreBtn = el.querySelector('.accordion-view-more');
     if (viewMoreBtn) {
       viewMoreBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        openClipDetailModal(item);
+        openPinnedQuickPreview(item, el);
       });
     }
 
@@ -736,6 +859,40 @@ const ClipboardPanel = (() => {
       } catch (err) {
         console.error('Silme hatası:', err);
       }
+      if (e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        const cards = [...elements.list.querySelectorAll('.clip-item')];
+        (e.key === 'Home' ? cards[0] : cards[cards.length - 1])?.focus();
+      }
+    });
+
+    el.addEventListener('mouseenter', () => {
+      elements.list.querySelectorAll('.clip-item.hover-focused').forEach((card) => {
+        if (card !== el) card.classList.remove('hover-focused');
+      });
+      el.classList.add('hover-focused');
+      if (!el.contains(document.activeElement)) el.focus({ preventScroll: true });
+      if (window.App?.settings?.hoverPreviewEnabled !== 'true') return;
+      if (previewPinned) return;
+      clearTimeout(previewTimer);
+      const delay = Number.parseInt(window.App?.settings?.hoverPreviewDelay || '500', 10);
+      previewTimer = setTimeout(() => {
+        showQuickPreview(item, el);
+      }, Number.isFinite(delay) ? delay : 500);
+    });
+
+    el.addEventListener('mouseleave', (event) => {
+      el.classList.remove('hover-focused');
+      clearTimeout(previewTimer);
+      if (previewElement && previewElement.contains(event.relatedTarget)) return;
+      previewTimer = setTimeout(() => {
+        if (!previewPinned) hideQuickPreview();
+      }, 180);
+    });
+
+    el.addEventListener('focusout', (event) => {
+      if (previewElement && previewElement.contains(event.relatedTarget)) return;
+      if (window.App?.settings?.spaceKeyAction === 'preview' && !previewPinned) hideQuickPreview();
     });
   }
 
@@ -743,17 +900,43 @@ const ClipboardPanel = (() => {
    * Öğeyi sistem panosuna kopyalar
    */
   async function copyToSystemClipboard(item, element) {
+    return copyItem(item, false);
+  }
+
+  function updateAdvancedFilterCount() {
+    const count = [
+      elements.filterPeriod?.value !== '0',
+      Boolean(elements.filterSource?.value.trim()),
+      elements.filterLength?.value !== 'any',
+      elements.filterSensitive?.value !== 'any',
+    ].filter(Boolean).length;
+    if (elements.advancedFilterCount) {
+      elements.advancedFilterCount.textContent = count ? String(count) : '';
+    }
+    elements.advancedFilterBtn?.classList.toggle('active', count > 0);
+  }
+
+  async function copyItem(item, plainText) {
     try {
       let response;
       if (item.is_sensitive) {
-        response = await window.api.copyToClipboard({ id: item.id, ignoreChange: false });
+        response = await window.api.copyToClipboard({
+          id: item.id,
+          ignoreChange: false,
+          plainText,
+        });
       } else {
         let contentToCopy = item.content;
         let copyType = item.content_type;
         if (copyType === 'image') {
           contentToCopy = item.image_path;
         }
-        response = await window.api.copyToClipboard(contentToCopy, copyType, false);
+        response = await window.api.copyToClipboard({
+          content: contentToCopy,
+          type: copyType,
+          ignoreChange: false,
+          plainText,
+        });
       }
       
       if (response && response.success) {
@@ -771,6 +954,10 @@ const ClipboardPanel = (() => {
    * Öğeyi aktif pencereye yapıştırır
    */
   async function pasteToActiveWindow(item) {
+    return pasteItem(item, false);
+  }
+
+  async function pasteItem(item, plainText) {
     try {
       if (item.content_type === 'image') {
         Utils.showToast(window.i18n ? window.i18n.t('toast.pasteImageInfo') : 'Görseller doğrudan yapıştırılamaz. Panoya kopyalanıyor...', 'info');
@@ -780,9 +967,13 @@ const ClipboardPanel = (() => {
 
       let response;
       if (item.is_sensitive) {
-        response = await window.api.pasteToActiveWindow({ id: item.id });
+        response = await window.api.pasteToActiveWindow({ id: item.id, plainText });
       } else {
-        response = await window.api.pasteToActiveWindow(item.content);
+        response = await window.api.pasteToActiveWindow({
+          content: item.content,
+          type: item.content_type,
+          plainText,
+        });
       }
 
       if (!response || !response.success) {
@@ -791,6 +982,353 @@ const ClipboardPanel = (() => {
     } catch (err) {
       console.error('pasteToActiveWindow hatası:', err);
       Utils.showToast(window.i18n ? window.i18n.t('toast.pasteFailed') : 'Yapıştırma başarısız', 'error');
+    }
+  }
+
+  function getQuickActions() {
+    const fallback = ['copy', 'pin', 'favorite', 'note', 'delete'];
+    let enabled = fallback;
+    let order = fallback;
+    try {
+      const stored = window.App && window.App.settings && window.App.settings.clipboardQuickActions;
+      const parsed = JSON.parse(stored || JSON.stringify(fallback));
+      enabled = Array.isArray(parsed) ? parsed : fallback;
+    } catch (err) {
+      enabled = fallback;
+    }
+    try {
+      const parsed = JSON.parse(window.App?.settings?.clipboardQuickActionOrder || '[]');
+      if (Array.isArray(parsed)) {
+        order = [...new Set([...parsed.filter((action) => fallback.includes(action)), ...fallback])];
+      }
+    } catch {}
+    const enabledSet = new Set(enabled);
+    return order.filter((action) => enabledSet.has(action));
+  }
+
+  function renderQuickActionButtons(item, quickActions) {
+    const factories = {
+      copy: () => item.content_type === 'image' ? '' : `<button class="clip-action-btn copy-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}">${Utils.Icons.copy}</button>`,
+      pin: () => `<button class="clip-action-btn pin-btn ${item.is_pinned ? 'pin-active' : ''}" data-tooltip="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi Kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}" aria-label="${item.is_pinned ? (window.i18n ? window.i18n.t('tooltip.unpin') : 'Sabitlemeyi kaldır') : (window.i18n ? window.i18n.t('tooltip.pin') : 'Sabitle')}">${Utils.Icons.pin}</button>`,
+      favorite: () => `<button class="clip-action-btn fav-btn ${item.is_favorite ? 'fav-active' : ''}" data-tooltip="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden Çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere Ekle')}" aria-label="${item.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavorite') : 'Favorilerden çıkar') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere ekle')}">${Utils.Icons.star}</button>`,
+      note: () => item.content_type === 'image' ? '' : `<button class="clip-action-btn note-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.saveAsNote') : 'Not Olarak Kaydet'}" aria-label="${window.i18n ? window.i18n.t('tooltip.saveAsNote') : 'Not olarak kaydet'}">${Utils.Icons.fileText}</button>`,
+      delete: () => `<button class="clip-action-btn delete-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}" aria-label="${window.i18n ? window.i18n.t('tooltip.delete') : 'Sil'}">${Utils.Icons.trash}</button>`,
+    };
+    return quickActions.map((action) => factories[action]?.() || '').join('');
+  }
+
+  function setupContextMenuActions() {
+    if (!window.api.onClipboardContextAction) return;
+    window.api.onClipboardContextAction(({ action, id }) => {
+      const item = historyItems.find((candidate) => candidate.id === id);
+      const element = elements.list.querySelector(`.clip-item[data-id="${id}"]`);
+      if (!item || !element) return;
+      executeItemAction(action, item, element);
+    });
+  }
+
+  async function executeItemAction(action, item, element) {
+    switch (action) {
+      case 'paste':
+        await pasteItem(item, false);
+        break;
+      case 'pastePlain':
+        await pasteItem(item, true);
+        break;
+      case 'copy':
+        await copyItem(item, false);
+        break;
+      case 'copyPlain':
+        await copyItem(item, true);
+        break;
+      case 'details':
+        if (item.content_type === 'image' && item.image_path) {
+          openImageViewer(item.image_path);
+        } else {
+          openClipDetailModal(item);
+        }
+        break;
+      case 'pin':
+        element.querySelector('.pin-btn')?.click();
+        if (!element.querySelector('.pin-btn')) {
+          await toggleItemPin(item, element);
+        }
+        break;
+      case 'favorite':
+        element.querySelector('.fav-btn')?.click();
+        if (!element.querySelector('.fav-btn')) {
+          await toggleItemFavorite(item, element);
+        }
+        break;
+      case 'note':
+        element.querySelector('.note-btn')?.click();
+        if (!element.querySelector('.note-btn')) {
+          await saveItemAsNote(item);
+        }
+        break;
+      case 'delete':
+        element.querySelector('.delete-btn')?.click();
+        if (!element.querySelector('.delete-btn')) {
+          await deleteItem(item, element);
+        }
+        break;
+    }
+  }
+
+  function ensureQuickPreview() {
+    if (previewElement) return previewElement;
+    previewElement = document.createElement('aside');
+    previewElement.className = 'clipboard-quick-preview';
+    previewElement.setAttribute('role', 'dialog');
+    previewElement.setAttribute('aria-label', window.i18n ? window.i18n.t('preview.title') : 'Hızlı Önizleme');
+    previewElement.addEventListener('pointerdown', () => {
+      clearTimeout(previewTimer);
+    });
+    previewElement.addEventListener('mouseenter', () => {
+      clearTimeout(previewTimer);
+    });
+    previewElement.addEventListener('mouseleave', () => {
+      previewTimer = setTimeout(() => {
+        if (!previewPinned) hideQuickPreview();
+      }, 220);
+    });
+    previewElement.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' && event.key !== ' ') return;
+      event.preventDefault();
+      event.stopPropagation();
+      const owner = previewOwner;
+      hideQuickPreview();
+      owner?.focus();
+    });
+    document.addEventListener('pointerdown', (event) => {
+      if (!previewPinned || !previewElement?.classList.contains('visible')) return;
+      if (previewElement.contains(event.target) || previewOwner?.contains(event.target)) return;
+      hideQuickPreview();
+    });
+    document.body.appendChild(previewElement);
+    return previewElement;
+  }
+
+  function toggleQuickPreview(item, owner) {
+    if (previewElement?.classList.contains('visible') && previewOwner === owner) {
+      hideQuickPreview();
+      return;
+    }
+    openPinnedQuickPreview(item, owner);
+  }
+
+  function openPinnedQuickPreview(item, owner) {
+    previewPinned = true;
+    showQuickPreview(item, owner);
+    previewElement?.querySelector('.clipboard-quick-preview-body')?.focus({ preventScroll: true });
+  }
+
+  function showQuickPreview(item, owner) {
+    if (!owner?.isConnected) return;
+    const preview = ensureQuickPreview();
+    const typeLabel = Utils.getContentTypeLabel(item.content_type);
+    let content = '';
+    let details = '';
+
+    if (item.content_type === 'image' && item.image_path) {
+      const fileUrl = 'local-file:///' + item.image_path.replace(/\\/g, '/');
+      content = `
+        <div class="clipboard-quick-preview-image-wrap">
+          <img class="clipboard-quick-preview-image" src="${fileUrl}" alt="${window.i18n ? window.i18n.t('imageItem.alt') : 'Görsel'}">
+        </div>`;
+    } else {
+      let text = item.content || '';
+      if (item.is_sensitive) {
+        text = window.i18n ? window.i18n.t('sensitive.placeholder') : '••••••••••••';
+        content = `<div class="clipboard-quick-preview-sensitive">${Utils.Icons.lock || Utils.Icons.eye} ${Utils.escapeHtml(text)}</div>`;
+      } else if (item.content_type === 'url') {
+        content = renderUrlPreview(text);
+      } else if (item.content_type === 'email') {
+        content = renderEmailPreview(text);
+      } else if (item.content_type === 'code') {
+        content = renderCodePreview(text);
+      } else if (item.content_type === 'html') {
+        content = renderHtmlPreview(text);
+      } else {
+        content = `<div class="clipboard-quick-preview-text">${Utils.escapeHtml(text)}</div>`;
+      }
+    }
+
+    const metadata = [];
+    if (item.source_app) metadata.push(Utils.escapeHtml(item.source_app));
+    if (item.char_count) {
+      metadata.push(`${Number(item.char_count).toLocaleString()} ${window.i18n ? window.i18n.t('preview.characters') : 'karakter'}`);
+    }
+    metadata.push(Utils.escapeHtml(Utils.timeAgo(item.created_at)));
+    details = metadata.filter(Boolean).map((value) => `<span>${value}</span>`).join('');
+
+    preview.innerHTML = `
+      <div class="clipboard-quick-preview-header">
+        <span>${Utils.getContentTypeIcon(item.content_type)} ${typeLabel}</span>
+        <span class="clipboard-quick-preview-tools">
+          ${item.content_type === 'image' ? '' : `<button class="clip-action-btn" data-preview-copy type="button" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}">${Utils.Icons.copy}</button>`}
+          <kbd>Space</kbd>
+        </span>
+      </div>
+      <div class="clipboard-quick-preview-body" tabindex="0">${content}</div>
+      <div class="clipboard-quick-preview-footer">${details}</div>
+    `;
+    preview.querySelector('[data-preview-open-url]')?.addEventListener('click', () => {
+      window.api.openExternal(item.content);
+    });
+    preview.querySelector('[data-preview-copy]')?.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      await copyItem(item, false);
+      preview.querySelector('.clipboard-quick-preview-body')?.focus();
+    });
+
+    previewOwner = owner;
+    positionQuickPreview(preview, owner);
+    preview.classList.add('visible');
+  }
+
+  function positionQuickPreview(preview, owner) {
+    const margin = 10;
+    const width = Math.min(420, Math.max(300, window.innerWidth - margin * 2));
+    preview.style.width = `${width}px`;
+    preview.style.maxHeight = `${Math.max(240, window.innerHeight - margin * 2)}px`;
+
+    const previewHeight = Math.min(preview.scrollHeight || 360, window.innerHeight - margin * 2);
+    const left = Math.max(margin, Math.round((window.innerWidth - width) / 2));
+    const top = Math.max(margin, Math.round((window.innerHeight - previewHeight) / 2));
+    preview.style.left = `${left}px`;
+    preview.style.top = `${top}px`;
+  }
+
+  function hideQuickPreview() {
+    clearTimeout(previewTimer);
+    if (previewElement) previewElement.classList.remove('visible');
+    previewOwner = null;
+    previewPinned = false;
+  }
+
+  function htmlToPreviewText(value) {
+    const documentValue = new DOMParser().parseFromString(value, 'text/html');
+    documentValue.querySelectorAll('script, style').forEach((node) => node.remove());
+    return documentValue.body.textContent?.trim() || '';
+  }
+
+  function renderUrlPreview(value) {
+    try {
+      const url = new URL(value);
+      const pathValue = `${url.pathname}${url.search}${url.hash}`;
+      return `
+        <div class="clipboard-preview-structured">
+          <div class="clipboard-preview-domain">${Utils.Icons.link}<strong>${Utils.escapeHtml(url.hostname)}</strong></div>
+          <dl>
+            <div><dt>${window.i18n ? window.i18n.t('preview.protocol') : 'Protokol'}</dt><dd>${Utils.escapeHtml(url.protocol.replace(':', '').toUpperCase())}</dd></div>
+            <div><dt>${window.i18n ? window.i18n.t('preview.address') : 'Adres'}</dt><dd>${Utils.escapeHtml(pathValue || '/')}</dd></div>
+          </dl>
+          <button class="btn btn-default clipboard-preview-open" data-preview-open-url type="button">${Utils.Icons.externalLink || Utils.Icons.link} ${window.i18n ? window.i18n.t('preview.openLink') : 'Bağlantıyı Aç'}</button>
+        </div>`;
+    } catch {
+      return `<div class="clipboard-quick-preview-text">${Utils.escapeHtml(value)}</div>`;
+    }
+  }
+
+  function renderEmailPreview(value) {
+    const [localPart, domain = ''] = String(value).trim().split('@');
+    return `
+      <div class="clipboard-preview-structured">
+        <div class="clipboard-preview-domain">${Utils.Icons.email}<strong>${Utils.escapeHtml(value)}</strong></div>
+        <dl>
+          <div><dt>${window.i18n ? window.i18n.t('preview.mailbox') : 'Posta kutusu'}</dt><dd>${Utils.escapeHtml(localPart || '')}</dd></div>
+          <div><dt>${window.i18n ? window.i18n.t('preview.domain') : 'Alan adı'}</dt><dd>${Utils.escapeHtml(domain)}</dd></div>
+        </dl>
+      </div>`;
+  }
+
+  function renderCodePreview(value) {
+    const language = detectCodeLanguage(value);
+    return `
+      <div class="clipboard-preview-code-header">${Utils.escapeHtml(language)}</div>
+      <pre class="clipboard-preview-code"><code>${highlightCode(value)}</code></pre>`;
+  }
+
+  function detectCodeLanguage(value) {
+    const text = String(value);
+    if (/<\/?[a-z][\s\S]*>/i.test(text)) return 'HTML / XML';
+    if (/\b(const|let|var|function|async|await|console\.)\b/.test(text)) return 'JavaScript';
+    if (/\b(def|import|from|print|elif|None|True|False)\b/.test(text)) return 'Python';
+    if (/\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN)\b/i.test(text)) return 'SQL';
+    if (/\b(class|public|private|static|void|namespace|using)\b/.test(text)) return 'C# / Java';
+    if (/^\s*[{[]/.test(text) && /"\s*:/.test(text)) return 'JSON';
+    if (/\b(Get-|Set-|New-|Write-Host|Select-Object)\w*/.test(text)) return 'PowerShell';
+    return window.i18n ? window.i18n.t('preview.code') : 'Kod';
+  }
+
+  function highlightCode(value) {
+    let escaped = Utils.escapeHtml(String(value));
+    escaped = escaped.replace(/(&quot;.*?&quot;|'.*?'|`.*?`)/g, '<span class="syntax-string">$1</span>');
+    escaped = escaped.replace(/\b(const|let|var|function|return|if|else|for|while|class|async|await|def|import|from|SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|true|false|null|None)\b/g, '<span class="syntax-keyword">$1</span>');
+    escaped = escaped.replace(/(^|\s)(\/\/.*|#.*)$/gm, '$1<span class="syntax-comment">$2</span>');
+    return escaped;
+  }
+
+  function renderHtmlPreview(value) {
+    const text = htmlToPreviewText(value);
+    return `
+      <div class="clipboard-preview-html-label">${window.i18n ? window.i18n.t('preview.safeHtml') : 'Güvenli metin görünümü'}</div>
+      <div class="clipboard-quick-preview-text">${Utils.escapeHtml(text)}</div>`;
+  }
+
+  async function toggleItemPin(item, element) {
+    const response = await window.api.togglePinClipboard(item.id);
+    if (!response || !response.success) return;
+    Utils.showToast(
+      response.data.is_pinned
+        ? (window.i18n ? window.i18n.t('toast.itemPinned') : 'Öğe sabitlendi')
+        : (window.i18n ? window.i18n.t('toast.itemPinRemoved') : 'Sabitleme kaldırıldı'),
+      'success'
+    );
+    await loadHistory(false, true);
+  }
+
+  async function toggleItemFavorite(item, element) {
+    const response = await window.api.toggleFavoriteClipboard(item.id);
+    if (!response || !response.success) return;
+    Utils.showToast(
+      response.data.is_favorite
+        ? (window.i18n ? window.i18n.t('toast.itemFavAdded') : 'Favorilere eklendi')
+        : (window.i18n ? window.i18n.t('toast.itemFavRemoved') : 'Favorilerden çıkarıldı'),
+      'success'
+    );
+    await loadHistory(false, true);
+  }
+
+  async function saveItemAsNote(item) {
+    const response = await window.api.clipToNote(item.id);
+    if (response && response.success) {
+      Utils.showToast(window.i18n ? window.i18n.t('toast.clipToNoteSaved') : 'Pano öğesi not olarak kaydedildi', 'success');
+      if (window.NotesPanel && typeof window.NotesPanel.loadNotes === 'function') {
+        window.NotesPanel.loadNotes();
+      }
+      return;
+    }
+    Utils.showToast((window.i18n ? window.i18n.t('toast.clipToNoteFailed') : 'Nota aktarılamadı') + ': ' + response?.error, 'error');
+  }
+
+  async function deleteItem(item, element) {
+    const preview = item.content_type === 'image'
+      ? (window.i18n ? window.i18n.t('imageItem.label') : 'Görsel Öğesi')
+      : Utils.truncate(item.content || '', 50);
+    const confirmed = await window.App.confirm(
+      window.i18n ? window.i18n.t('confirm.deleteItemTitle') : 'Öğeyi Sil',
+      window.i18n ? window.i18n.t('confirm.deleteItemMsg', { preview }) : `"${preview}" öğesini silmek istediğinize emin misiniz?`,
+      Utils.Icons.trash
+    );
+    if (!confirmed) return;
+
+    const response = await window.api.deleteClipboardItem(item.id);
+    if (response && response.success) {
+      Utils.showToast(window.i18n ? window.i18n.t('toast.itemDeleted') : 'Öğe silindi', 'info');
+      await loadHistory(false, true);
+      window.api.cleanupOrphanImages().catch((err) => console.error(err));
     }
   }
 
@@ -984,38 +1522,46 @@ const ClipboardPanel = (() => {
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'image-viewer-modal';
-      modal.className = 'modal-overlay';
-      modal.style.zIndex = '3000'; // En üstte göster
+      modal.className = 'modal-overlay image-viewer-overlay';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-label', window.i18n ? window.i18n.t('imageItem.alt') : 'Görsel önizleme');
       modal.innerHTML = `
-        <div class="modal" style="width: auto; max-width: 85vw; background: transparent; border: none; box-shadow: none; display: flex; align-items: center; justify-content: center;">
-          <div style="position: relative; display: inline-block;">
-            <button id="image-viewer-close-btn" style="position: absolute; right: 12px; top: 12px; background: rgba(0, 0, 0, 0.7); color: #fff; border-radius: 50%; width: 32px; height: 32px; font-size: 16px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.25); cursor: pointer; z-index: 10; font-weight: bold; transition: all 0.2s ease;">✕</button>
-            <img id="image-viewer-img" style="max-width: 100%; max-height: 85vh; border-radius: var(--radius-md); box-shadow: var(--shadow-xl); display: block; border: 1px solid var(--border-primary);" src="" alt="Görsel">
+        <div class="modal image-viewer-dialog">
+          <div class="image-viewer-stage">
+            <button id="image-viewer-close-btn" class="image-viewer-close" type="button" aria-label="${window.i18n ? window.i18n.t('btn.close') : 'Kapat'}">✕</button>
+            <img id="image-viewer-img" class="image-viewer-image" src="" alt="Görsel">
           </div>
         </div>
       `;
       document.body.appendChild(modal);
 
       const closeBtn = modal.querySelector('#image-viewer-close-btn');
-      if (closeBtn) closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+      const closeViewer = () => {
+        modal.classList.remove('active');
+        Utils.destroyFocusTrap(modal);
+        window.api?.setModalOpen(false).catch((error) => console.error(error));
+      };
+      if (closeBtn) closeBtn.addEventListener('click', closeViewer);
       modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('active');
+        if (e.target === modal) closeViewer();
       });
 
-      // ESC ile kapatma desteği (bir kere ekle, kapatıldığında kaldır)
-      const escHandler = (e) => {
+      modal.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && modal.classList.contains('active')) {
-          modal.classList.remove('active');
-          window.removeEventListener('keydown', escHandler);
+          e.preventDefault();
+          closeViewer();
         }
-      };
-      window.addEventListener('keydown', escHandler);
+      });
     }
 
     const img = modal.querySelector('#image-viewer-img');
     const fileUrl = 'local-file:///' + imagePath.replace(/\\/g, '/');
     img.src = fileUrl;
     modal.classList.add('active');
+    Utils.initFocusTrap(modal);
+    window.api?.setModalOpen(true).catch((error) => console.error(error));
+    modal.querySelector('#image-viewer-close-btn')?.focus();
   }
 
   // ═══════════════════════════════════════════════════════════════

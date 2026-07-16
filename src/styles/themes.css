@@ -10,28 +10,28 @@
   /* ── Obsidian Dark Theme (Default) ────────────────────────── */
 
   /* Backgrounds */
-  --bg-primary: #161616;      /* Obsidian deep dark grey */
-  --bg-secondary: #1e1e1e;    /* Secondary panels & headers */
-  --bg-tertiary: #2a2a2a;     /* Hover states & toolbar backdrops */
-  --bg-card: #202020;         /* Solid dark grey card */
-  --bg-card-hover: #262626;   /* Slightly lighter card on hover */
-  --bg-glass: rgba(30, 30, 30, 0.75);
-  --bg-input: #262626;        /* Solid inputs */
-  --bg-input-focus: #303030;
-  --bg-overlay: rgba(0, 0, 0, 0.7);
-  --bg-tooltip: #111111;
+  --bg-primary: #101112;      /* Deep obsidian application canvas */
+  --bg-secondary: #171819;    /* Panels and headers */
+  --bg-tertiary: #222426;     /* Toolbars and raised controls */
+  --bg-card: #1a1c1e;         /* Content cards */
+  --bg-card-hover: #232629;   /* Clearly raised hover surface */
+  --bg-glass: rgba(23, 24, 25, 0.86);
+  --bg-input: #202225;        /* Solid inputs */
+  --bg-input-focus: #292c30;
+  --bg-overlay: rgba(0, 0, 0, 0.76);
+  --bg-tooltip: #0b0c0d;
 
   /* Borders */
-  --border-primary: #2d2d2d;  /* Crisp dark grey borders */
-  --border-hover: #404040;
+  --border-primary: #2a2d30;  /* Visible without brightening the canvas */
+  --border-hover: #454a50;
   --border-active: #6366f1;
-  --border-input: #333333;
+  --border-input: #35393e;
 
   /* Text */
-  --text-primary: #e3e3e3;    /* Premium soft white text */
-  --text-secondary: #a3a3a3;  /* Medium grey text */
-  --text-muted: #6e6e6e;      /* Muted dark grey text */
-  --text-inverse: #161616;
+  --text-primary: #e7e9eb;    /* Soft white with strong readability */
+  --text-secondary: #a9adb2;  /* Supporting text */
+  --text-muted: #7c8289;      /* Muted but still legible */
+  --text-inverse: #101112;
 
   /* Accent */
   --accent-primary: #2563eb;
@@ -113,27 +113,27 @@
 /* ── High Contrast Light Theme ──────────────────────────────── */
 [data-theme="light"] {
   /* Backgrounds */
-  --bg-primary: #ebedf0;       /* Cool light grey panel backdrop */
-  --bg-secondary: #ffffff;     /* Solid pure white for main panels */
-  --bg-tertiary: #f4f5f6;      /* Off-white toolbar sections */
-  --bg-card: #ffffff;          /* Solid white cards for stark contrast */
-  --bg-card-hover: #f7f8f9;    /* Clean card hover */
-  --bg-glass: rgba(255, 255, 255, 0.85);
-  --bg-input: #f4f5f6;         /* Solid light grey input backgrounds */
-  --bg-input-focus: #ebedf0;
-  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-primary: #e5e9ef;       /* Cool canvas, distinct from panels */
+  --bg-secondary: #f9fafc;     /* Main panels */
+  --bg-tertiary: #eef1f5;      /* Toolbars and grouped controls */
+  --bg-card: #ffffff;          /* Raised content cards */
+  --bg-card-hover: #f2f6fb;    /* Visible, calm hover feedback */
+  --bg-glass: rgba(249, 250, 252, 0.92);
+  --bg-input: #edf1f5;         /* Inputs remain visible on white panels */
+  --bg-input-focus: #ffffff;
+  --bg-overlay: rgba(15, 23, 42, 0.48);
   --bg-tooltip: #212529;       /* Dark tooltips look premium in light theme */
 
   /* Borders */
-  --border-primary: #dcdfe6;   /* Visible, high contrast solid borders */
-  --border-hover: #b0b4bc;     /* Darker grey hover borders */
+  --border-primary: #cbd2dc;   /* Consistent card and section separation */
+  --border-hover: #98a3b2;     /* Strong hover boundary */
   --border-active: #2563eb;
-  --border-input: #dcdfe6;
+  --border-input: #bfc8d4;
 
   /* Text */
-  --text-primary: #1f2937;     /* High contrast charcoal black */
-  --text-secondary: #4b5563;   /* Slate grey subtext */
-  --text-muted: #6b7280;       /* Muted grey */
+  --text-primary: #172033;     /* High contrast ink */
+  --text-secondary: #465268;   /* Slate supporting text */
+  --text-muted: #657187;       /* Muted text with safe readability */
   --text-inverse: #ffffff;
 
   /* Accent */
@@ -151,15 +151,15 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12);
   --shadow-inner: inset 0 1px 3px rgba(0, 0, 0, 0.05);
-  --shadow-card: 0 2px 5px rgba(0, 0, 0, 0.06);
-  --shadow-card-hover: 0 6px 16px rgba(0, 0, 0, 0.09);
+  --shadow-card: 0 2px 7px rgba(15, 23, 42, 0.09);
+  --shadow-card-hover: 0 7px 18px rgba(15, 23, 42, 0.14);
 
   /* Content Type Colors - Light Mode Contrast */
-  --type-text: #4b5563;
-  --type-url: #374151;
-  --type-email: #1f2937;
-  --type-code: #6b7280;
-  --type-image: #9ca3af;
+  --type-text: #475569;
+  --type-url: #1d4ed8;
+  --type-email: #6d28d9;
+  --type-code: #047857;
+  --type-image: #b45309;
 
   /* Note Colors (Light Mode) - Soft, high contrast pastel tones */
   --note-charcoal: #f1f5f9;
