@@ -776,6 +776,22 @@ function hideWindow() {
   }
 }
 
+function sendPasteWithMshta() {
+  return new Promise((resolve) => {
+    exec(
+      'mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))',
+      (error) => {
+        if (error) {
+          console.error('mshta fallback hatası:', error);
+          resolve({ success: false, error: error.message });
+        } else {
+          resolve({ success: true });
+        }
+      }
+    );
+  });
+}
+
 function toggleWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow();
@@ -1605,9 +1621,12 @@ function registerIPCHandlers() {
       }
 
       if (SendInput && INPUT) {
+        // Yapıştırma boyunca hedefin blur/timer olayları tarafından değişmesini önle.
+        const pasteTargetHwnd = lastActiveWindowHwnd;
+
         // 1. Önce hedef pencereyi öne getir (ClipBoardPrime hala odaktayken bu yetkiye sahiptir)
-        if (lastActiveWindowHwnd && SetForegroundWindow) {
-          const setFocusResult = SetForegroundWindow(lastActiveWindowHwnd);
+        if (pasteTargetHwnd && SetForegroundWindow) {
+          const setFocusResult = SetForegroundWindow(pasteTargetHwnd);
           console.log('Ön-SetForegroundWindow sonucu:', setFocusResult);
         }
 
@@ -1619,12 +1638,20 @@ function registerIPCHandlers() {
             }
 
             // 3. Pencere gizlendikten sonra odağın tamamen oturması için asenkron gecikme
-            await new Promise(resolve => setTimeout(resolve, 150));
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Electron gizlenirken Windows odağı başka bir pencereye verebilir.
+            // Sabitlenen hedefi gizleme sonrasında yeniden öne getir.
+            if (pasteTargetHwnd && SetForegroundWindow) {
+              const refocusResult = SetForegroundWindow(pasteTargetHwnd);
+              console.log('Son-SetForegroundWindow sonucu:', refocusResult);
+              await new Promise(resolve => setTimeout(resolve, 80));
+            }
 
             // Hedef pencereyi ve sınıfını logla
-            if (lastActiveWindowHwnd && GetClassNameA) {
+            if (pasteTargetHwnd && GetClassNameA) {
               const buf = Buffer.alloc(256);
-              const len = GetClassNameA(lastActiveWindowHwnd, buf, 256);
+              const len = GetClassNameA(pasteTargetHwnd, buf, 256);
               const className = buf.toString('ascii', 0, len).trim();
               console.log('Odak geri yukleniyor, Hedef Pencere Sınıfı:', className);
             }
@@ -1667,7 +1694,11 @@ function registerIPCHandlers() {
             resolve({ success: true });
           } catch (sendErr) {
             console.error('SendInput yapıştırma hatası:', sendErr);
-            resolve({ success: false, error: sendErr.message });
+            // Native giriş engellenirse çalışan eski yönteme otomatik geç.
+            const fallbackResult = await sendPasteWithMshta();
+            resolve(fallbackResult.success
+              ? fallbackResult
+              : { success: false, error: `${sendErr.message}; ${fallbackResult.error}` });
           } finally {
             // isWritingToClipboard bayrağını klavye simülasyonu sonrasında kaldır
             setTimeout(() => {
@@ -1681,20 +1712,10 @@ function registerIPCHandlers() {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.hide();
         }
-        return await new Promise((resolve) => setTimeout(() => {
-          exec(
-            'mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))',
-            (error) => {
-              isWritingToClipboard = false;
-              if (error) {
-                console.error('mshta fallback hatası:', error);
-                resolve({ success: false, error: error.message });
-              } else {
-                resolve({ success: true });
-              }
-            }
-          );
-        }, 150));
+        await new Promise(resolve => setTimeout(resolve, 150));
+        const fallbackResult = await sendPasteWithMshta();
+        isWritingToClipboard = false;
+        return fallbackResult;
       }
     } catch (err) {
       console.error('paste-to-active-window hatası:', err);
