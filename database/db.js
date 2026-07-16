@@ -15,6 +15,7 @@ let dbPath = null;
 // Şifreleme / Çözme placeholders (Main process'ten enjekte edilir)
 let encryptFn = (text) => text;
 let decryptFn = (text) => text;
+let fingerprintFn = (text) => text;
 
 // Şifreleme seçeneklerini sakla — changeLocation sonrası initialize'de tekrar kullanılır
 let currentDbOptions = {};
@@ -24,6 +25,7 @@ let currentDbOptions = {};
 // DB yeniden açıldığında (changeLocation) null'a sıfırlanır ve otomatik yenilenir.
 let _stmtInsertClip = null;
 let _stmtCheckClipText = null;
+let _stmtCheckClipHash = null;
 let _stmtCheckClipImage = null;
 let _stmtUpdateClipTime = null;
 let _stmtGetClipById = null;
@@ -31,6 +33,7 @@ let _stmtGetClipById = null;
 function _invalidateStatements() {
   _stmtInsertClip = null;
   _stmtCheckClipText = null;
+  _stmtCheckClipHash = null;
   _stmtCheckClipImage = null;
   _stmtUpdateClipTime = null;
   _stmtGetClipById = null;
@@ -76,6 +79,9 @@ function initialize(userDataPath, customLocation, options = {}) {
   if (options && typeof options.decrypt === 'function') {
     decryptFn = options.decrypt;
   }
+  if (options && typeof options.fingerprint === 'function') {
+    fingerprintFn = options.fingerprint;
+  }
   // Prepared statement cache'i temizle (yeni DB bağlantısı için)
   _invalidateStatements();
   try {
@@ -106,6 +112,7 @@ function initialize(userDataPath, customLocation, options = {}) {
 
     // Migrasyon: Notes is_favorite
     migrateNoteIsFavorite();
+    migrateClipboardContentHash();
 
     // Migrasyon: Eski emoji kategorilerini temizle
     migrateCategoryIcons();
@@ -139,7 +146,8 @@ function createTables() {
       is_sensitive INTEGER DEFAULT 0,
       source_app TEXT,
       created_at TEXT DEFAULT (datetime('now','localtime')),
-      char_count INTEGER DEFAULT 0
+      char_count INTEGER DEFAULT 0,
+      content_hash TEXT
     );
 
     CREATE TABLE IF NOT EXISTS notes (
@@ -173,6 +181,7 @@ function createTables() {
     CREATE INDEX IF NOT EXISTS idx_clipboard_content_type ON clipboard_history(content_type);
     CREATE INDEX IF NOT EXISTS idx_clipboard_is_pinned ON clipboard_history(is_pinned);
     CREATE INDEX IF NOT EXISTS idx_clipboard_is_favorite ON clipboard_history(is_favorite);
+    CREATE INDEX IF NOT EXISTS idx_clipboard_content_hash ON clipboard_history(content_hash);
     CREATE INDEX IF NOT EXISTS idx_notes_category_id ON notes(category_id);
     CREATE INDEX IF NOT EXISTS idx_notes_is_pinned ON notes(is_pinned);
     CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at DESC);
@@ -311,10 +320,10 @@ function addClipboardItem(item) {
   // Nesneyi klonlayıp şifreleme uygulayalım
   const dbItem = { ...item };
   if (dbItem.is_sensitive && dbItem.content_type !== 'image' && dbItem.content) {
-    // Deterministik şifreleme yap ki mükerrerlik tespiti doğru çalışsın
-    dbItem.content = encryptFn(dbItem.content, true);
+    dbItem.content_hash = fingerprintFn(dbItem.content);
+    dbItem.content = encryptFn(dbItem.content);
     if (dbItem.preview) {
-      dbItem.preview = encryptFn(dbItem.preview, true);
+      dbItem.preview = encryptFn(dbItem.preview);
     }
   }
 
@@ -324,6 +333,9 @@ function addClipboardItem(item) {
   }
   if (!_stmtCheckClipText) {
     _stmtCheckClipText = db.prepare('SELECT id FROM clipboard_history WHERE content = ? AND content_type = ?');
+  }
+  if (!_stmtCheckClipHash) {
+    _stmtCheckClipHash = db.prepare('SELECT id FROM clipboard_history WHERE content_hash = ? AND content_type = ?');
   }
   if (!_stmtUpdateClipTime) {
     _stmtUpdateClipTime = db.prepare("UPDATE clipboard_history SET created_at = datetime('now','localtime') WHERE id = ?");
@@ -338,10 +350,9 @@ function addClipboardItem(item) {
       existing = _stmtCheckClipImage.get(dbItem.image_path);
     }
   } else {
-    existing = _stmtCheckClipText.get(
-      dbItem.content,
-      dbItem.content_type || 'text'
-    );
+    existing = dbItem.content_hash
+      ? _stmtCheckClipHash.get(dbItem.content_hash, dbItem.content_type || 'text')
+      : _stmtCheckClipText.get(dbItem.content, dbItem.content_type || 'text');
   }
 
   if (existing) {
@@ -351,8 +362,8 @@ function addClipboardItem(item) {
 
   if (!_stmtInsertClip) {
     _stmtInsertClip = db.prepare(`
-      INSERT INTO clipboard_history (content, content_type, preview, image_path, is_sensitive, source_app, char_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO clipboard_history (content, content_type, preview, image_path, is_sensitive, source_app, char_count, content_hash)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
   }
   const stmt = _stmtInsertClip;
@@ -372,7 +383,7 @@ function addClipboardItem(item) {
       : item.content_type === 'html'
         ? item.content.replace(/<[^>]*>/g, '').substring(0, 200)
         : '';
-    preview = encryptFn(plainPreview, true);
+    preview = encryptFn(plainPreview);
   }
 
   const result = stmt.run(
@@ -382,7 +393,8 @@ function addClipboardItem(item) {
     dbItem.image_path || null,
     dbItem.is_sensitive || 0,
     dbItem.source_app || null,
-    dbItem.char_count || (item.content ? item.content.length : 0)
+    dbItem.char_count || (item.content ? item.content.length : 0),
+    dbItem.content_hash || null
   );
 
   // maxHistory kontrolü
@@ -496,18 +508,24 @@ function updateClipboardItem(id, content) {
   }
 
   if (item.is_sensitive && item.content_type !== 'image') {
-    dbContent = encryptFn(dbContent, true);
-    preview = encryptFn(preview, true);
+    dbContent = encryptFn(dbContent);
+    preview = encryptFn(preview);
   }
 
   const charCount = content ? content.length : 0;
 
   const stmt = db.prepare(`
     UPDATE clipboard_history 
-    SET content = ?, preview = ?, char_count = ?, created_at = datetime('now','localtime')
+    SET content = ?, preview = ?, char_count = ?, content_hash = ?, created_at = datetime('now','localtime')
     WHERE id = ?
   `);
-  stmt.run(dbContent, preview, charCount, id);
+  stmt.run(
+    dbContent,
+    preview,
+    charCount,
+    item.is_sensitive && item.content_type !== 'image' ? fingerprintFn(content) : null,
+    id
+  );
 
   return getClipboardItemById(id);
 }
@@ -532,6 +550,23 @@ function deleteClipboardItem(id) {
   }
 
   return result.changes > 0;
+}
+
+function migrateClipboardContentHash() {
+  const columns = db.pragma('table_info(clipboard_history)');
+  if (!columns.some((column) => column.name === 'content_hash')) {
+    db.exec('ALTER TABLE clipboard_history ADD COLUMN content_hash TEXT');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_clipboard_content_hash ON clipboard_history(content_hash)');
+  }
+  const rows = db.prepare(`
+    SELECT id, content FROM clipboard_history
+    WHERE is_sensitive = 1 AND content_type != 'image'
+      AND (content_hash IS NULL OR content_hash = '')
+  `).all();
+  const update = db.prepare('UPDATE clipboard_history SET content_hash = ? WHERE id = ?');
+  db.transaction(() => {
+    for (const row of rows) update.run(fingerprintFn(decryptFn(row.content)), row.id);
+  })();
 }
 
 /**
@@ -1138,12 +1173,12 @@ function validateImportData(data) {
  * İçe aktarma sırasında mükerrer pano öğesi kontrolü yapar.
  */
 function checkExistingClipboardItem(content, contentType, isSensitive) {
-  let queryContent = content;
   if (isSensitive && contentType !== 'image' && content) {
-    queryContent = encryptFn(content, true);
+    return db.prepare('SELECT id FROM clipboard_history WHERE content_hash = ? AND content_type = ?')
+      .get(fingerprintFn(content), contentType) || null;
   }
   const stmt = db.prepare('SELECT id FROM clipboard_history WHERE content = ? AND content_type = ?');
-  return stmt.get(queryContent, contentType) || null;
+  return stmt.get(content, contentType) || null;
 }
 
 /**
@@ -1151,7 +1186,7 @@ function checkExistingClipboardItem(content, contentType, isSensitive) {
  */
 function encryptSensitiveContent(content, isSensitive) {
   if (isSensitive && content) {
-    return encryptFn(content, true);
+    return encryptFn(content);
   }
   return content;
 }
@@ -1214,8 +1249,8 @@ function importAll(data) {
     // Clipboard geçmişini içe aktar
     if (Array.isArray(data.data.clipboard_history)) {
       const clipStmt = db.prepare(`
-        INSERT INTO clipboard_history (content, content_type, preview, image_path, is_pinned, is_favorite, is_sensitive, source_app, created_at, char_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO clipboard_history (content, content_type, preview, image_path, is_pinned, is_favorite, is_sensitive, source_app, created_at, char_count, content_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const item of data.data.clipboard_history) {
         // Mükerrer kontrolü
@@ -1251,7 +1286,7 @@ function importAll(data) {
         // Mask/encrypt preview if sensitive
         let preview = item.preview || '';
         if (item.is_sensitive && item.content_type !== 'image') {
-          preview = encryptFn(preview || '•••••••••••• (Hassas Veri)', true);
+          preview = encryptFn(preview || '•••••••••••• (Hassas Veri)');
         }
 
         clipStmt.run(
@@ -1264,7 +1299,10 @@ function importAll(data) {
           item.is_sensitive || 0,
           item.source_app || null,
           item.created_at || new Date().toISOString(),
-          item.char_count || 0
+          item.char_count || 0,
+          item.is_sensitive && item.content_type !== 'image'
+            ? fingerprintFn(item.content)
+            : null
         );
         results.clipboard_history++;
       }

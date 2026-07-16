@@ -11,7 +11,7 @@
   [![Version](https://img.shields.io/badge/version-1.0.1-6366f1?style=flat-square)](package.json)
   [![Electron](https://img.shields.io/badge/Electron-33-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](#system-requirements)
-  [![Tests](https://img.shields.io/badge/tests-6%20passing-22c55e?style=flat-square)](#quality-assurance)
+  [![Tests](https://img.shields.io/badge/tests-8%20passing-22c55e?style=flat-square)](#quality-assurance)
   [![License](https://img.shields.io/badge/license-GPL--3.0-22c55e?style=flat-square)](LICENSE)
 
   [Features](#features) · [Security](#security-and-privacy) · [Installation](#installation) · [Development](#development) · [Contributing](CONTRIBUTING.md)
@@ -185,6 +185,7 @@ npm run rebuild
 main.js                 Electron lifecycle, tray, clipboard watcher, IPC
 preload.js              Allowlisted renderer-to-main bridge
 database/db.js          SQLite schema, migrations, CRUD, import/export
+database/db-task-worker.js  Non-blocking backup and maintenance tasks
 lib/backup-crypto.js    Password-protected backup encryption
 src/
   index.html            Application shell and accessible dialogs
@@ -206,7 +207,7 @@ npm test
 npm run build -- --dir
 ```
 
-The automated suite currently covers encrypted-backup round trips, incorrect-password rejection, password-policy enforcement, sensitive-item character counts, note import fidelity, and safe data-location migration.
+The automated suite covers encrypted-backup round trips, incorrect-password rejection, password-policy enforcement, worker-based backup generation, randomized sensitive-data encryption with HMAC duplicate detection, sensitive-item character counts, note import fidelity, and safe data-location migration.
 
 Production dependency security can be checked with:
 

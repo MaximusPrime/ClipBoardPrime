@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 const db = require('../database/db');
 
@@ -75,5 +76,47 @@ test('veri taşıma mevcut veritabanının üzerine yazmayı reddeder', () => {
   } finally {
     cleanup(directory);
     fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
+test('hassas mükerrerleri HMAC ile bulur ve rastgele şifreleme kullanır', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clipboard-prime-crypto-'));
+  const key = crypto.randomBytes(32);
+  const encrypt = (text) => {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+    return `${iv.toString('hex')}.${encrypted.toString('hex')}.${cipher.getAuthTag().toString('hex')}`;
+  };
+  const decrypt = (value) => {
+    const [iv, encrypted, tag] = value.split('.');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'hex'));
+    decipher.setAuthTag(Buffer.from(tag, 'hex'));
+    return decipher.update(encrypted, 'hex', 'utf8') + decipher.final('utf8');
+  };
+  const fingerprint = (text) => crypto.createHmac('sha256', key).update(text).digest('hex');
+
+  try {
+    db.initialize(directory, '', { encrypt, decrypt, fingerprint });
+    const first = db.addClipboardItem({
+      content: 'aynı gizli değer',
+      content_type: 'text',
+      is_sensitive: 1,
+    });
+    const second = db.addClipboardItem({
+      content: 'aynı gizli değer',
+      content_type: 'text',
+      is_sensitive: 1,
+    });
+    assert.equal(second.id, first.id);
+
+    const Database = require('better-sqlite3');
+    const rawDb = new Database(path.join(directory, 'clipboard-pro.db'), { readonly: true });
+    const raw = rawDb.prepare('SELECT content, content_hash FROM clipboard_history WHERE id = ?').get(first.id);
+    rawDb.close();
+    assert.notEqual(raw.content, 'aynı gizli değer');
+    assert.equal(raw.content_hash, fingerprint('aynı gizli değer'));
+  } finally {
+    cleanup(directory);
   }
 });

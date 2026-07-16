@@ -25,7 +25,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { exec, execFile } = require('child_process');
-const { decryptBackup, encryptBackup, isEncryptedBackup } = require('./lib/backup-crypto');
+const { Worker } = require('worker_threads');
 
 // ─── Win32 API ve koffi Tanımlamaları ──────────────────────────
 let koffi = null;
@@ -247,6 +247,48 @@ function requireString(value, fieldName, maxLength) {
   return value;
 }
 
+function requireBoolean(value, fieldName) {
+  if (typeof value !== 'boolean') {
+    throw new Error(`${fieldName} doğru/yanlış değeri olmalıdır.`);
+  }
+  return value;
+}
+
+function requireDateString(value, fieldName = 'Tarih') {
+  const dateString = requireString(value, fieldName, 64);
+  if (Number.isNaN(Date.parse(dateString))) {
+    throw new Error(`${fieldName} geçerli bir tarih olmalıdır.`);
+  }
+  return dateString;
+}
+
+function requireIdOrderList(value) {
+  if (!Array.isArray(value) || value.length > 10_000) {
+    throw new Error('Sıralama verisi geçerli bir dizi olmalıdır.');
+  }
+  return value.map((item, index) => ({
+    id: requirePositiveInteger(item && item.id, 'Not kimliği'),
+    sort_order: Number.isSafeInteger(Number(item && item.sort_order))
+      ? Number(item.sort_order)
+      : index,
+  }));
+}
+
+const ALLOWED_SETTING_KEYS = new Set([
+  'theme', 'maxHistory', 'pollingInterval', 'startWithWindows',
+  'dataLocation', 'globalShortcut', 'showPreview', 'detectSensitive',
+  'blurToTray', 'language', 'leftPanelWidth', 'leftPanelWidthRatio',
+  'windowBounds', 'trayBalloonShown',
+]);
+
+function validateSetting(key, value) {
+  key = requireString(key, 'Ayar anahtarı', 64);
+  if (!ALLOWED_SETTING_KEYS.has(key)) {
+    throw new Error('Desteklenmeyen ayar anahtarı.');
+  }
+  return { key, value: requireString(value, 'Ayar değeri', 10_000) };
+}
+
 function validateExternalUrl(value) {
   const parsed = new URL(requireString(value, 'Bağlantı', 2048));
   if (!['https:', 'mailto:'].includes(parsed.protocol)) {
@@ -255,20 +297,43 @@ function validateExternalUrl(value) {
   return parsed.toString();
 }
 
+function runDatabaseTask(action, payload = {}) {
+  if (!activeDataDir || !encryptionKey) {
+    return Promise.reject(new Error('Veritabanı görevi için uygulama hazır değil.'));
+  }
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(__dirname, 'database', 'db-task-worker.js'), {
+      workerData: {
+        action,
+        payload,
+        dataDirectory: activeDataDir,
+        encryptionKey,
+      },
+    });
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      callback(value);
+    };
+    worker.once('message', (message) => {
+      if (message && message.success) finish(resolve, message.data);
+      else finish(reject, new Error(message?.error || 'Veritabanı görevi başarısız.'));
+    });
+    worker.once('error', (error) => finish(reject, error));
+    worker.once('exit', (code) => {
+      if (code !== 0) finish(reject, new Error(`Veritabanı worker işlemi ${code} koduyla kapandı.`));
+    });
+  });
+}
+
 /**
  * Metni AES-256-GCM ile şifreler.
  */
-function encryptText(text, deterministic = false) {
+function encryptText(text) {
   if (!text) return '';
   try {
-    let iv;
-    if (deterministic) {
-      // İçeriğin hash'inden 12 byte IV üret (deterministik şifreleme ve mükerrerlik tespiti için)
-      const hash = crypto.createHash('sha256').update(text).digest();
-      iv = hash.slice(0, 12);
-    } else {
-      iv = crypto.randomBytes(12);
-    }
+    const iv = crypto.randomBytes(12);
     const keyBuffer = Buffer.from(encryptionKey, 'hex');
     const cipher = crypto.createCipheriv('aes-256-gcm', keyBuffer, iv);
     
@@ -281,6 +346,13 @@ function encryptText(text, deterministic = false) {
     console.error('Şifreleme hatası:', err);
     return text;
   }
+}
+
+function fingerprintText(text) {
+  return crypto
+    .createHmac('sha256', Buffer.from(encryptionKey, 'hex'))
+    .update(text || '', 'utf8')
+    .digest('hex');
 }
 
 /**
@@ -326,6 +398,7 @@ let lastClipboardHtml = '';
 let lastClipboardImageHash = '';
 let lastFormats = [];
 let lastImageSize = { width: 0, height: 0 };
+let lastImageHashCheckAt = 0;
 let trayBalloonShown = false;
 // DB'nin gerçekte başlatıldığı dizin (effectiveLocation ile senkronize tutulur)
 // handleNewImage ve benzeri fonksiyonlar bunu kullanır — getDbPath() null kalsa da güvende oluruz.
@@ -738,6 +811,7 @@ function startClipboardWatcher() {
     const img = clipboard.readImage();
     if (img && !img.isEmpty()) {
       lastClipboardImageHash = hashImage(img);
+      lastImageHashCheckAt = Date.now();
     }
   } catch (err) {
     console.error('İlk clipboard okuma hatası:', err);
@@ -837,10 +911,15 @@ function checkClipboard() {
   let currentImage = null;
   let currentHash = lastClipboardImageHash;
 
-  if (hasImage) {
+  const formatsChanged = !areFormatsEqual(currentFormats, lastFormats);
+  const textChanged = currentText !== lastClipboardText || currentHtml !== lastClipboardHtml;
+  const imageHashDue = Date.now() - lastImageHashCheckAt >= 750;
+
+  if (hasImage && (formatsChanged || textChanged || imageHashDue)) {
     currentImage = clipboard.readImage();
     if (currentImage && !currentImage.isEmpty()) {
       currentHash = hashImage(currentImage);
+      lastImageHashCheckAt = Date.now();
     }
   } else {
     currentHash = '';
@@ -850,7 +929,7 @@ function checkClipboard() {
   if (
     currentText === lastClipboardText &&
     currentHtml === lastClipboardHtml &&
-    areFormatsEqual(currentFormats, lastFormats) &&
+    !formatsChanged &&
     currentHash === lastClipboardImageHash
   ) {
     return;
@@ -1256,7 +1335,7 @@ function registerIPCHandlers() {
   ipcMain.handle('cleanup-orphan-images', async () => {
     try {
       if (db.isReady()) {
-        db.cleanupOrphanImages();
+        await runDatabaseTask('cleanupOrphanImages');
         return { success: true };
       }
       return { success: false, error: 'Veritabanı hazır değil' };
@@ -1320,9 +1399,13 @@ function registerIPCHandlers() {
     }
   });
 
-  ipcMain.handle('copy-to-clipboard', async (_event, { id, content, type, ignoreChange = true }) => {
+  ipcMain.handle('copy-to-clipboard', async (_event, payload) => {
     isWritingToClipboard = true;
     try {
+      if (!payload || typeof payload !== 'object') throw new Error('Geçersiz pano isteği.');
+      let { id, content, type, ignoreChange = true } = payload;
+      id = id ? requirePositiveInteger(id) : null;
+      ignoreChange = requireBoolean(ignoreChange, 'Değişikliği yok say');
       let actualContent = content;
       if (id) {
         const item = db.getClipboardItemById(id);
@@ -1330,6 +1413,11 @@ function registerIPCHandlers() {
           actualContent = item.content;
           type = item.content_type;
         }
+      }
+      actualContent = requireString(actualContent, 'Pano içeriği', 10_000_000);
+      type = requireString(type || 'text', 'İçerik türü', 20);
+      if (!['text', 'html', 'url', 'email', 'code', 'image'].includes(type)) {
+        throw new Error('Desteklenmeyen pano içerik türü.');
       }
 
       if (type === 'image') {
@@ -1396,6 +1484,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('clip-to-note', async (_event, id) => {
     try {
+      id = requirePositiveInteger(id);
       const clipItem = db.getClipboardItemById(id);
       if (!clipItem) {
         return { success: false, error: 'Clipboard öğesi bulunamadı' };
@@ -1459,6 +1548,7 @@ function registerIPCHandlers() {
     } else {
       content = params;
     }
+    id = id ? requirePositiveInteger(id) : null;
     isWritingToClipboard = true;
     try {
       let actualContent = content;
@@ -1468,6 +1558,7 @@ function registerIPCHandlers() {
           actualContent = item.content;
         }
       }
+      actualContent = requireString(actualContent, 'Yapıştırılacak içerik', 10_000_000);
 
       clipboard.writeText(actualContent);
 
@@ -1517,7 +1608,7 @@ function registerIPCHandlers() {
         }
 
         // 2. Kısa bir süre bekleyip odağın geçişini sağla, ardından ClipBoardPrime'ı gizle
-        setTimeout(async () => {
+        return await new Promise((resolve) => setTimeout(async () => {
           try {
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.hide();
@@ -1565,34 +1656,42 @@ function registerIPCHandlers() {
               { type: 1, u: { ki: { wVk: VK_LCONTROL, wScan: 0, dwFlags: KEYEVENTF_KEYUP, time: 0, dwExtraInfo: 0 } } }
             ];
             const res = SendInput(pasteInputs.length, pasteInputs, koffi.sizeof(INPUT));
-            console.log("SendInput yerel yapıştırma sonucu:", res, 'GetLastError:', GetLastError ? GetLastError() : 'N/A');
+            if (res !== pasteInputs.length) {
+              const errorCode = GetLastError ? GetLastError() : 0;
+              throw new Error(`Windows yapıştırma komutu tamamlanamadı (kod: ${errorCode}).`);
+            }
+            resolve({ success: true });
           } catch (sendErr) {
             console.error('SendInput yapıştırma hatası:', sendErr);
+            resolve({ success: false, error: sendErr.message });
           } finally {
             // isWritingToClipboard bayrağını klavye simülasyonu sonrasında kaldır
             setTimeout(() => {
               isWritingToClipboard = false;
             }, 50);
           }
-        }, 150);
+        }, 150));
       } else {
         // Fallback: mshta yöntemi (koffi yüklenemezse yedek olarak çalışır)
         // Aktif pencereye yapıştırmak için ClipBoardPrime'ın odağı kaybetmesi (gizlenmesi) şarttır.
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.hide();
         }
-        setTimeout(() => {
-          try {
-            exec('mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))');
-          } catch (e) {
-            console.error('mshta fallback hatası:', e);
-          } finally {
-            isWritingToClipboard = false;
-          }
-        }, 150);
+        return await new Promise((resolve) => setTimeout(() => {
+          exec(
+            'mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))',
+            (error) => {
+              isWritingToClipboard = false;
+              if (error) {
+                console.error('mshta fallback hatası:', error);
+                resolve({ success: false, error: error.message });
+              } else {
+                resolve({ success: true });
+              }
+            }
+          );
+        }, 150));
       }
-
-      return { success: true };
     } catch (err) {
       console.error('paste-to-active-window hatası:', err);
       isWritingToClipboard = false;
@@ -1648,6 +1747,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('toggle-favorite-note', async (_event, id) => {
     try {
+      id = requirePositiveInteger(id, 'Not kimliği');
       const note = db.toggleFavoriteNote(id);
       return { success: true, data: note };
     } catch (err) {
@@ -1658,6 +1758,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('toggle-pin-note', async (_event, id) => {
     try {
+      id = requirePositiveInteger(id, 'Not kimliği');
       const note = db.togglePinNote(id);
       return { success: true, data: note };
     } catch (err) {
@@ -1668,6 +1769,8 @@ function registerIPCHandlers() {
 
   ipcMain.handle('update-note-date', async (_event, id, newDateStr) => {
     try {
+      id = requirePositiveInteger(id, 'Not kimliği');
+      newDateStr = requireDateString(newDateStr, 'Not tarihi');
       const result = db.updateNoteDate(id, newDateStr);
       return { success: true, data: result };
     } catch (err) {
@@ -1678,6 +1781,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('reorder-notes', async (_event, orderedIds) => {
     try {
+      orderedIds = requireIdOrderList(orderedIds);
       db.reorderNotes(orderedIds);
       return { success: true };
     } catch (err) {
@@ -1722,6 +1826,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('delete-category', async (_event, id) => {
     try {
+      id = requirePositiveInteger(id, 'Kategori kimliği');
       const result = db.deleteCategory(id);
       return { success: true, data: result };
     } catch (err) {
@@ -1742,8 +1847,10 @@ function registerIPCHandlers() {
     }
   });
 
-  ipcMain.handle('save-setting', async (_event, { key, value }) => {
+  ipcMain.handle('save-setting', async (_event, payload) => {
     try {
+      if (!payload || typeof payload !== 'object') throw new Error('Geçersiz ayar verisi.');
+      const { key, value } = validateSetting(payload.key, payload.value);
       const result = db.saveSetting(key, value);
 
       // Belirli ayarlar değişince anlık tepki ver
@@ -1806,14 +1913,11 @@ function registerIPCHandlers() {
         return { success: false, error: 'İptal edildi' };
       }
 
-      const exportData = db.exportAll();
-      const encryptedBackup = encryptBackup(exportData, password);
-      fs.writeFileSync(result.filePath, JSON.stringify(encryptedBackup), {
-        encoding: 'utf8',
-        mode: 0o600,
+      const exportResult = await runDatabaseTask('exportBackup', {
+        filePath: result.filePath,
+        password,
       });
-
-      return { success: true, data: { path: result.filePath } };
+      return { success: true, data: exportResult };
     } catch (err) {
       console.error('export-data hatası:', err);
       return { success: false, error: err.message };
@@ -1836,18 +1940,10 @@ function registerIPCHandlers() {
         return { success: false, error: 'İptal edildi' };
       }
 
-      const fileContent = fs.readFileSync(result.filePaths[0], 'utf8');
-      const parsedData = JSON.parse(fileContent);
-      const importData = isEncryptedBackup(parsedData)
-        ? decryptBackup(parsedData, password)
-        : parsedData;
-
-      // Doğrulama
-      if (!importData.data) {
-        return { success: false, error: 'Geçersiz dosya formatı' };
-      }
-
-      const importResult = db.importAll(importData);
+      const importResult = await runDatabaseTask('importBackup', {
+        filePath: result.filePaths[0],
+        password,
+      });
       return { success: true, data: importResult };
     } catch (err) {
       console.error('import-data hatası:', err);
@@ -1859,7 +1955,7 @@ function registerIPCHandlers() {
 
   ipcMain.handle('get-stats', async () => {
     try {
-      const stats = db.getStats();
+      const stats = await runDatabaseTask('getStats');
       return { success: true, data: stats };
     } catch (err) {
       console.error('get-stats hatası:', err);
@@ -1882,7 +1978,7 @@ function registerIPCHandlers() {
   // ── Modal Durum Bildirimi ─────────────────────────────────────
   // Renderer, modal açıkken blur→hide engellenmesi için bunu bildirir
   ipcMain.on('set-modal-open', (_event, value) => {
-    isModalOpen = !!value;
+    if (typeof value === 'boolean') isModalOpen = value;
   });
 }
 
@@ -2028,7 +2124,11 @@ app.whenReady().then(() => {
 
   try {
     // Veritabanını başlat
-    const dbOptions = { encrypt: encryptText, decrypt: decryptText };
+    const dbOptions = {
+      encrypt: encryptText,
+      decrypt: decryptText,
+      fingerprint: fingerprintText,
+    };
 
     // config.json'dan özel veri konumunu oku (DB'den bağımsız, kalıcı)
     const savedCustomLocation = isPortable ? '' : getCustomDataLocation();
