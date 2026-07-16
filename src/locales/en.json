@@ -289,5 +289,15 @@
     "show": "Show",
     "settings": "Settings",
     "exit": "Exit"
+  },
+  "nativeDialog": {
+    "selectDataLocationTitle": "Select Data Location",
+    "selectFolderButton": "Select This Folder",
+    "exportBackupTitle": "Export Encrypted Backup",
+    "encryptedBackupFilter": "ClipBoardPrime Encrypted Backup",
+    "exportButton": "Export",
+    "importBackupTitle": "Import Encrypted Backup",
+    "backupsFilter": "ClipBoardPrime Backups",
+    "importButton": "Import"
   }
 }

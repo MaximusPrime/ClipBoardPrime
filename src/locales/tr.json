@@ -289,5 +289,15 @@
     "show": "Göster",
     "settings": "Ayarlar",
     "exit": "Çıkış"
+  },
+  "nativeDialog": {
+    "selectDataLocationTitle": "Veri Konumu Seçin",
+    "selectFolderButton": "Bu Klasörü Seç",
+    "exportBackupTitle": "Şifreli Yedeği Dışa Aktar",
+    "encryptedBackupFilter": "ClipBoardPrime Şifreli Yedek",
+    "exportButton": "Dışa Aktar",
+    "importBackupTitle": "Şifreli Yedeği İçe Aktar",
+    "backupsFilter": "ClipBoardPrime Yedekleri",
+    "importButton": "İçe Aktar"
   }
 }

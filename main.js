@@ -1878,9 +1878,9 @@ function registerIPCHandlers() {
     }
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Veri Konumu Seçin',
+        title: getTranslation('nativeDialog.selectDataLocationTitle'),
         properties: ['openDirectory', 'createDirectory'],
-        buttonLabel: 'Bu Klasörü Seç',
+        buttonLabel: getTranslation('nativeDialog.selectFolderButton'),
       });
 
       if (result.canceled || result.filePaths.length === 0) {
@@ -1905,12 +1905,12 @@ function registerIPCHandlers() {
     try {
       const password = requireString(options.password, 'Yedek parolası', 1024);
       const result = await dialog.showSaveDialog(mainWindow, {
-        title: 'Şifreli Yedeği Dışa Aktar',
+        title: getTranslation('nativeDialog.exportBackupTitle'),
         defaultPath: `clipboard-prime-backup-${formatDate(new Date())}.cpbackup`,
         filters: [
-          { name: 'ClipBoardPrime Şifreli Yedek', extensions: ['cpbackup'] },
+          { name: getTranslation('nativeDialog.encryptedBackupFilter'), extensions: ['cpbackup'] },
         ],
-        buttonLabel: 'Dışa Aktar',
+        buttonLabel: getTranslation('nativeDialog.exportButton'),
       });
 
       if (result.canceled || !result.filePath) {
@@ -1932,12 +1932,12 @@ function registerIPCHandlers() {
     try {
       const password = requireString(options.password, 'Yedek parolası', 1024);
       const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Şifreli Yedeği İçe Aktar',
+        title: getTranslation('nativeDialog.importBackupTitle'),
         filters: [
-          { name: 'ClipBoardPrime Yedekleri', extensions: ['cpbackup', 'json'] },
+          { name: getTranslation('nativeDialog.backupsFilter'), extensions: ['cpbackup', 'json'] },
         ],
         properties: ['openFile'],
-        buttonLabel: 'İçe Aktar',
+        buttonLabel: getTranslation('nativeDialog.importButton'),
       });
 
       if (result.canceled || result.filePaths.length === 0) {
