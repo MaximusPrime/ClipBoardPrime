@@ -250,7 +250,13 @@
     "confirmPasswordMsg": "请再次输入相同的密码。",
     "importPasswordTitle": "备份密码",
     "importPasswordMsg": "请输入加密备份密码。对于旧版 JSON 备份，可输入任意内容。",
-    "passwordMismatch": "两次输入的密码不一致。"
+    "passwordMismatch": "两次输入的密码不一致。",
+    "continueToConfirm": "确认密码",
+    "createEncryptedBackup": "创建加密备份",
+    "importBackup": "导入备份"
+  },
+  "validation": {
+    "minLength": "请至少输入 {{count}} 个字符。"
   },
   "tooltip": {
     "changeTheme": "切换主题",

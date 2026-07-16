@@ -250,7 +250,13 @@
     "confirmPasswordMsg": "Aynı parolayı yeniden girin.",
     "importPasswordTitle": "Yedek Parolası",
     "importPasswordMsg": "Şifreli yedek parolasını girin. Eski JSON yedekleri için herhangi bir değer girebilirsiniz.",
-    "passwordMismatch": "Parolalar eşleşmiyor."
+    "passwordMismatch": "Parolalar eşleşmiyor.",
+    "continueToConfirm": "Parolayı Onayla",
+    "createEncryptedBackup": "Şifreli Yedeği Oluştur",
+    "importBackup": "Yedeği İçe Aktar"
+  },
+  "validation": {
+    "minLength": "En az {{count}} karakter girilmelidir."
   },
   "tooltip": {
     "changeTheme": "Tema Değiştir",

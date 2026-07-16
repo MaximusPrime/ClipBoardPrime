@@ -441,7 +441,8 @@ const App = (() => {
       cancelButton.textContent = window.i18n ? window.i18n.t('btn.cancel') : 'İptal';
       const submitButton = document.createElement('button');
       submitButton.className = 'btn btn-primary';
-      submitButton.textContent = window.i18n ? window.i18n.t('btn.continue') : 'Devam';
+      submitButton.textContent = options.submitLabel
+        || (window.i18n ? window.i18n.t('btn.confirm') : 'Onayla');
 
       actions.append(cancelButton, submitButton);
       dialog.append(heading, description, input, error, actions);
@@ -458,7 +459,9 @@ const App = (() => {
       const submit = () => {
         const value = input.value;
         if (value.length < (options.minLength || 0)) {
-          error.textContent = `${options.minLength} karakterden kısa olamaz.`;
+          error.textContent = window.i18n
+            ? window.i18n.t('validation.minLength', { count: options.minLength })
+            : `En az ${options.minLength} karakter girilmelidir.`;
           input.focus();
           return;
         }

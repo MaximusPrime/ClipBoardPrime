@@ -444,14 +444,22 @@ const SettingsPanel = (() => {
     const password = await window.App.prompt(
       window.i18n ? window.i18n.t('backup.exportPasswordTitle') : 'Yedek Parolası',
       window.i18n ? window.i18n.t('backup.exportPasswordMsg') : 'Yedeği korumak için en az 8 karakterli bir parola belirleyin.',
-      { type: 'password', minLength: 8 }
+      {
+        type: 'password',
+        minLength: 8,
+        submitLabel: window.i18n ? window.i18n.t('backup.continueToConfirm') : 'Parolayı Onayla'
+      }
     );
     if (!password) return;
 
     const confirmation = await window.App.prompt(
       window.i18n ? window.i18n.t('backup.confirmPasswordTitle') : 'Parolayı Doğrulayın',
       window.i18n ? window.i18n.t('backup.confirmPasswordMsg') : 'Aynı parolayı yeniden girin.',
-      { type: 'password', minLength: 8 }
+      {
+        type: 'password',
+        minLength: 8,
+        submitLabel: window.i18n ? window.i18n.t('backup.createEncryptedBackup') : 'Şifreli Yedeği Oluştur'
+      }
     );
     if (!confirmation) return;
     if (password !== confirmation) {
@@ -486,7 +494,11 @@ const SettingsPanel = (() => {
     const password = await window.App.prompt(
       window.i18n ? window.i18n.t('backup.importPasswordTitle') : 'Yedek Parolası',
       window.i18n ? window.i18n.t('backup.importPasswordMsg') : 'Şifreli yedek parolasını girin. Eski JSON yedekleri için herhangi bir değer girebilirsiniz.',
-      { type: 'password', minLength: 1 }
+      {
+        type: 'password',
+        minLength: 1,
+        submitLabel: window.i18n ? window.i18n.t('backup.importBackup') : 'Yedeği İçe Aktar'
+      }
     );
     if (!password) return;
 

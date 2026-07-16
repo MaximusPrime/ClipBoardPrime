@@ -250,7 +250,13 @@
     "confirmPasswordMsg": "Enter the same password again.",
     "importPasswordTitle": "Backup Password",
     "importPasswordMsg": "Enter the encrypted backup password. For legacy JSON backups, you may enter any value.",
-    "passwordMismatch": "Passwords do not match."
+    "passwordMismatch": "Passwords do not match.",
+    "continueToConfirm": "Confirm Password",
+    "createEncryptedBackup": "Create Encrypted Backup",
+    "importBackup": "Import Backup"
+  },
+  "validation": {
+    "minLength": "Enter at least {{count}} characters."
   },
   "tooltip": {
     "changeTheme": "Toggle Theme",

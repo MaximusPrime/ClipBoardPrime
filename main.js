@@ -279,7 +279,7 @@ function requireIdOrderList(value) {
 }
 
 const ALLOWED_SETTING_KEYS = new Set([
-  'theme', 'maxHistory', 'pollingInterval', 'startWithWindows',
+  'theme', 'appFontSize', 'maxHistory', 'pollingInterval', 'startWithWindows',
   'dataLocation', 'globalShortcut', 'showPreview', 'detectSensitive',
   'blurToTray', 'language', 'leftPanelWidth', 'leftPanelWidthRatio',
   'windowBounds', 'trayBalloonShown',
