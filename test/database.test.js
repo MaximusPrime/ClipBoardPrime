@@ -67,7 +67,7 @@ test('yedekten not favori ve sıralama alanlarını geri yükler', () => {
 test('veri taşıma mevcut veritabanının üzerine yazmayı reddeder', () => {
   const directory = createDatabase();
   const target = fs.mkdtempSync(path.join(os.tmpdir(), 'clipboard-prime-target-'));
-  fs.writeFileSync(path.join(target, 'clipboard-pro.db'), 'existing');
+  fs.writeFileSync(path.join(target, 'clipboard-prime.db'), 'existing');
   try {
     assert.throws(
       () => db.changeLocation(target, directory),
@@ -111,11 +111,34 @@ test('hassas mükerrerleri HMAC ile bulur ve rastgele şifreleme kullanır', () 
     assert.equal(second.id, first.id);
 
     const Database = require('better-sqlite3');
-    const rawDb = new Database(path.join(directory, 'clipboard-pro.db'), { readonly: true });
+    const rawDb = new Database(path.join(directory, 'clipboard-prime.db'), { readonly: true });
     const raw = rawDb.prepare('SELECT content, content_hash FROM clipboard_history WHERE id = ?').get(first.id);
     rawDb.close();
     assert.notEqual(raw.content, 'aynı gizli değer');
     assert.equal(raw.content_hash, fingerprint('aynı gizli değer'));
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test('eski clipboard-pro veritabanı adını ClipBoardPrime adına taşır', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'clipboard-prime-legacy-'));
+  const legacyPath = path.join(directory, 'clipboard-pro.db');
+  const primePath = path.join(directory, 'clipboard-prime.db');
+  const Database = require('better-sqlite3');
+  const legacyDb = new Database(legacyPath);
+  legacyDb.exec('CREATE TABLE legacy_marker (value TEXT)');
+  legacyDb.prepare('INSERT INTO legacy_marker (value) VALUES (?)').run('preserved');
+  legacyDb.close();
+
+  try {
+    db.initialize(directory);
+    assert.equal(fs.existsSync(legacyPath), false);
+    assert.equal(fs.existsSync(primePath), true);
+    const migratedDb = new Database(primePath, { readonly: true });
+    const marker = migratedDb.prepare('SELECT value FROM legacy_marker').get();
+    migratedDb.close();
+    assert.equal(marker.value, 'preserved');
   } finally {
     cleanup(directory);
   }

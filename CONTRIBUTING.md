@@ -1,6 +1,6 @@
-# 🤝 ClipBoard Pro Katkı Sağlama Rehberi (Contributing Guide)
+# 🤝 ClipBoardPrime Katkı Sağlama Rehberi (Contributing Guide)
 
-Öncelikle, **ClipBoard Pro**'ya katkıda bulunmayı düşündüğünüz için teşekkür ederiz! Bu proje açık kaynaklı bir topluluk projesidir ve sizin gibi geliştiricilerin katkılarıyla daha da gelişmektedir.
+Öncelikle, **ClipBoardPrime**'a katkıda bulunmayı düşündüğünüz için teşekkür ederiz! Bu proje açık kaynaklı bir topluluk projesidir ve sizin gibi geliştiricilerin katkılarıyla daha da gelişmektedir.
 
 Bu rehber, projeye katkı sağlarken uymanız gereken kuralları, iş akışını ve kod standartlarını açıklamaktadır.
 

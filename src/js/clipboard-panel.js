@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   ClipBoard Pro — Clipboard Panel Module
+   ClipBoardPrime — Clipboard Panel Module
    ═══════════════════════════════════════════════════════════════ */
 
 'use strict';

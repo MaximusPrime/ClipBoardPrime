@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   ClipBoard Pro — Main Application Coordinator
+   ClipBoardPrime — Main Application Coordinator
    ═══════════════════════════════════════════════════════════════ */
 
 'use strict';

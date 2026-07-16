@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   ClipBoard Pro — Utility Functions
+   ClipBoardPrime — Utility Functions
    ═══════════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -322,4 +322,3 @@ const Utils = (() => {
 })();
 
 window.Utils = Utils;
-

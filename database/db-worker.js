@@ -1,5 +1,5 @@
 /**
- * ClipBoard Pro — Database Worker Thread
+ * ClipBoardPrime — Database Worker Thread
  * =======================================
  * SQLite işlemlerini ayrı bir thread üzerinde senkron olarak yürütür,
  * ana thread'i bloke etmez.

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   ClipBoard Pro — Initializer (Zero-Flicker & Zero-Layout-Shift)
+   ClipBoardPrime — Initializer (Zero-Flicker & Zero-Layout-Shift)
    ═══════════════════════════════════════════════════════════════ */
 
 'use strict';

@@ -1,5 +1,5 @@
 /**
- * ClipBoard Pro — Veritabanı Modülü
+ * ClipBoardPrime — Veritabanı Modülü
  * ====================================
  * better-sqlite3 kullanarak senkron SQLite işlemleri.
  * WAL modu, prepared statements ve tam CRUD desteği.
@@ -95,7 +95,9 @@ function initialize(userDataPath, customLocation, options = {}) {
       fs.mkdirSync(baseDir, { recursive: true });
     }
 
-    dbPath = path.join(baseDir, 'clipboard-pro.db');
+    const legacyDbPath = path.join(baseDir, 'clipboard-pro.db');
+    dbPath = path.join(baseDir, 'clipboard-prime.db');
+    migrateLegacyDatabaseFiles(legacyDbPath, dbPath);
     db = new Database(dbPath);
 
     // Performans ayarları
@@ -550,6 +552,15 @@ function deleteClipboardItem(id) {
   }
 
   return result.changes > 0;
+}
+
+function migrateLegacyDatabaseFiles(legacyPath, primePath) {
+  if (fs.existsSync(primePath) || !fs.existsSync(legacyPath)) return;
+  for (const suffix of ['', '-wal', '-shm']) {
+    const source = legacyPath + suffix;
+    const destination = primePath + suffix;
+    if (fs.existsSync(source)) fs.renameSync(source, destination);
+  }
 }
 
 function migrateClipboardContentHash() {
@@ -1406,7 +1417,7 @@ function changeLocation(newLocation, userDataPath) {
   }
   newLocation = path.resolve(newLocation);
   const oldPath = dbPath;
-  const newPath = path.join(newLocation, 'clipboard-pro.db');
+  const newPath = path.join(newLocation, 'clipboard-prime.db');
 
   // Aynı konumsa işlem yapma (Windows için büyük/küçük harf duyarsız)
   if (oldPath && newPath && path.normalize(oldPath).toLowerCase() === path.normalize(newPath).toLowerCase()) {

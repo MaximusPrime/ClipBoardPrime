@@ -138,7 +138,11 @@ if (isPortable) {
   const portableDataPath = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data');
   app.setPath('userData', portableDataPath);
 } else if (isDev) {
-  const devDataPath = path.join(app.getPath('appData'), 'clipboard-pro-app-dev');
+  const legacyDevDataPath = path.join(app.getPath('appData'), 'clipboard-pro-app-dev');
+  const devDataPath = path.join(app.getPath('appData'), 'clipboard-prime-app-dev');
+  if (!fs.existsSync(devDataPath) && fs.existsSync(legacyDevDataPath)) {
+    fs.renameSync(legacyDevDataPath, devDataPath);
+  }
   app.setPath('userData', devDataPath);
 }
 

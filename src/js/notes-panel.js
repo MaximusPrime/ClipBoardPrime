@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   ClipBoard Pro — Notes Panel Module
+   ClipBoardPrime — Notes Panel Module
    ═══════════════════════════════════════════════════════════════ */
 
 'use strict';
@@ -1168,4 +1168,3 @@ const NotesPanel = (() => {
 })();
 
 window.NotesPanel = NotesPanel;
-

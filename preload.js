@@ -1,5 +1,5 @@
 /**
- * ClipBoard Pro — Preload Script
+ * ClipBoardPrime — Preload Script
  * ================================
  * contextBridge ile güvenli IPC köprüsü.
  * Renderer process'e sadece izin verilen kanalları açar.

@@ -11,7 +11,7 @@
   [![Version](https://img.shields.io/badge/version-1.0.1-6366f1?style=flat-square)](package.json)
   [![Electron](https://img.shields.io/badge/Electron-33-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](#system-requirements)
-  [![Tests](https://img.shields.io/badge/tests-8%20passing-22c55e?style=flat-square)](#quality-assurance)
+  [![Tests](https://img.shields.io/badge/tests-9%20passing-22c55e?style=flat-square)](#quality-assurance)
   [![License](https://img.shields.io/badge/license-GPL--3.0-22c55e?style=flat-square)](LICENSE)
 
   [Features](#features) · [Security](#security-and-privacy) · [Installation](#installation) · [Development](#development) · [Contributing](CONTRIBUTING.md)
@@ -218,7 +218,7 @@ npm audit --omit=dev
 ## Data storage
 
 - Installed builds use Electron’s Windows `userData` directory by default.
-- Development mode uses a separate `clipboard-pro-app-dev` directory under `%AppData%`.
+- Development mode uses a separate `clipboard-prime-app-dev` directory under `%AppData%`.
 - Portable builds store data next to the executable in `data/`.
 - Users of installed builds may move the database and image directory from Settings.
 
