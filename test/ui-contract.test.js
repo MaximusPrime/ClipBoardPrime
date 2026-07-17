@@ -195,8 +195,39 @@ test('Space hızlı önizlemesi kompakt pencerenin merkezinde konumlanır', () =
   );
   assert.ok(positionBlock, 'positionQuickPreview fonksiyonu bulunamadı');
   assert.match(positionBlock[1], /\(window\.innerWidth - width\) \/ 2/);
-  assert.match(positionBlock[1], /\(window\.innerHeight - previewHeight\) \/ 2/);
+  assert.match(positionBlock[1], /\(window\.innerHeight - measuredHeight\) \/ 2/);
   assert.doesNotMatch(positionBlock[1], /owner\.getBoundingClientRect/);
+});
+
+test('hızlı önizleme büyütme, boyutlandırma ve kapanınca sıfırlama sunar', () => {
+  const source = read('src/js/clipboard-panel.js');
+  const css = read('src/styles/main.css');
+  assert.match(source, /let previewExpanded = false/);
+  assert.match(source, /function togglePreviewExpanded\(\)/);
+  assert.match(source, /function startPreviewResize\(/);
+  assert.match(source, /data-preview-expand/);
+  assert.match(source, /data-preview-close/);
+  assert.match(source, /data-preview-resize/);
+  assert.match(source, /previewExpanded = false;\s*previewCustomSize = null/);
+  assert.match(css, /\.clipboard-quick-preview\.is-expanded/);
+  assert.match(css, /\.clipboard-quick-preview-resize/);
+});
+
+test('not ve pano detay modalları viewport ile dinamik büyür', () => {
+  const css = read('src/styles/main.css');
+  const notes = read('src/js/notes-panel.js');
+  const html = read('src/index.html');
+  assert.match(css, /#note-detail-modal \.note-detail-dialog/);
+  assert.match(css, /#clip-detail-modal \.detail-dialog/);
+  assert.match(css, /\.detail-dialog\s*\{[^}]*max-height:\s*calc\(100vh/s);
+  assert.match(css, /\.detail-dialog-body\s*\{[^}]*max-height:\s*none/s);
+  assert.doesNotMatch(css, /\.detail-dialog-body\s*\{\s*max-height:\s*400px/);
+  assert.match(html, /id="note-detail-expand-btn"/);
+  assert.match(html, /id="note-detail-resize"/);
+  assert.match(notes, /function toggleDetailExpanded\(\)/);
+  assert.match(notes, /function applyDetailDialogSize\(\)/);
+  assert.match(notes, /function resetDetailDialogSize\(\)/);
+  assert.match(notes, /detailExpanded = false;\s*detailCustomSize = null/);
 });
 
 test('Pano ve Notlar geçiş kontrolü başlık çubuğunda geometrik olarak ortalanır', () => {

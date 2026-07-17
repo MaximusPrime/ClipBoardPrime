@@ -430,7 +430,11 @@
     "mailbox": "Mailbox",
     "domain": "Domain",
     "code": "Code",
-    "safeHtml": "Safe text view"
+    "safeHtml": "Safe text view",
+    "expand": "Expand",
+    "restore": "Restore default size",
+    "resizeHandle": "Resize",
+    "close": "Close"
   },
   "clipDetail": {
     "title": "Clipboard Item Details"

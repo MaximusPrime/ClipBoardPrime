@@ -430,7 +430,11 @@
     "mailbox": "邮箱名称",
     "domain": "域名",
     "code": "代码",
-    "safeHtml": "安全文本视图"
+    "safeHtml": "安全文本视图",
+    "expand": "放大",
+    "restore": "恢复默认大小",
+    "resizeHandle": "调整大小",
+    "close": "关闭"
   },
   "clipDetail": {
     "title": "剪贴板项目详情"

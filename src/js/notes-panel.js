@@ -39,8 +39,11 @@ const NotesPanel = (() => {
 
     // Detail Modal
     detailModal: document.getElementById('note-detail-modal'),
+    detailDialog: document.getElementById('note-detail-dialog'),
     detailCloseBtn: document.getElementById('note-detail-close-btn'),
     detailCloseBottomBtn: document.getElementById('note-detail-close-bottom-btn'),
+    detailExpandBtn: document.getElementById('note-detail-expand-btn'),
+    detailResizeHandle: document.getElementById('note-detail-resize'),
     detailTitle: document.getElementById('note-detail-title-text'),
     detailContent: document.getElementById('note-detail-content'),
     detailCategory: document.getElementById('note-detail-category-tag'),
@@ -56,6 +59,12 @@ const NotesPanel = (() => {
   let selectedColor = 'charcoal';
   let isDraggingGlobal = false;
   let editorBaseline = null;
+  let detailExpanded = false;
+  let detailCustomSize = null; // { width, height }
+  let detailResizeState = null;
+  let detailResizeBound = false;
+  const DETAIL_MIN_WIDTH = 320;
+  const DETAIL_MIN_HEIGHT = 240;
 
   /**
    * Varsayılan kategorilerin isimlerini seçili dile göre yerelleştirir
@@ -256,6 +265,32 @@ const NotesPanel = (() => {
     // ─── Detay Modalı Dinleyicileri ───
     elements.detailCloseBtn.addEventListener('click', () => closeDetailModal());
     elements.detailCloseBottomBtn.addEventListener('click', () => closeDetailModal());
+    elements.detailExpandBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDetailExpanded();
+    });
+    elements.detailResizeHandle?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startDetailResize(e);
+    });
+    if (!detailResizeBound) {
+      detailResizeBound = true;
+      window.addEventListener('resize', () => {
+        if (!elements.detailModal?.classList.contains('active')) return;
+        if (detailCustomSize) {
+          const margin = 12;
+          detailCustomSize = {
+            width: Math.min(detailCustomSize.width, window.innerWidth - margin * 2),
+            height: Math.min(detailCustomSize.height, window.innerHeight - margin * 2),
+          };
+        }
+        applyDetailDialogSize();
+      });
+      document.addEventListener('pointermove', onDetailResizeMove);
+      document.addEventListener('pointerup', onDetailResizeEnd);
+      document.addEventListener('pointercancel', onDetailResizeEnd);
+    }
   }
 
   /**
@@ -973,13 +1008,136 @@ const NotesPanel = (() => {
       }
     };
 
+    // Her açılışta varsayılan boyuta dön (önceki oturum kalıntısı kalmasın)
+    resetDetailDialogSize();
     elements.detailModal.classList.add('active');
+    applyDetailDialogSize();
     Utils.initFocusTrap(elements.detailModal);
   }
 
   function closeDetailModal() {
+    onDetailResizeEnd();
+    resetDetailDialogSize();
     elements.detailModal.classList.remove('active');
     Utils.destroyFocusTrap(elements.detailModal);
+  }
+
+  function getDetailExpandLabel() {
+    if (window.i18n) {
+      return window.i18n.t(detailExpanded ? 'preview.restore' : 'preview.expand');
+    }
+    return detailExpanded ? 'Varsayılan boyuta dön' : 'Büyüt';
+  }
+
+  function updateDetailExpandButton() {
+    const btn = elements.detailExpandBtn;
+    if (!btn) return;
+    const label = getDetailExpandLabel();
+    btn.innerHTML = detailExpanded ? Utils.Icons.restore : Utils.Icons.maximize;
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('data-tooltip', label);
+    btn.setAttribute('title', label);
+  }
+
+  function toggleDetailExpanded() {
+    detailExpanded = !detailExpanded;
+    detailCustomSize = null;
+    elements.detailDialog?.classList.toggle('is-expanded', detailExpanded);
+    elements.detailDialog?.classList.remove('is-custom-size');
+    updateDetailExpandButton();
+    applyDetailDialogSize();
+  }
+
+  function startDetailResize(event) {
+    const dialog = elements.detailDialog;
+    if (!dialog || !elements.detailModal?.classList.contains('active')) return;
+    const rect = dialog.getBoundingClientRect();
+    detailResizeState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: rect.width,
+      startHeight: rect.height,
+    };
+    try {
+      event.currentTarget?.setPointerCapture?.(event.pointerId);
+    } catch {
+      // ignore
+    }
+    document.body.classList.add('is-resizing-detail-dialog');
+  }
+
+  function onDetailResizeMove(event) {
+    if (!detailResizeState || !elements.detailDialog) return;
+    const margin = 12;
+    const maxWidth = Math.max(DETAIL_MIN_WIDTH, window.innerWidth - margin * 2);
+    const maxHeight = Math.max(DETAIL_MIN_HEIGHT, window.innerHeight - margin * 2);
+    const nextWidth = Math.min(
+      maxWidth,
+      Math.max(DETAIL_MIN_WIDTH, detailResizeState.startWidth + (event.clientX - detailResizeState.startX))
+    );
+    const nextHeight = Math.min(
+      maxHeight,
+      Math.max(DETAIL_MIN_HEIGHT, detailResizeState.startHeight + (event.clientY - detailResizeState.startY))
+    );
+    detailCustomSize = { width: nextWidth, height: nextHeight };
+    detailExpanded = false;
+    elements.detailDialog.classList.remove('is-expanded');
+    elements.detailDialog.classList.add('is-custom-size');
+    updateDetailExpandButton();
+    applyDetailDialogSize();
+  }
+
+  function onDetailResizeEnd() {
+    if (!detailResizeState) return;
+    detailResizeState = null;
+    document.body.classList.remove('is-resizing-detail-dialog');
+  }
+
+  function applyDetailDialogSize() {
+    const dialog = elements.detailDialog;
+    if (!dialog) return;
+
+    const margin = detailExpanded && !detailCustomSize ? 8 : 12;
+    const maxWidth = Math.max(DETAIL_MIN_WIDTH, window.innerWidth - margin * 2);
+    const maxHeight = Math.max(DETAIL_MIN_HEIGHT, window.innerHeight - margin * 2);
+
+    if (detailCustomSize) {
+      const width = Math.min(maxWidth, Math.max(DETAIL_MIN_WIDTH, detailCustomSize.width));
+      const height = Math.min(maxHeight, Math.max(DETAIL_MIN_HEIGHT, detailCustomSize.height));
+      dialog.style.width = `${Math.round(width)}px`;
+      dialog.style.maxWidth = `${Math.round(width)}px`;
+      dialog.style.height = `${Math.round(height)}px`;
+      dialog.style.maxHeight = `${Math.round(height)}px`;
+      return;
+    }
+
+    if (detailExpanded) {
+      dialog.style.width = `${maxWidth}px`;
+      dialog.style.maxWidth = `${maxWidth}px`;
+      dialog.style.height = `${maxHeight}px`;
+      dialog.style.maxHeight = `${maxHeight}px`;
+      return;
+    }
+
+    // Varsayılan: viewport ile büyüyen akışkan boyut (CSS sınıfları + inline clamp)
+    dialog.style.width = '';
+    dialog.style.maxWidth = '';
+    dialog.style.height = '';
+    dialog.style.maxHeight = `${maxHeight}px`;
+  }
+
+  function resetDetailDialogSize() {
+    detailExpanded = false;
+    detailCustomSize = null;
+    const dialog = elements.detailDialog;
+    if (dialog) {
+      dialog.classList.remove('is-expanded', 'is-custom-size');
+      dialog.style.width = '';
+      dialog.style.maxWidth = '';
+      dialog.style.height = '';
+      dialog.style.maxHeight = '';
+    }
+    updateDetailExpandButton();
   }
 
   function updateCustomCategorySelectUI(val) {

@@ -33,7 +33,14 @@ const ClipboardPanel = (() => {
   let previewTimer = null;
   let previewOwner = null;
   let previewPinned = false;
+  let previewExpanded = false;
+  let previewCustomSize = null; // { width, height } when user resizes
+  let previewResizeState = null;
+  let previewResizeBound = false;
   const limit = 50;
+  const PREVIEW_COMPACT_MAX_WIDTH = 480;
+  const PREVIEW_MIN_WIDTH = 300;
+  const PREVIEW_MIN_HEIGHT = 200;
 
   /**
    * Modülü başlatır ve olay dinleyicilerini tanımlar
@@ -1109,11 +1116,19 @@ const ClipboardPanel = (() => {
       clearTimeout(previewTimer);
     });
     previewElement.addEventListener('mouseleave', () => {
+      if (previewResizeState) return;
       previewTimer = setTimeout(() => {
         if (!previewPinned) hideQuickPreview();
       }, 220);
     });
     previewElement.addEventListener('keydown', (event) => {
+      if (event.key === 'f' || event.key === 'F') {
+        if (event.target?.closest?.('input, textarea, [contenteditable="true"]')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        togglePreviewExpanded();
+        return;
+      }
       if (event.key !== 'Escape' && event.key !== ' ') return;
       event.preventDefault();
       event.stopPropagation();
@@ -1126,6 +1141,24 @@ const ClipboardPanel = (() => {
       if (previewElement.contains(event.target) || previewOwner?.contains(event.target)) return;
       hideQuickPreview();
     });
+    if (!previewResizeBound) {
+      previewResizeBound = true;
+      window.addEventListener('resize', () => {
+        if (!previewElement?.classList.contains('visible')) return;
+        // Keep custom size when possible, but re-clamp to the new viewport.
+        if (previewCustomSize) {
+          const margin = previewExpanded ? 12 : 10;
+          previewCustomSize = {
+            width: Math.min(previewCustomSize.width, window.innerWidth - margin * 2),
+            height: Math.min(previewCustomSize.height, window.innerHeight - margin * 2),
+          };
+        }
+        positionQuickPreview(previewElement, previewOwner);
+      });
+      document.addEventListener('pointermove', onPreviewResizeMove);
+      document.addEventListener('pointerup', onPreviewResizeEnd);
+      document.addEventListener('pointercancel', onPreviewResizeEnd);
+    }
     document.body.appendChild(previewElement);
     return previewElement;
   }
@@ -1150,6 +1183,11 @@ const ClipboardPanel = (() => {
     const typeLabel = Utils.getContentTypeLabel(item.content_type);
     let content = '';
     let details = '';
+    const expandLabel = window.i18n
+      ? window.i18n.t(previewExpanded ? 'preview.restore' : 'preview.expand')
+      : (previewExpanded ? 'Varsayılan boyuta dön' : 'Büyüt');
+    const closeLabel = window.i18n ? window.i18n.t('preview.close') : 'Kapat';
+    const resizeLabel = window.i18n ? window.i18n.t('preview.resizeHandle') : 'Boyutu ayarla';
 
     if (item.content_type === 'image' && item.image_path) {
       const fileUrl = 'local-file:///' + item.image_path.replace(/\\/g, '/');
@@ -1188,11 +1226,14 @@ const ClipboardPanel = (() => {
         <span>${Utils.getContentTypeIcon(item.content_type)} ${typeLabel}</span>
         <span class="clipboard-quick-preview-tools">
           ${item.content_type === 'image' ? '' : `<button class="clip-action-btn" data-preview-copy type="button" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}">${Utils.Icons.copy}</button>`}
+          <button class="clip-action-btn" data-preview-expand type="button" aria-label="${expandLabel}" data-tooltip="${expandLabel}" title="${expandLabel}">${previewExpanded ? Utils.Icons.restore : Utils.Icons.maximize}</button>
+          <button class="clip-action-btn clipboard-quick-preview-close" data-preview-close type="button" aria-label="${closeLabel}" data-tooltip="${closeLabel}" title="${closeLabel}">${Utils.Icons.close}</button>
           <kbd>Space</kbd>
         </span>
       </div>
       <div class="clipboard-quick-preview-body" tabindex="0">${content}</div>
       <div class="clipboard-quick-preview-footer">${details}</div>
+      <div class="clipboard-quick-preview-resize" data-preview-resize role="separator" aria-orientation="both" aria-label="${resizeLabel}" title="${resizeLabel}"></div>
     `;
     preview.querySelector('[data-preview-open-url]')?.addEventListener('click', () => {
       window.api.openExternal(item.content);
@@ -1202,30 +1243,148 @@ const ClipboardPanel = (() => {
       await copyItem(item, false);
       preview.querySelector('.clipboard-quick-preview-body')?.focus();
     });
+    preview.querySelector('[data-preview-expand]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      togglePreviewExpanded();
+    });
+    preview.querySelector('[data-preview-close]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const owner = previewOwner;
+      hideQuickPreview();
+      owner?.focus();
+    });
+    preview.querySelector('[data-preview-resize]')?.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      startPreviewResize(event);
+    });
 
     previewOwner = owner;
+    preview.classList.toggle('is-expanded', previewExpanded);
+    preview.classList.toggle('is-custom-size', Boolean(previewCustomSize));
     positionQuickPreview(preview, owner);
     preview.classList.add('visible');
   }
 
-  function positionQuickPreview(preview, owner) {
-    const margin = 10;
-    const width = Math.min(420, Math.max(300, window.innerWidth - margin * 2));
-    preview.style.width = `${width}px`;
-    preview.style.maxHeight = `${Math.max(240, window.innerHeight - margin * 2)}px`;
+  function togglePreviewExpanded() {
+    if (!previewElement?.classList.contains('visible')) return;
+    previewPinned = true;
+    previewExpanded = !previewExpanded;
+    // Fullscreen-style expand drops freeform size; restore returns to compact defaults.
+    previewCustomSize = null;
+    previewElement.classList.toggle('is-expanded', previewExpanded);
+    previewElement.classList.remove('is-custom-size');
+    const expandBtn = previewElement.querySelector('[data-preview-expand]');
+    if (expandBtn) {
+      const expandLabel = window.i18n
+        ? window.i18n.t(previewExpanded ? 'preview.restore' : 'preview.expand')
+        : (previewExpanded ? 'Varsayılan boyuta dön' : 'Büyüt');
+      expandBtn.innerHTML = previewExpanded ? Utils.Icons.restore : Utils.Icons.maximize;
+      expandBtn.setAttribute('aria-label', expandLabel);
+      expandBtn.setAttribute('data-tooltip', expandLabel);
+      expandBtn.setAttribute('title', expandLabel);
+    }
+    positionQuickPreview(previewElement, previewOwner);
+    previewElement.querySelector('.clipboard-quick-preview-body')?.focus({ preventScroll: true });
+  }
 
-    const previewHeight = Math.min(preview.scrollHeight || 360, window.innerHeight - margin * 2);
+  function startPreviewResize(event) {
+    if (!previewElement?.classList.contains('visible')) return;
+    previewPinned = true;
+    const rect = previewElement.getBoundingClientRect();
+    previewResizeState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: rect.width,
+      startHeight: rect.height,
+      pointerId: event.pointerId,
+    };
+    try {
+      event.currentTarget?.setPointerCapture?.(event.pointerId);
+    } catch {
+      // ignore capture failures
+    }
+    document.body.classList.add('is-resizing-preview');
+  }
+
+  function onPreviewResizeMove(event) {
+    if (!previewResizeState || !previewElement) return;
+    const margin = 10;
+    const maxWidth = Math.max(PREVIEW_MIN_WIDTH, window.innerWidth - margin * 2);
+    const maxHeight = Math.max(PREVIEW_MIN_HEIGHT, window.innerHeight - margin * 2);
+    const nextWidth = Math.min(
+      maxWidth,
+      Math.max(PREVIEW_MIN_WIDTH, previewResizeState.startWidth + (event.clientX - previewResizeState.startX))
+    );
+    const nextHeight = Math.min(
+      maxHeight,
+      Math.max(PREVIEW_MIN_HEIGHT, previewResizeState.startHeight + (event.clientY - previewResizeState.startY))
+    );
+    previewCustomSize = { width: nextWidth, height: nextHeight };
+    previewExpanded = false;
+    previewElement.classList.remove('is-expanded');
+    previewElement.classList.add('is-custom-size');
+    positionQuickPreview(previewElement, previewOwner);
+  }
+
+  function onPreviewResizeEnd() {
+    if (!previewResizeState) return;
+    previewResizeState = null;
+    document.body.classList.remove('is-resizing-preview');
+  }
+
+  function positionQuickPreview(preview, owner) {
+    const margin = previewExpanded && !previewCustomSize ? 12 : 10;
+    const maxWidth = Math.max(PREVIEW_MIN_WIDTH, window.innerWidth - margin * 2);
+    const maxHeight = Math.max(PREVIEW_MIN_HEIGHT, window.innerHeight - margin * 2);
+
+    let width;
+    let height = null;
+
+    if (previewCustomSize) {
+      width = Math.min(maxWidth, Math.max(PREVIEW_MIN_WIDTH, previewCustomSize.width));
+      height = Math.min(maxHeight, Math.max(PREVIEW_MIN_HEIGHT, previewCustomSize.height));
+    } else if (previewExpanded) {
+      width = maxWidth;
+      height = maxHeight;
+    } else {
+      width = Math.min(PREVIEW_COMPACT_MAX_WIDTH, maxWidth);
+    }
+
+    preview.style.width = `${Math.round(width)}px`;
+    if (height != null) {
+      preview.style.height = `${Math.round(height)}px`;
+      preview.style.maxHeight = `${Math.round(height)}px`;
+    } else {
+      preview.style.height = '';
+      preview.style.maxHeight = `${maxHeight}px`;
+    }
+
+    // Measure after size styles so compact mode can center vertically.
+    const measuredHeight = height != null
+      ? height
+      : Math.min(preview.scrollHeight || 360, maxHeight);
     const left = Math.max(margin, Math.round((window.innerWidth - width) / 2));
-    const top = Math.max(margin, Math.round((window.innerHeight - previewHeight) / 2));
+    const top = Math.max(margin, Math.round((window.innerHeight - measuredHeight) / 2));
     preview.style.left = `${left}px`;
     preview.style.top = `${top}px`;
   }
 
   function hideQuickPreview() {
     clearTimeout(previewTimer);
-    if (previewElement) previewElement.classList.remove('visible');
+    onPreviewResizeEnd();
+    if (previewElement) {
+      previewElement.classList.remove('visible', 'is-expanded', 'is-custom-size');
+      previewElement.style.width = '';
+      previewElement.style.height = '';
+      previewElement.style.maxHeight = '';
+      previewElement.style.left = '';
+      previewElement.style.top = '';
+    }
     previewOwner = null;
     previewPinned = false;
+    previewExpanded = false;
+    previewCustomSize = null;
   }
 
   function htmlToPreviewText(value) {

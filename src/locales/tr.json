@@ -430,7 +430,11 @@
     "mailbox": "Posta kutusu",
     "domain": "Alan adı",
     "code": "Kod",
-    "safeHtml": "Güvenli metin görünümü"
+    "safeHtml": "Güvenli metin görünümü",
+    "expand": "Büyüt",
+    "restore": "Varsayılan boyuta dön",
+    "resizeHandle": "Boyutu ayarla",
+    "close": "Kapat"
   },
   "clipDetail": {
     "title": "Pano Öğesi Detayı"
