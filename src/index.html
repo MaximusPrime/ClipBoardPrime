@@ -45,23 +45,22 @@
 
       <!-- ─── Clipboard Panel ─── -->
       <section id="clipboard-panel">
-        <div class="panel-header">
-          <h2>
+        <div class="panel-toolbar">
+          <div class="panel-toolbar-title">
             <span class="panel-icon"><svg class="icon-svg" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span>
             <span data-i18n="nav.clipboard">Pano Geçmişi</span>
             <span class="panel-count" id="clipboard-count">0</span>
-          </h2>
+          </div>
+          <div class="panel-search-wrapper">
+            <span class="search-icon"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+            <input type="text" id="clipboard-search" class="panel-search-input" placeholder="Panoda ara... (Ctrl+F)" data-i18n="[placeholder]search.clipboard" autocomplete="off" spellcheck="false" aria-label="Pano geçmişinde ara">
+            <button class="search-clear-btn" id="clipboard-search-clear" aria-label="Aramayı temizle" data-i18n="[aria-label]search.clearAria" type="button">✕</button>
+          </div>
           <div class="panel-header-actions">
             <button class="panel-btn danger" id="clear-history-btn" data-tooltip="Geçmişi Temizle" data-i18n="[data-tooltip]tooltip.clearHistory" aria-label="Geçmişi temizle">
               <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg> <span data-i18n="btn.clear">Temizle</span>
             </button>
           </div>
-        </div>
-
-        <div class="panel-search-wrapper">
-          <span class="search-icon"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
-          <input type="text" id="clipboard-search" class="panel-search-input" placeholder="Panoda ara... (Ctrl+F)" data-i18n="[placeholder]search.clipboard" autocomplete="off" spellcheck="false" aria-label="Pano geçmişinde ara">
-          <button class="search-clear-btn" id="clipboard-search-clear" aria-label="Aramayı temizle" data-i18n="[aria-label]search.clearAria" type="button">✕</button>
         </div>
         <div class="clipboard-advanced-filters" id="clipboard-advanced-filters">
           <select class="setting-select" id="clipboard-filter-period" aria-label="Kayıt dönemi">
@@ -138,12 +137,17 @@
  
       <!-- ─── Notes Panel ─── -->
       <section id="notes-panel" aria-label="Not Defteri Paneli">
-        <div class="panel-header">
-          <h2>
+        <div class="panel-toolbar">
+          <div class="panel-toolbar-title">
             <span class="panel-icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span>
             <span data-i18n="nav.notes">Notlarım</span>
             <span class="panel-count" id="notes-count">0</span>
-          </h2>
+          </div>
+          <div class="panel-search-wrapper">
+            <span class="search-icon"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+            <input type="text" id="notes-search" class="panel-search-input" placeholder="Notlarda ara... (Ctrl+F)" data-i18n="[placeholder]search.notes" autocomplete="off" spellcheck="false" aria-label="Notlarda ara">
+            <button class="search-clear-btn" id="notes-search-clear" aria-label="Aramayı temizle" data-i18n="[aria-label]search.clearAria" type="button">✕</button>
+          </div>
           <div class="panel-header-actions">
             <button class="panel-btn" id="manage-categories-btn" data-tooltip="Kategoriler" data-i18n="[data-tooltip]tooltip.categories" aria-label="Kategorileri yönet" type="button">
               <svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg> <span data-i18n="btn.categoryPlus">Kategori +</span>
@@ -152,12 +156,6 @@
               <svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> <span data-i18n="btn.newNote">Yeni Not</span>
             </button>
           </div>
-        </div>
-
-        <div class="panel-search-wrapper">
-          <span class="search-icon"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
-          <input type="text" id="notes-search" class="panel-search-input" placeholder="Notlarda ara... (Ctrl+F)" data-i18n="[placeholder]search.notes" autocomplete="off" spellcheck="false" aria-label="Notlarda ara">
-          <button class="search-clear-btn" id="notes-search-clear" aria-label="Aramayı temizle" data-i18n="[aria-label]search.clearAria" type="button">✕</button>
         </div>
 
         <div id="notes-toolbar">
@@ -186,7 +184,7 @@
         <span class="status-item" id="status-pinned"><svg class="icon-svg" viewBox="0 0 24 24"><line x1="18" y1="8" x2="22" y2="8"></line><line x1="12" y1="2" x2="12" y2="6"></line><path d="M12 6H8a2 2 0 0 0-2 2v2a6 6 0 0 0 6 6h2a6 6 0 0 0 6-6V8a2 2 0 0 0-2-2h-4"></path><line x1="12" y1="16" x2="12" y2="22"></line></svg> <span>-</span> <span data-i18n="status.pinned">sabitlenmiş</span></span>
       </div>
       <div class="status-right">
-        <span class="status-item"><span class="status-dot"></span> <span data-i18n="status.active">Aktif</span></span>
+        <span class="status-item"><span class="status-dot"></span> <span data-i18n="status.watching">Pano izleniyor</span></span>
       </div>
     </footer>
 
@@ -199,6 +197,7 @@
         </div>
         <div class="settings-tabs" role="tablist" aria-label="Ayarlar sekmeleri">
           <button class="settings-tab active" data-tab="general" role="tab" aria-selected="true" aria-label="Genel ayarlar sekmesi" data-i18n="settings.tabGeneral">Genel</button>
+          <button class="settings-tab" data-tab="advanced" role="tab" aria-selected="false" aria-label="Gelişmiş ayarlar sekmesi" data-i18n="settings.tabAdvanced">Gelişmiş</button>
           <button class="settings-tab" data-tab="data" role="tab" aria-selected="false" aria-label="Veri ayarları sekmesi" data-i18n="settings.tabData">Veri</button>
           <button class="settings-tab" data-tab="about" role="tab" aria-selected="false" aria-label="Uygulama hakkında sekmesi" data-i18n="settings.tabAbout">Hakkında</button>
         </div>
@@ -268,18 +267,6 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span data-i18n="settings.sensitiveLabel">Hassas Veri Algılama</span>
-                  <small data-i18n="settings.sensitiveDesc">Algılanan hassas içerikleri önizlemede maskele ve şifreli sakla</small>
-                </div>
-                <div class="setting-value">
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="setting-sensitive" aria-label="Panodan kopyalanan hassas verileri otomatik maskele">
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-              <div class="setting-row">
-                <div class="setting-label">
                   <span data-i18n="settings.blurToTrayLabel">Masaüstüne Tıklayınca Kapat</span>
                   <small data-i18n="settings.blurToTrayDesc">Pencere odağını kaybettiğinde sistem tepsisine küçült</small>
                 </div>
@@ -292,12 +279,96 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span data-i18n="settings.winVLabel">Win+V ile ClipBoardPrime'ı Aç</span>
-                  <small data-i18n="settings.winVDesc">İsteğe bağlıdır. Windows pano geçmişi yerine ClipBoardPrime'ı açmayı dener; çalışmazsa normal kısayolunuz kullanılmaya devam eder.</small>
+                  <span data-i18n="settings.hideAfterPasteLabel">Yapıştırdıktan Sonra Gizle</span>
+                  <small data-i18n="settings.hideAfterPasteDesc">Aktif pencereye yapıştırma tamamlanınca ClipBoardPrime'ı gizle</small>
                 </div>
                 <div class="setting-value">
                   <label class="toggle-switch">
-                    <input type="checkbox" id="setting-win-v" aria-label="Win+V entegrasyonunu etkinleştir">
+                    <input type="checkbox" id="setting-hide-after-paste" aria-label="Yapıştırma sonrasında uygulamayı gizle">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.windowOpenPositionLabel">Pencere Açılış Konumu</span>
+                  <small data-i18n="settings.windowOpenPositionDesc">Uygulama penceresinin nerede açılacağını seçin</small>
+                </div>
+                <div class="setting-value">
+                  <select class="setting-select" id="setting-window-open-position" aria-label="Pencere açılış konumu">
+                    <option value="remember" data-i18n="settings.windowOpenPositionRemember">Son konumu hatırla</option>
+                    <option value="cursor" data-i18n="settings.windowOpenPositionCursor">Fare imlecinin yanında</option>
+                  </select>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.resetWindowLabel">Pencere Boyutu ve Konumu</span>
+                  <small data-i18n="settings.resetWindowDesc">Pencereyi varsayılan kompakt boyuta döndürüp monitörde ortalar</small>
+                </div>
+                <div class="setting-value">
+                  <button class="btn btn-default" id="reset-window-bounds-btn" type="button" data-i18n="settings.resetWindowButton">Varsayılana Dön</button>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.workspaceOpenModeLabel">Açılış Ekranı</span>
+                  <small data-i18n="settings.workspaceOpenModeDesc">Global kısayol veya sistem tepsisinden açıldığında gösterilecek ekran</small>
+                </div>
+                <div class="setting-value">
+                  <select class="setting-select" id="setting-workspace-open-mode" aria-label="Açılış ekranı">
+                    <option value="last" data-i18n="settings.workspaceModeLast">Son görüntülenen ekran</option>
+                    <option value="clipboard" data-i18n="settings.workspaceModeClipboard">Pano</option>
+                    <option value="notes" data-i18n="settings.workspaceModeNotes">Notlar</option>
+                  </select>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.keyboardHelpLabel">Klavye Yardım Şeridi</span>
+                  <small data-i18n="settings.keyboardHelpDesc">Pano ve not listelerinde kısayol ipuçlarını göster</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-keyboard-help" aria-label="Klavye yardım şeridini göster">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.shortcutLabel">Pano Kısayolu</span>
+                  <small data-i18n="settings.shortcutDesc">Uygulamayı açmak/gizlemek için global kısayol (varsayılan pano)</small>
+                </div>
+                <div class="setting-value">
+                  <input type="text" id="setting-shortcut" class="shortcut-capture-input" readonly placeholder="Kısayola bas..." data-i18n="[placeholder]settings.shortcutListening" aria-label="Pano penceresini açıp kapatmak için global klavye kısayolu">
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.notesShortcutLabel">Notlar Kısayolu</span>
+                  <small data-i18n="settings.notesShortcutDesc">Doğrudan Notlar ekranını açmak/gizlemek için global kısayol</small>
+                </div>
+                <div class="setting-value">
+                  <input type="text" id="setting-notes-shortcut" class="shortcut-capture-input" readonly placeholder="Kısayola bas..." data-i18n="[placeholder]settings.shortcutListening" aria-label="Notlar ekranını açıp kapatmak için global klavye kısayolu">
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <!-- Advanced Tab -->
+          <div class="settings-section" id="settings-advanced" role="tabpanel" aria-label="Gelişmiş Ayarlar">
+            <div class="setting-group">
+              <div class="setting-group-title" data-i18n="settings.groupAdvanced">Gelişmiş</div>
+<div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.sensitiveLabel">Hassas Veri Algılama</span>
+                  <small data-i18n="settings.sensitiveDesc">Algılanan hassas içerikleri önizlemede maskele ve şifreli sakla</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-sensitive" aria-label="Panodan kopyalanan hassas verileri otomatik maskele">
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -334,39 +405,6 @@
                     <input type="checkbox" id="setting-clear-notes-search-on-hide" aria-label="Pencere gizlendiğinde not aramasını temizle">
                     <span class="toggle-slider"></span>
                   </label>
-                </div>
-              </div>
-              <div class="setting-row">
-                <div class="setting-label">
-                  <span data-i18n="settings.hideAfterPasteLabel">Yapıştırdıktan Sonra Gizle</span>
-                  <small data-i18n="settings.hideAfterPasteDesc">Aktif pencereye yapıştırma tamamlanınca ClipBoardPrime'ı gizle</small>
-                </div>
-                <div class="setting-value">
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="setting-hide-after-paste" aria-label="Yapıştırma sonrasında uygulamayı gizle">
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-              <div class="setting-row">
-                <div class="setting-label">
-                  <span data-i18n="settings.windowOpenPositionLabel">Pencere Açılış Konumu</span>
-                  <small data-i18n="settings.windowOpenPositionDesc">Uygulama penceresinin nerede açılacağını seçin</small>
-                </div>
-                <div class="setting-value">
-                  <select class="setting-select" id="setting-window-open-position" aria-label="Pencere açılış konumu">
-                    <option value="remember" data-i18n="settings.windowOpenPositionRemember">Son konumu hatırla</option>
-                    <option value="cursor" data-i18n="settings.windowOpenPositionCursor">Fare imlecinin yanında</option>
-                  </select>
-                </div>
-              </div>
-              <div class="setting-row">
-                <div class="setting-label">
-                  <span data-i18n="settings.resetWindowLabel">Pencere Boyutu ve Konumu</span>
-                  <small data-i18n="settings.resetWindowDesc">Pencereyi varsayılan kompakt boyuta döndürüp monitörde ortalar</small>
-                </div>
-                <div class="setting-value">
-                  <button class="btn btn-default" id="reset-window-bounds-btn" type="button" data-i18n="settings.resetWindowButton">Varsayılana Dön</button>
                 </div>
               </div>
               <div class="setting-row">
@@ -418,26 +456,14 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span data-i18n="settings.workspaceOpenModeLabel">Açılış Ekranı</span>
-                  <small data-i18n="settings.workspaceOpenModeDesc">Global kısayol veya sistem tepsisinden açıldığında gösterilecek ekran</small>
-                </div>
-                <div class="setting-value">
-                  <select class="setting-select" id="setting-workspace-open-mode" aria-label="Açılış ekranı">
-                    <option value="last" data-i18n="settings.workspaceModeLast">Son görüntülenen ekran</option>
-                    <option value="clipboard" data-i18n="settings.workspaceModeClipboard">Pano</option>
-                    <option value="notes" data-i18n="settings.workspaceModeNotes">Notlar</option>
-                  </select>
-                </div>
-              </div>
-              <div class="setting-row">
-                <div class="setting-label">
                   <span data-i18n="settings.spaceKeyActionLabel">Space Tuşu Davranışı</span>
-                  <small data-i18n="settings.spaceKeyActionDesc">Seçili pano öğesinde Space tuşunun yapacağı işlem</small>
+                  <small data-i18n="settings.spaceKeyActionDesc">Space tuşunun panoda veya notlarda ne yapacağını seçin</small>
                 </div>
                 <div class="setting-value">
                   <select class="setting-select" id="setting-space-key-action" aria-label="Space tuşu davranışı">
                     <option value="copy" data-i18n="settings.spaceKeyCopy">Panoya kopyala</option>
                     <option value="preview" data-i18n="settings.spaceKeyPreview">Hızlı önizleme</option>
+                    <option value="workspace" data-i18n="settings.spaceKeyWorkspace">Pano / Notlar geçişi</option>
                   </select>
                 </div>
               </div>
@@ -536,16 +562,7 @@
                   </select>
                 </div>
               </div>
-              <div class="setting-row">
-                <div class="setting-label">
-                  <span data-i18n="settings.shortcutLabel">Global Kısayol</span>
-                  <small data-i18n="settings.shortcutDesc">Uygulamayı açmak/gizlemek için kısayol</small>
-                </div>
-                <div class="setting-value">
-                  <input type="text" id="setting-shortcut" class="shortcut-capture-input" readonly placeholder="Kısayola bas..." data-i18n="[placeholder]settings.shortcutListening" aria-label="Uygulamayı açıp kapatmak için global klavye kısayolu">
-                </div>
-              </div>
-            </div>
+                          </div>
           </div>
 
           <!-- Data Tab -->
@@ -572,7 +589,7 @@
                   <small data-i18n="settings.exportDesc">Tüm pano, not ve ayarlarınızı parola korumalı .cpbackup dosyasına yedekleyin</small>
                 </div>
                 <div class="setting-value">
-                  <button class="btn btn-default" id="export-data-btn" aria-label="Tüm verileri dışa aktar (JSON)"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> <span data-i18n="btn.export">Dışa Aktar</span></button>
+                  <button class="btn btn-default" id="export-data-btn" aria-label="Tüm verileri parola korumalı .cpbackup olarak dışa aktar"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> <span data-i18n="btn.export">Dışa Aktar</span></button>
                 </div>
               </div>
               <div class="setting-row">
@@ -726,7 +743,7 @@
           </div>
           <div class="onboarding-detected-backups" id="onboarding-detected-backups"></div>
           <div class="onboarding-import-result" id="onboarding-import-result" aria-live="polite"></div>
-          <p class="onboarding-ready" data-i18n="onboarding.readyDesc">Hazırsınız. Global kısayolunuz: Ctrl+Shift+V</p>
+          <p class="onboarding-ready" id="onboarding-ready">Hazırsınız. Global kısayolunuz: <kbd>Ctrl+Shift+V</kbd></p>
         </div>
 
         <div class="onboarding-footer">

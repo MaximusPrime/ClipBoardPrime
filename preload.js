@@ -54,7 +54,6 @@ const ALLOWED_INVOKE_CHANNELS = [
   'show-clipboard-context-menu',
   'set-workspace-mode',
   'reset-window-bounds',
-  'set-win-v-integration',
   'get-privilege-status',
   'relaunch-as-administrator',
   'find-legacy-backups',
@@ -123,7 +122,6 @@ contextBridge.exposeInMainWorld('api', {
   showClipboardContextMenu: (item) => safeInvoke('show-clipboard-context-menu', item),
   setWorkspaceMode: (mode) => safeInvoke('set-workspace-mode', mode),
   resetWindowBounds: () => safeInvoke('reset-window-bounds'),
-  setWinVIntegration: (enabled) => safeInvoke('set-win-v-integration', enabled),
   getPrivilegeStatus: () => safeInvoke('get-privilege-status'),
   relaunchAsAdministrator: () => safeInvoke('relaunch-as-administrator'),
 

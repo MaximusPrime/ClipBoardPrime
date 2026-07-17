@@ -44,14 +44,15 @@ const DEFAULT_SETTINGS = {
   theme: 'dark',
   maxHistory: '0',
   pollingInterval: '500',
-  startWithWindows: 'true',
+  startWithWindows: 'false',
   dataLocation: '',
   globalShortcut: 'Ctrl+Shift+V',
+  notesGlobalShortcut: 'Ctrl+Shift+N',
   showPreview: 'true',
   detectSensitive: 'true',
   blurToTray: 'false',
   clearSearchOnHide: 'true',
-  clearNotesSearchOnHide: 'false',
+  clearNotesSearchOnHide: 'true',
   hideAfterPaste: 'true',
   windowOpenPosition: 'remember',
   clipboardOpenFilter: 'preserve',
@@ -63,11 +64,11 @@ const DEFAULT_SETTINGS = {
   spaceKeyAction: 'copy',
   hoverPreviewEnabled: 'false',
   hoverPreviewDelay: '500',
+  showKeyboardHelp: 'true',
   retentionDays: '0',
   retentionKeepFavorites: 'true',
   retentionTypeRules: '{}',
   onboardingCompleted: 'false',
-  winVIntegration: 'false',
 };
 
 let ftsAvailable = false;
@@ -380,7 +381,11 @@ function addClipboardItem(item) {
 
   let existing = null;
   if (dbItem.content_type === 'image') {
-    if (dbItem.image_path) {
+    // Prefer content hash so the same screenshot is not re-saved under a new path
+    if (dbItem.content_hash) {
+      existing = _stmtCheckClipHash.get(dbItem.content_hash, 'image');
+    }
+    if (!existing && dbItem.image_path) {
       existing = _stmtCheckClipImage.get(dbItem.image_path);
     }
   } else {
@@ -570,6 +575,20 @@ function toFtsQuery(value) {
  * @param {string} content - Yeni içerik
  * @returns {Object} Güncellenmiş öğe
  */
+/**
+ * Marks a clipboard item as recently used without rewriting content.
+ * Used after paste so history order updates without creating duplicates.
+ */
+function touchClipboardItem(id) {
+  if (!db) return null;
+  if (!_stmtUpdateClipTime) {
+    _stmtUpdateClipTime = db.prepare("UPDATE clipboard_history SET created_at = datetime('now','localtime') WHERE id = ?");
+  }
+  const result = _stmtUpdateClipTime.run(id);
+  if (!result.changes) return null;
+  return getClipboardItemById(id);
+}
+
 function updateClipboardItem(id, content) {
   const item = getClipboardItemById(id);
   if (!item) {
@@ -1856,6 +1875,7 @@ module.exports = {
   // Clipboard
   addClipboardItem,
   getClipboardItemById,
+  touchClipboardItem,
   updateClipboardItem,
   getClipboardHistory,
   deleteClipboardItem,

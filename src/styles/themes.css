@@ -105,8 +105,8 @@
   --transition-slow: 400ms ease;
   --blur-glass: blur(12px);
   --blur-modal: blur(20px);
-  --titlebar-height: 48px;
-  --statusbar-height: 32px;
+  --titlebar-height: 38px;
+  --statusbar-height: 24px;
   --filter-bar-height: 44px;
 }
 

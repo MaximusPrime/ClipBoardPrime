@@ -28,6 +28,7 @@ const ClipboardPanel = (() => {
   let currentPage = 1;
   let hasMore = true;
   let isLoading = false;
+  let totalCount = 0;
   let previewElement = null;
   let previewTimer = null;
   let previewOwner = null;
@@ -60,11 +61,20 @@ const ClipboardPanel = (() => {
       if (!btn) return;
 
       // Aktif sınıfını güncelle
-      elements.filters.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      elements.filters.querySelectorAll('.filter-btn').forEach((b) => {
+        const active = b === btn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', String(active));
+      });
 
       const filter = btn.dataset.filter;
       handleFilterChange(filter);
+    });
+
+    elements.list.addEventListener('click', (e) => {
+      const clearBtn = e.target.closest('[data-clear-clipboard-filters]');
+      if (!clearBtn) return;
+      clearAllListFilters();
     });
 
     // Sonsuz kaydırma (Infinite Scroll)
@@ -284,12 +294,51 @@ const ClipboardPanel = (() => {
    * Sayı sayaçlarını ve durum çubuğunu günceller
    */
   function updateCounters(total) {
-    elements.count.textContent = total;
-    
+    if (typeof total === 'number' && Number.isFinite(total)) {
+      totalCount = Math.max(0, total);
+    }
+    elements.count.textContent = totalCount;
+
     // app.js'teki global durum güncellemesini tetikle
     if (window.App && typeof window.App.updateStatusBar === 'function') {
       window.App.updateStatusBar();
     }
+  }
+
+  function adjustTotalCount(delta) {
+    totalCount = Math.max(0, totalCount + delta);
+    updateCounters();
+  }
+
+  function hasActiveListFilters() {
+    return Boolean(
+      searchQuery
+      || activeFilter !== 'all'
+      || (elements.filterPeriod && elements.filterPeriod.value !== '0')
+      || (elements.filterSource && elements.filterSource.value.trim())
+      || (elements.filterLength && elements.filterLength.value !== 'any')
+      || (elements.filterSensitive && elements.filterSensitive.value !== 'any')
+    );
+  }
+
+  function clearAllListFilters() {
+    elements.search.value = '';
+    elements.searchClear.classList.remove('visible');
+    searchQuery = '';
+    activeFilter = 'all';
+    elements.filters.querySelectorAll('.filter-btn').forEach((button) => {
+      const active = button.dataset.filter === 'all';
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+    if (elements.filterPeriod) elements.filterPeriod.value = '0';
+    if (elements.filterSource) elements.filterSource.value = '';
+    if (elements.filterLength) elements.filterLength.value = 'any';
+    if (elements.filterSensitive) elements.filterSensitive.value = 'any';
+    elements.advancedFilters?.classList.remove('active');
+    elements.advancedFilterBtn?.setAttribute('aria-expanded', 'false');
+    updateAdvancedFilterCount();
+    loadHistory(false);
   }
 
   /**
@@ -314,11 +363,20 @@ const ClipboardPanel = (() => {
    */
   function renderHistory(append = false, keepScroll = false, savedScroll = 0) {
     if (historyItems.length === 0) {
+      const filtered = hasActiveListFilters();
+      const title = filtered
+        ? (window.i18n ? window.i18n.t('empty.clipboardFilteredTitle') : 'Sonuç bulunamadı')
+        : (window.i18n ? window.i18n.t('empty.clipboardTitle') : 'Pano Geçmişi Boş');
+      const text = filtered
+        ? (window.i18n ? window.i18n.t('empty.clipboardFilteredText') : 'Arama veya filtrelerle eşleşen öğe yok. Filtreleri temizleyip tekrar deneyin.')
+        : (window.i18n ? window.i18n.t('empty.clipboardText') : 'Kopyaladığınız öğeler burada görünecektir.');
+      const clearLabel = window.i18n ? window.i18n.t('empty.clearFilters') : 'Filtreleri Temizle';
       elements.list.innerHTML = `
         <div class="empty-state">
           <span class="empty-state-icon">${Utils.Icons.clipboard}</span>
-          <p class="empty-state-title">${window.i18n ? window.i18n.t('empty.clipboardTitle') : 'Pano Geçmişi Boş'}</p>
-          <p class="empty-state-text">${searchQuery ? (window.i18n ? window.i18n.t('empty.clipboardSearch') : 'Aramanızla eşleşen öğe bulunamadı.') : (window.i18n ? window.i18n.t('empty.clipboardText') : 'Kopyaladığınız öğeler burada görünecektir.')}</p>
+          <p class="empty-state-title">${title}</p>
+          <p class="empty-state-text">${text}</p>
+          ${filtered ? `<button type="button" class="btn btn-default empty-state-action" data-clear-clipboard-filters>${clearLabel}</button>` : ''}
         </div>
       `;
       return;
@@ -491,19 +549,24 @@ const ClipboardPanel = (() => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (item.content_type === 'image' && item.image_path) {
-          openImageViewer(item.image_path);
+        // Primary action: images copy to clipboard; text pastes into the target window
+        if (item.content_type === 'image') {
+          await copyToSystemClipboard(item, el);
         } else {
           await pasteToActiveWindow(item);
         }
       } else if (e.key === ' ') {
+        const spaceAction = window.App?.settings?.spaceKeyAction || 'copy';
+        // Workspace switch is handled globally in app.js
+        if (spaceAction === 'workspace') return;
         e.preventDefault();
         if (e.repeat) return;
-        const spaceAction = window.App?.settings?.spaceKeyAction || 'copy';
         if (spaceAction === 'preview') {
-          toggleQuickPreview(item, el);
-        } else if (item.content_type === 'image' && item.image_path) {
-          await copyToSystemClipboard(item, el);
+          if (item.content_type === 'image' && item.image_path) {
+            openImageViewer(item.image_path);
+          } else {
+            toggleQuickPreview(item, el);
+          }
         } else {
           await copyToSystemClipboard(item, el);
         }
@@ -535,6 +598,12 @@ const ClipboardPanel = (() => {
         const cards = [...elements.list.querySelectorAll('.clip-item')];
         cards[Math.max(0, cards.indexOf(el) - 1)]?.focus();
       }
+
+      if (e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        const cards = [...elements.list.querySelectorAll('.clip-item')];
+        (e.key === 'Home' ? cards[0] : cards[cards.length - 1])?.focus();
+      }
     });
 
     // Kartı daraltan akıllı yardımcı fonksiyon (parlama efekti ve hassas kaydırma dahil)
@@ -561,56 +630,17 @@ const ClipboardPanel = (() => {
       }, { once: true });
     }
 
-    // Sol tık: Görsel ise görüntüleyiciyi aç, metin ise akordiyonu aç/kapat veya seçilince işlem yapma
-    let clickTimeout = null;
+    // Sol tık: kartı odakla. Genişletme expand butonuyla; çift tık metin için yapıştırır.
     el.addEventListener('click', (e) => {
-      // Eylem butonları, metin önizleme seçimi veya devamını gör butonu tıklandıysa işlem yapma
-      if (e.target.closest('.clip-action-btn') || 
-          e.target.closest('.clip-item-preview') || 
+      if (e.target.closest('.clip-action-btn') ||
+          e.target.closest('.clip-item-preview') ||
           e.target.closest('.accordion-view-more')) return;
 
-      if (item.content_type === 'image' && item.image_path) {
+      el.focus({ preventScroll: true });
+
+      if (item.content_type === 'image' && item.image_path && e.detail === 1) {
         openImageViewer(item.image_path);
-        return;
       }
-
-      // Çift tıklama algılaması için gecikme
-      if (clickTimeout) {
-        clearTimeout(clickTimeout);
-        clickTimeout = null;
-        return;
-      }
-
-      clickTimeout = setTimeout(() => {
-        clickTimeout = null;
-
-        // Metin seçiliyorsa akordiyonu tetikleme
-        const selection = window.getSelection().toString();
-        if (selection && selection.trim().length > 0) {
-          return;
-        }
-
-        const isOpen = el.classList.contains('accordion-open');
-        if (isOpen) {
-          collapseCard();
-        } else {
-          // Diğer açık akordiyonları kapat
-          document.querySelectorAll('.clip-item.accordion-open').forEach(itemEl => {
-            if (itemEl !== el) {
-              itemEl.classList.remove('accordion-open');
-              const itemIcon = itemEl.querySelector('.expand-icon');
-              if (itemIcon) itemIcon.style.transform = 'rotate(0deg)';
-              const itemExp = itemEl.querySelector('.expand-btn');
-              if (itemExp) itemExp.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.expand') : 'Genişlet');
-            }
-          });
-          el.classList.add('accordion-open');
-          const icon = el.querySelector('.expand-icon');
-          if (icon) icon.style.transform = 'rotate(180deg)';
-          const expBtn = el.querySelector('.expand-btn');
-          if (expBtn) expBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.collapse') : 'Daralt');
-        }
-      }, 200);
     });
 
     // Çift tıklama: Görseller hariç öğeyi doğrudan aktif pencereye yapıştırır
@@ -730,8 +760,7 @@ const ClipboardPanel = (() => {
         const response = await window.api.togglePinClipboard(item.id);
         if (response && response.success) {
           const updatedItem = response.data;
-          Utils.showToast(updatedItem.is_pinned ? (window.i18n ? window.i18n.t('toast.itemPinned') : 'Öğe sabitlendi') : (window.i18n ? window.i18n.t('toast.itemPinRemoved') : 'Sabitleme kaldırıldı'), 'success');
-          
+
           // Güncellenen öğeyi hafızadaki listede güncelle
           const idx = historyItems.findIndex(h => h.id === item.id);
           if (idx !== -1) {
@@ -743,7 +772,9 @@ const ClipboardPanel = (() => {
             el.style.animation = 'slideOut 0.2s ease forwards';
             el.addEventListener('animationend', () => {
               el.remove();
-              updateCounters(historyItems.length - 1);
+              const idxLocal = historyItems.findIndex((h) => h.id === item.id);
+              if (idxLocal !== -1) historyItems.splice(idxLocal, 1);
+              adjustTotalCount(-1);
             }, { once: true });
           } else {
             // Sadece bu kartın DOM'unu güncelle (yeniden yükleme/flicker olmadan)
@@ -770,9 +801,7 @@ const ClipboardPanel = (() => {
             favBtn.classList.add('fav-animate');
             favBtn.addEventListener('animationend', () => favBtn.classList.remove('fav-animate'), { once: true });
           }
-          
-          Utils.showToast(updatedItem.is_favorite ? (window.i18n ? window.i18n.t('toast.itemFavAdded') : 'Favorilere eklendi') : (window.i18n ? window.i18n.t('toast.itemFavRemoved') : 'Favorilerden çıkarıldı'), 'success');
-          
+
           // Güncellenen öğeyi hafızadaki listede güncelle
           const idx = historyItems.findIndex(h => h.id === item.id);
           if (idx !== -1) {
@@ -784,7 +813,9 @@ const ClipboardPanel = (() => {
             el.style.animation = 'slideOut 0.2s ease forwards';
             el.addEventListener('animationend', () => {
               el.remove();
-              updateCounters(historyItems.length - 1);
+              const idxLocal = historyItems.findIndex((h) => h.id === item.id);
+              if (idxLocal !== -1) historyItems.splice(idxLocal, 1);
+              adjustTotalCount(-1);
             }, { once: true });
           } else {
             // Sadece bu kartın DOM'unu güncelle (yeniden yükleme/flicker olmadan)
@@ -797,25 +828,11 @@ const ClipboardPanel = (() => {
       }
     });
 
-    // Not yapma butonu (clip-to-note)
+    // Not yapma butonu — editörü önceden doldurur, kullanıcı kategori/başlık seçer
     const noteBtn = el.querySelector('.note-btn');
     if (noteBtn) noteBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      try {
-        const response = await window.api.clipToNote(item.id);
-        if (response && response.success) {
-          Utils.showToast(window.i18n ? window.i18n.t('toast.clipToNoteSaved') : 'Pano öğesi not olarak kaydedildi', 'success');
-          
-          // Notlar panelini yenile
-          if (window.NotesPanel && typeof window.NotesPanel.loadNotes === 'function') {
-            window.NotesPanel.loadNotes();
-          }
-        } else {
-          Utils.showToast((window.i18n ? window.i18n.t('toast.clipToNoteFailed') : 'Nota aktarılamadı') + ': ' + response?.error, 'error');
-        }
-      } catch (err) {
-        console.error('Not aktarma hatası:', err);
-      }
+      await saveItemAsNote(item);
     });
 
     // Sil butonu
@@ -850,7 +867,7 @@ const ClipboardPanel = (() => {
             if (idx !== -1) {
               historyItems.splice(idx, 1);
             }
-            updateCounters(historyItems.length);
+            adjustTotalCount(-1);
           }, { once: true });
           Utils.showToast(window.i18n ? window.i18n.t('toast.itemDeleted') : 'Öğe silindi', 'info');
           // Yetim görselleri asenkron temizle
@@ -859,11 +876,6 @@ const ClipboardPanel = (() => {
       } catch (err) {
         console.error('Silme hatası:', err);
       }
-      if (e.key === 'Home' || e.key === 'End') {
-        e.preventDefault();
-        const cards = [...elements.list.querySelectorAll('.clip-item')];
-        (e.key === 'Home' ? cards[0] : cards[cards.length - 1])?.focus();
-      }
     });
 
     el.addEventListener('mouseenter', () => {
@@ -871,7 +883,7 @@ const ClipboardPanel = (() => {
         if (card !== el) card.classList.remove('hover-focused');
       });
       el.classList.add('hover-focused');
-      if (!el.contains(document.activeElement)) el.focus({ preventScroll: true });
+      // Hover only highlights — never steals keyboard focus
       if (window.App?.settings?.hoverPreviewEnabled !== 'true') return;
       if (previewPinned) return;
       clearTimeout(previewTimer);
@@ -916,7 +928,8 @@ const ClipboardPanel = (() => {
     elements.advancedFilterBtn?.classList.toggle('active', count > 0);
   }
 
-  async function copyItem(item, plainText) {
+  async function copyItem(item, plainText, options = {}) {
+    const silent = options.silent === true;
     try {
       let response;
       if (item.is_sensitive) {
@@ -940,7 +953,9 @@ const ClipboardPanel = (() => {
       }
       
       if (response && response.success) {
-        Utils.showToast(window.i18n ? window.i18n.t('toast.copied') : 'Panoya kopyalandı!', 'success');
+        if (!silent) {
+          Utils.showToast(window.i18n ? window.i18n.t('toast.copied') : 'Panoya kopyalandı!', 'success');
+        }
       } else {
         Utils.showToast((window.i18n ? window.i18n.t('toast.copyFailed') : 'Kopyalanamadı') + ': ' + response?.error, 'error');
       }
@@ -960,8 +975,14 @@ const ClipboardPanel = (() => {
   async function pasteItem(item, plainText) {
     try {
       if (item.content_type === 'image') {
-        Utils.showToast(window.i18n ? window.i18n.t('toast.pasteImageInfo') : 'Görseller doğrudan yapıştırılamaz. Panoya kopyalanıyor...', 'info');
-        await copyToSystemClipboard(item);
+        // Copy silently, then explain how to complete paste in the target app
+        await copyItem(item, false, { silent: true });
+        Utils.showToast(
+          window.i18n
+            ? window.i18n.t('toast.pasteImageInfo')
+            : 'Görsel panoya kopyalandı. Hedef uygulamada Ctrl+V kullanın.',
+          'info'
+        );
         return;
       }
 
@@ -1280,37 +1301,70 @@ const ClipboardPanel = (() => {
   async function toggleItemPin(item, element) {
     const response = await window.api.togglePinClipboard(item.id);
     if (!response || !response.success) return;
-    Utils.showToast(
-      response.data.is_pinned
-        ? (window.i18n ? window.i18n.t('toast.itemPinned') : 'Öğe sabitlendi')
-        : (window.i18n ? window.i18n.t('toast.itemPinRemoved') : 'Sabitleme kaldırıldı'),
-      'success'
-    );
+    // Quiet toggle — visual pin state is enough feedback
     await loadHistory(false, true);
   }
 
   async function toggleItemFavorite(item, element) {
     const response = await window.api.toggleFavoriteClipboard(item.id);
     if (!response || !response.success) return;
-    Utils.showToast(
-      response.data.is_favorite
-        ? (window.i18n ? window.i18n.t('toast.itemFavAdded') : 'Favorilere eklendi')
-        : (window.i18n ? window.i18n.t('toast.itemFavRemoved') : 'Favorilerden çıkarıldı'),
-      'success'
-    );
+    // Quiet toggle — star animation/badge is enough feedback
     await loadHistory(false, true);
   }
 
   async function saveItemAsNote(item) {
-    const response = await window.api.clipToNote(item.id);
-    if (response && response.success) {
-      Utils.showToast(window.i18n ? window.i18n.t('toast.clipToNoteSaved') : 'Pano öğesi not olarak kaydedildi', 'success');
-      if (window.NotesPanel && typeof window.NotesPanel.loadNotes === 'function') {
-        window.NotesPanel.loadNotes();
-      }
+    if (item.content_type === 'image') {
+      Utils.showToast(
+        window.i18n ? window.i18n.t('toast.clipToNoteImage') : 'Görseller not olarak kaydedilemez',
+        'warning'
+      );
       return;
     }
-    Utils.showToast((window.i18n ? window.i18n.t('toast.clipToNoteFailed') : 'Nota aktarılamadı') + ': ' + response?.error, 'error');
+
+    let content = item.content || '';
+    if (item.is_sensitive) {
+      try {
+        const revealed = await window.api.revealSensitiveContent(item.id);
+        if (!revealed?.success) {
+          Utils.showToast(
+            (window.i18n ? window.i18n.t('toast.clipToNoteFailed') : 'Nota aktarılamadı') + ': ' + (revealed?.error || ''),
+            'error'
+          );
+          return;
+        }
+        content = revealed.data || '';
+      } catch (err) {
+        Utils.showToast(window.i18n ? window.i18n.t('toast.clipToNoteFailed') : 'Nota aktarılamadı', 'error');
+        return;
+      }
+    }
+
+    if (item.content_type === 'html') {
+      content = content
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\n\s*\n\s*\n/g, '\n\n')
+        .trim();
+    }
+
+    const titleSource = (item.preview || content || '').replace(/\s+/g, ' ').trim();
+    const title = Utils.truncate(titleSource, 50);
+
+    if (window.NotesPanel && typeof window.NotesPanel.openEditorFromClipboard === 'function') {
+      await window.App?.setWorkspaceMode?.('notes', true);
+      window.NotesPanel.openEditorFromClipboard({ title, content });
+      return;
+    }
+
+    Utils.showToast(window.i18n ? window.i18n.t('toast.clipToNoteFailed') : 'Nota aktarılamadı', 'error');
   }
 
   async function deleteItem(item, element) {
@@ -1336,9 +1390,21 @@ const ClipboardPanel = (() => {
    * Main process'ten yeni bir veri geldiğinde listeye ekler
    */
   function handleNewItem(item) {
-    // Eğer kopyalanan öğe mevcut listenin en başındakiyle aynıysa yenileme yapma
-    if (historyItems.length > 0 && historyItems[0].content === item.content && historyItems[0].content_type === item.content_type) {
-      return;
+    // Same image (or same text) already at top — skip rebuild
+    if (historyItems.length > 0) {
+      const top = historyItems[0];
+      if (top.id === item.id) return;
+      if (
+        top.content_type === item.content_type
+        && top.content_type === 'image'
+        && top.content_hash
+        && top.content_hash === item.content_hash
+      ) {
+        return;
+      }
+      if (top.content === item.content && top.content_type === item.content_type) {
+        return;
+      }
     }
 
     // Filtre kontrolü

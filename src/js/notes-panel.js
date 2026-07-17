@@ -55,6 +55,7 @@ const NotesPanel = (() => {
   let searchQuery = '';
   let selectedColor = 'charcoal';
   let isDraggingGlobal = false;
+  let editorBaseline = null;
 
   /**
    * Varsayılan kategorilerin isimlerini seçili dile göre yerelleştirir
@@ -152,8 +153,8 @@ const NotesPanel = (() => {
     });
 
     // ─── Editör Modalı Dinleyicileri ───
-    elements.editorCloseBtn.addEventListener('click', () => closeEditorModal());
-    elements.editorCancelBtn.addEventListener('click', () => closeEditorModal());
+    elements.editorCloseBtn.addEventListener('click', () => { requestCloseEditor(); });
+    elements.editorCancelBtn.addEventListener('click', () => { requestCloseEditor(); });
     elements.editorForm.addEventListener('submit', (e) => {
       e.preventDefault();
       saveNote();
@@ -625,7 +626,10 @@ const NotesPanel = (() => {
 
   async function handleNoteReorder(draggedId, targetId) {
     if (searchQuery || activeCategoryFilter === '') {
-      Utils.showToast('Arama veya genel görünüm etkinken sıralama değiştirilemez', 'warning');
+      Utils.showToast(
+        window.i18n ? window.i18n.t('toast.reorderFailed') : 'Arama veya genel görünüm etkinken sıralama değiştirilemez',
+        'warning'
+      );
       return;
     }
 
@@ -676,7 +680,7 @@ const NotesPanel = (() => {
         if (card !== el) card.classList.remove('hover-focused');
       });
       el.classList.add('hover-focused');
-      if (!el.contains(document.activeElement)) el.focus({ preventScroll: true });
+      // Hover only highlights — never steals keyboard focus
     });
 
     el.addEventListener('mouseleave', () => {
@@ -686,7 +690,14 @@ const NotesPanel = (() => {
     // Klavye navigasyonu (Ok tuşları ile odaklanma, Enter/Space ile detayı açma)
     el.addEventListener('keydown', (e) => {
       if (e.target !== el) return;
-      if (e.key === 'Enter' || e.key === ' ') {
+      if (e.key === ' ') {
+        // Workspace switch is handled globally in app.js
+        if ((window.App?.settings?.spaceKeyAction || 'copy') === 'workspace') return;
+        e.preventDefault();
+        openDetailModal(note);
+        return;
+      }
+      if (e.key === 'Enter') {
         e.preventDefault();
         openDetailModal(note);
       }
@@ -999,6 +1010,26 @@ const NotesPanel = (() => {
     updateCustomCategorySelectUI(val);
   }
 
+  function captureEditorBaseline() {
+    editorBaseline = {
+      id: elements.editId.value || '',
+      title: elements.editTitle.value || '',
+      content: elements.editContent.value || '',
+      category: elements.editCategory.value || '',
+      color: selectedColor || 'charcoal',
+    };
+  }
+
+  function isEditorDirty() {
+    if (!editorBaseline) return false;
+    return (
+      (elements.editTitle.value || '') !== editorBaseline.title
+      || (elements.editContent.value || '') !== editorBaseline.content
+      || (elements.editCategory.value || '') !== editorBaseline.category
+      || (selectedColor || 'charcoal') !== editorBaseline.color
+    );
+  }
+
   function openEditorModal(note = null) {
     const iconSpan = elements.editorModal.querySelector('.modal-title-icon');
     const textSpan = elements.editorModal.querySelector('.modal-title-text');
@@ -1020,7 +1051,7 @@ const NotesPanel = (() => {
       elements.editTitle.value = '';
       elements.editContent.value = '';
       // Varsayılan olarak aktif kategori filtresini seç
-      if (activeCategoryFilter && activeCategoryFilter !== 'null') {
+      if (activeCategoryFilter && activeCategoryFilter !== 'null' && /^\d+$/.test(activeCategoryFilter)) {
         setEditCategoryValue(activeCategoryFilter);
       } else {
         if (categoriesList.length > 0) {
@@ -1045,6 +1076,27 @@ const NotesPanel = (() => {
     Utils.initFocusTrap(elements.editorModal);
     elements.editTitle.focus();
     updateCategoryPreview();
+    captureEditorBaseline();
+  }
+
+  /**
+   * Opens the note editor prefilled from a clipboard item (unsaved draft).
+   */
+  function openEditorFromClipboard({ title = '', content = '' } = {}) {
+    openEditorModal(null);
+    const iconSpan = elements.editorModal.querySelector('.modal-title-icon');
+    const textSpan = elements.editorModal.querySelector('.modal-title-text');
+    if (iconSpan) iconSpan.innerHTML = Utils.Icons.fileText;
+    if (textSpan) {
+      textSpan.textContent = window.i18n
+        ? window.i18n.t('note.fromClipboard')
+        : 'Panodan Not';
+    }
+    elements.editTitle.value = title || '';
+    elements.editContent.value = content || '';
+    captureEditorBaseline();
+    elements.editTitle.focus();
+    elements.editTitle.select();
   }
 
   function closeEditorModal() {
@@ -1054,6 +1106,21 @@ const NotesPanel = (() => {
     updateCustomCategorySelectUI('');
     elements.categoryPreview.classList.add('hidden');
     selectedColor = 'charcoal';
+    editorBaseline = null;
+  }
+
+  async function requestCloseEditor() {
+    if (!elements.editorModal.classList.contains('active')) return false;
+    if (isEditorDirty()) {
+      const confirmed = await window.App.confirm(
+        window.i18n ? window.i18n.t('confirm.discardNoteTitle') : 'Değişiklikler kaydedilmedi',
+        window.i18n ? window.i18n.t('confirm.discardNoteMsg') : 'Kaydedilmemiş değişiklikler kaybolacak. Kapatmak istiyor musunuz?',
+        Utils.Icons.alertTriangle
+      );
+      if (!confirmed) return false;
+    }
+    closeEditorModal();
+    return true;
   }
 
   function updateCategoryPreview() {
@@ -1261,6 +1328,9 @@ const NotesPanel = (() => {
     loadCategories,
     getLocalizedCategoryName,
     setSearch,
+    openEditorFromClipboard,
+    requestCloseEditor,
+    closeEditorModal,
   };
 })();
 

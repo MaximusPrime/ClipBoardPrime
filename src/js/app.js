@@ -95,6 +95,7 @@ const App = (() => {
     
     // Alt durum çubuğunu doldur
     updateStatusBar();
+    applyKeyboardHelpVisibility();
 
     // Modalleri dinlemek için MutationObserver kur (blurToTray koruması)
     setupModalObserver();
@@ -104,116 +105,12 @@ const App = (() => {
     }
   }
 
-  /**
-   * Split Panel yeniden boyutlandırma (Resizer) mantığı
-   */
-  function setupResizer() {
-    let isResizing = false;
-
-    const applyPanelRatio = (ratio, persist = false) => {
-      const mainContent = document.querySelector('.main-content');
-      if (!mainContent || getWorkspaceMode() !== 'dual') return;
-      const containerRect = mainContent.getBoundingClientRect();
-      const safeRatio = Math.min(0.7, Math.max(0.3, ratio));
-      elements.clipboardPanel.style.width = `${containerRect.width * safeRatio}px`;
-      elements.resizer.setAttribute('aria-valuenow', String(Math.round(safeRatio * 100)));
-      if (persist && window.api) {
-        App.settings.leftPanelWidthRatio = String(safeRatio);
-        window.api.saveSetting('leftPanelWidthRatio', String(safeRatio));
-        window.api.saveSetting('leftPanelWidth', String(Math.round(containerRect.width * safeRatio)));
-      }
-    };
-
-    elements.resizer.addEventListener('mousedown', (e) => {
-      if (getWorkspaceMode() !== 'dual') return;
-      isResizing = true;
-      document.body.style.cursor = 'col-resize';
-      document.body.classList.add('resizing');
-      e.preventDefault();
+  function applyKeyboardHelpVisibility() {
+    const show = !App.settings || App.settings.showKeyboardHelp !== 'false';
+    document.querySelectorAll('.clipboard-keyboard-help').forEach((el) => {
+      el.classList.toggle('is-hidden', !show);
+      el.setAttribute('aria-hidden', String(!show));
     });
-
-    document.addEventListener('mousemove', (e) => {
-      if (!isResizing) return;
-
-      const mainContent = document.querySelector('.main-content');
-      const containerRect = mainContent.getBoundingClientRect();
-      const leftWidth = e.clientX - containerRect.left;
-
-      // Minimum genişlik sınırlamaları (her panel en az 300px olmalı)
-      if (leftWidth > 320 && leftWidth < containerRect.width - 320) {
-        elements.clipboardPanel.style.width = `${leftWidth}px`;
-        elements.resizer.setAttribute('aria-valuenow', String(Math.round((leftWidth / containerRect.width) * 100)));
-      }
-    });
-
-    elements.resizer.addEventListener('keydown', (event) => {
-      if (getWorkspaceMode() !== 'dual') return;
-      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-      event.preventDefault();
-      const current = Number(elements.resizer.getAttribute('aria-valuenow')) || 50;
-      const next = event.key === 'Home'
-        ? 30
-        : event.key === 'End'
-          ? 70
-          : current + (event.key === 'ArrowLeft' ? -2 : 2);
-      applyPanelRatio(next / 100, true);
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (!isResizing) return;
-      isResizing = false;
-      document.body.style.cursor = '';
-      document.body.classList.remove('resizing');
-
-      // Oranı hesapla ve kaydet
-      const mainContent = document.querySelector('.main-content');
-      const containerRect = mainContent.getBoundingClientRect();
-      const currentWidth = parseInt(elements.clipboardPanel.style.width);
-      if (currentWidth && containerRect.width && window.api) {
-        const ratio = currentWidth / containerRect.width;
-        window.api.saveSetting('leftPanelWidthRatio', String(ratio));
-        // Geriye dönük uyumluluk için piksel olarak da kaydet
-        window.api.saveSetting('leftPanelWidth', String(currentWidth));
-      }
-    });
-
-    // Pencere yeniden boyutlandırıldığında panel oranını koru
-    window.addEventListener('resize', () => {
-      const widthRatio = App.settings && App.settings.leftPanelWidthRatio;
-      if (widthRatio) {
-        const mainContent = document.querySelector('.main-content');
-        if (mainContent) {
-          const containerRect = mainContent.getBoundingClientRect();
-          const ratio = parseFloat(widthRatio);
-          if (ratio > 0.1 && ratio < 0.9 && containerRect.width > 0) {
-            elements.clipboardPanel.style.width = `${containerRect.width * ratio}px`;
-          }
-        }
-      }
-    });
-  }
-
-  /**
-   * Kayıtlı sol panel genişliğini önbellekten yükler
-   */
-  function loadPanelWidthFromCache() {
-    const widthRatio = App.settings && App.settings.leftPanelWidthRatio;
-    if (widthRatio) {
-      const mainContent = document.querySelector('.main-content');
-      if (mainContent) {
-        const containerRect = mainContent.getBoundingClientRect();
-        const ratio = parseFloat(widthRatio);
-        if (ratio > 0.1 && ratio < 0.9 && containerRect.width > 0) {
-          elements.clipboardPanel.style.width = `${containerRect.width * ratio}px`;
-          return;
-        }
-      }
-    }
-
-    const width = App.settings && App.settings.leftPanelWidth;
-    if (width) {
-      elements.clipboardPanel.style.width = `${width}px`;
-    }
   }
 
   /**
@@ -244,25 +141,19 @@ const App = (() => {
       }
     });
 
-    // Tema Hızlı Değiştirme Butonu (🌙 / ☀️)
+    // Tema Hızlı Değiştirme: dark → light → system → dark
     elements.themeToggle.addEventListener('click', async () => {
       if (!window.api) return;
-      
+
       const response = await window.api.getSettings();
       if (response && response.success) {
         const currentTheme = response.data.theme || 'dark';
-        
-        let newTheme = 'dark';
-        if (currentTheme === 'dark') {
-          newTheme = 'light';
-        } else if (currentTheme === 'light') {
-          newTheme = 'dark';
-        }
+        const cycle = { dark: 'light', light: 'system', system: 'dark' };
+        const newTheme = cycle[currentTheme] || 'dark';
 
-        // Ayarlara kaydet (otomatik olarak UI güncellenecek)
         await window.api.saveSetting('theme', newTheme);
-        elements.themeToggle.innerHTML = newTheme === 'dark' ? Utils.Icons.moon : Utils.Icons.sun;
-        
+        updateThemeToggleIcon(newTheme);
+
         if (window.SettingsPanel) {
           window.SettingsPanel.applyTheme(newTheme);
         }
@@ -272,8 +163,7 @@ const App = (() => {
     // İlk ikon simgesini ayarla
     window.api.getSettings().then((res) => {
       if (res && res.success) {
-        const theme = res.data.theme || 'dark';
-        elements.themeToggle.innerHTML = theme === 'dark' ? Utils.Icons.moon : Utils.Icons.sun;
+        updateThemeToggleIcon(res.data.theme || 'dark');
       }
     });
 
@@ -310,6 +200,24 @@ const App = (() => {
         setWorkspaceMode(modes[e.key]);
         return;
       }
+      // Space → Pano/Notlar geçişi (ayar: spaceKeyAction = workspace)
+      if (
+        e.key === ' '
+        && !e.ctrlKey && !e.metaKey && !e.altKey
+        && (App.settings?.spaceKeyAction || 'copy') === 'workspace'
+      ) {
+        // Modal açıkken Space ile geçiş yapma
+        const modalOpen = document.querySelector(
+          '#settings-modal.active, #onboarding-modal.active, #confirm-dialog.active, '
+          + '#note-editor-modal.active, #note-detail-modal.active, #clip-detail-modal.active, '
+          + '#clip-editor-modal.active, #category-manager-modal.active'
+        );
+        if (!modalOpen) {
+          e.preventDefault();
+          if (!e.repeat) cycleWorkspaceMode();
+          return;
+        }
+      }
       // Ctrl + F veya Cmd + F -> Aktif panel arama çubuğuna odaklan
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
@@ -341,8 +249,7 @@ const App = (() => {
         }
         const noteEditor = document.getElementById('note-editor-modal');
         if (noteEditor?.classList.contains('active')) {
-          const isNewNote = !document.getElementById('note-edit-id').value;
-          if (!isNewNote) noteEditor.classList.remove('active');
+          window.NotesPanel?.requestCloseEditor?.();
           return;
         }
         if (document.getElementById('settings-modal')?.classList.contains('active')) {
@@ -350,6 +257,23 @@ const App = (() => {
         }
       }
     });
+  }
+
+  function updateThemeToggleIcon(theme) {
+    if (!elements.themeToggle) return;
+    if (theme === 'system') {
+      elements.themeToggle.innerHTML = Utils.Icons.monitor || Utils.Icons.settings;
+      elements.themeToggle.setAttribute(
+        'data-tooltip',
+        window.i18n ? window.i18n.t('tooltip.themeSystem') : 'Sistem teması (tıkla: karanlık)'
+      );
+      return;
+    }
+    elements.themeToggle.innerHTML = theme === 'dark' ? Utils.Icons.moon : Utils.Icons.sun;
+    elements.themeToggle.setAttribute(
+      'data-tooltip',
+      window.i18n ? window.i18n.t('tooltip.changeTheme') : 'Tema Değiştir'
+    );
   }
 
   function getWorkspaceMode() {
@@ -632,6 +556,9 @@ const App = (() => {
     confirm,
     prompt,
     setWorkspaceMode,
+    cycleWorkspaceMode,
+    applyKeyboardHelpVisibility,
+    updateThemeToggleIcon,
   };
 })();
 

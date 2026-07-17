@@ -36,7 +36,7 @@ const Onboarding = (() => {
     get('onboarding-language').value = window.App.settings.language || window.i18n?.getLanguage() || 'en';
     get('onboarding-workspace').value = window.App.settings.workspaceMode === 'notes' ? 'notes' : 'clipboard';
     get('onboarding-cursor').checked = window.App.settings.windowOpenPosition === 'cursor';
-    get('onboarding-autostart').checked = window.App.settings.startWithWindows !== 'false';
+    get('onboarding-autostart').checked = window.App.settings.startWithWindows === 'true';
     get('onboarding-import-password').value = '';
     get('onboarding-import-result').textContent = '';
     get('onboarding-next-btn').disabled = false;
@@ -67,12 +67,19 @@ const Onboarding = (() => {
   function updateReadyShortcut() {
     const ready = get('onboarding-ready');
     if (!ready) return;
-    const shortcut = window.App?.settings?.globalShortcut || 'Ctrl+Shift+V';
-    ready.textContent = t(
-      'onboarding.readyDesc',
-      `Hazırsınız. Global kısayolunuz: ${shortcut}`,
-      { shortcut }
-    );
+    const shortcut = (window.App?.settings?.globalShortcut || '').trim() || 'Ctrl+Shift+V';
+    // Keep markup under our control — data-i18n would strip {{shortcut}} without params
+    const marker = '___SHORTCUT___';
+    const template = window.i18n
+      ? window.i18n.t('onboarding.readyDesc', { shortcut: marker })
+      : `Hazırsınız. Global kısayolunuz: ${marker}`;
+    const parts = String(template).split(marker);
+    ready.replaceChildren();
+    ready.append(document.createTextNode(parts[0] || ''));
+    const kbd = document.createElement('kbd');
+    kbd.textContent = shortcut;
+    ready.appendChild(kbd);
+    if (parts[1]) ready.append(document.createTextNode(parts[1]));
   }
 
   async function handleNext() {

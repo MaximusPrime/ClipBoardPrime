@@ -37,7 +37,7 @@ const {
   requireCategoryIcon,
   validateExternalUrl,
 } = require('./lib/input-validation');
-const { htmlToPlainText, areFormatsEqual } = require('./lib/content-utils');
+const { htmlToPlainText } = require('./lib/content-utils');
 
 // ─── Win32 API ve koffi Tanımlamaları ──────────────────────────
 let koffi = null;
@@ -308,9 +308,10 @@ const ALLOWED_SETTING_KEYS = new Set([
   'workspaceMode', 'workspaceOpenMode', 'dualWindowBounds',
   'clipboardWindowBounds', 'notesWindowBounds',
   'spaceKeyAction', 'hoverPreviewEnabled', 'hoverPreviewDelay',
+  'showKeyboardHelp',
   'retentionDays', 'retentionKeepFavorites', 'retentionTypeRules',
   'onboardingCompleted',
-  'winVIntegration',
+  'notesGlobalShortcut',
 ]);
 
 function validateSetting(key, value) {
@@ -523,6 +524,8 @@ let lastClipboardImageHash = '';
 let lastFormats = [];
 let lastImageSize = { width: 0, height: 0 };
 let lastImageHashCheckAt = 0;
+/** Content signature of the last item actually imported (ignores Windows format noise). */
+let lastImportedContentSignature = '';
 let trayBalloonShown = false;
 // DB'nin gerçekte başlatıldığı dizin (effectiveLocation ile senkronize tutulur)
 // handleNewImage ve benzeri fonksiyonlar bunu kullanır — getDbPath() null kalsa da güvende oluruz.
@@ -1188,20 +1191,13 @@ function toggleWindow() {
  * Clipboard izlemeyi başlatır.
  */
 function startClipboardWatcher() {
-  // Mevcut clipboard içeriğini oku (karşılaştırma için)
   try {
-    lastClipboardText = clipboard.readText() || '';
-    lastClipboardHtml = clipboard.readHTML() || '';
-    const img = clipboard.readImage();
-    if (img && !img.isEmpty()) {
-      lastClipboardImageHash = hashImage(img);
-      lastImageHashCheckAt = Date.now();
-    }
+    // Başlangıçta mevcut OS panosunu "bilinen" say — uygulama açılınca geçmişe basma
+    markOsClipboardAsKnown();
   } catch (err) {
     console.error('İlk clipboard okuma hatası:', err);
   }
 
-  // Polling interval ayarını oku
   let interval = 500;
   try {
     if (db.isReady()) {
@@ -1278,106 +1274,141 @@ const _blurHandlerDebounced = debounce(() => {
   }
 }, 80);
 
-function updateLastClipboardState() {
-  lastClipboardText = clipboard.readText() || '';
-  lastClipboardHtml = clipboard.readHTML() || '';
-  lastFormats = clipboard.availableFormats() || [];
-  
-  const img = clipboard.readImage();
-  if (img && !img.isEmpty()) {
-    lastClipboardImageHash = hashImage(img);
-    lastImageSize = img.getSize();
-  } else {
-    lastClipboardImageHash = '';
-    lastImageSize = { width: 0, height: 0 };
+/**
+ * OS panosunun anlık içeriğini okur.
+ * Not: Windows format listesi gürültülüdür; karar için text/html/imageHash kullanılır.
+ */
+function readOsClipboardSnapshot() {
+  const text = clipboard.readText() || '';
+  const html = clipboard.readHTML() || '';
+  const formats = clipboard.availableFormats() || [];
+  let image = null;
+  let imageHash = '';
+
+  const looksLikeImage = formats.some((f) => {
+    const lower = String(f).toLowerCase();
+    return lower.includes('image') || lower.includes('bitmap') || lower.includes('png') || lower.includes('jpeg');
+  });
+
+  // Görsel formatı varsa veya metin yoksa görseli oku
+  if (looksLikeImage || (!text && !html)) {
+    try {
+      image = clipboard.readImage();
+      if (image && !image.isEmpty()) {
+        imageHash = hashImage(image) || '';
+      } else {
+        image = null;
+      }
+    } catch (_) {
+      image = null;
+      imageHash = '';
+    }
   }
+
+  return { text, html, formats, image, imageHash };
 }
 
+function contentSignatureOf(snapshot) {
+  if (snapshot.imageHash) return `img:${snapshot.imageHash}`;
+  const plain = String(snapshot.text || '');
+  const rich = String(snapshot.html || '');
+  if (rich.trim()) {
+    return `html:${crypto.createHash('md5').update(rich).update('\n').update(plain).digest('hex')}`;
+  }
+  if (plain) {
+    return `text:${crypto.createHash('md5').update(plain).digest('hex')}`;
+  }
+  return '';
+}
+
+/**
+ * Bu OS pano içeriğini "zaten işlendi" olarak işaretler.
+ * (Uygulama açılışı, kendi yazdığımız kopya, geçmiş silme/temizleme)
+ */
+function markOsClipboardAsKnown(snapshot = null) {
+  const snap = snapshot || readOsClipboardSnapshot();
+  lastClipboardText = snap.text;
+  lastClipboardHtml = snap.html;
+  lastFormats = snap.formats;
+  lastClipboardImageHash = snap.imageHash || '';
+  lastImageHashCheckAt = Date.now();
+  if (snap.image && !snap.image.isEmpty()) {
+    lastImageSize = snap.image.getSize();
+  } else {
+    lastImageSize = { width: 0, height: 0 };
+  }
+  lastImportedContentSignature = contentSignatureOf(snap);
+}
+
+/** Uygulama panoya yazdıktan sonra state senkronu */
+function updateLastClipboardState() {
+  markOsClipboardAsKnown();
+}
+
+/**
+ * Tek kural: OS panosu değiştiyse ve bu içeriği daha önce işlemediysek kaydet.
+ */
 function checkClipboard() {
   if (isWritingToClipboard) return;
 
-  const currentFormats = clipboard.availableFormats() || [];
-  const currentText = clipboard.readText() || '';
-  const currentHtml = clipboard.readHTML() || '';
+  const snap = readOsClipboardSnapshot();
+  const signature = contentSignatureOf(snap);
 
-  // Panoda görsel var mı? Her poll'da hash'i yeniden hesapla —
-  // format listesi aynı kalsa bile görsel içeriği değişmiş olabilir (ard arda ekran görüntüsü).
-  const hasImage = currentFormats.some(f => f.toLowerCase().includes('image') || f.toLowerCase().includes('bitmap'));
-  let currentImage = null;
-  let currentHash = lastClipboardImageHash;
-
-  const formatsChanged = !areFormatsEqual(currentFormats, lastFormats);
-  const textChanged = currentText !== lastClipboardText || currentHtml !== lastClipboardHtml;
-  const imageHashDue = Date.now() - lastImageHashCheckAt >= 750;
-
-  if (hasImage && (formatsChanged || textChanged || imageHashDue)) {
-    currentImage = clipboard.readImage();
-    if (currentImage && !currentImage.isEmpty()) {
-      currentHash = hashImage(currentImage);
-      lastImageHashCheckAt = Date.now();
-    }
-  } else {
-    currentHash = '';
-  }
-
-  // Değişiklik yoksa doğrudan çık
-  if (
-    currentText === lastClipboardText &&
-    currentHtml === lastClipboardHtml &&
-    !formatsChanged &&
-    currentHash === lastClipboardImageHash
-  ) {
+  // Format listesi tek başına değişse bile içerik aynıysa işlem yok
+  if (!signature || signature === lastImportedContentSignature) {
+    lastFormats = snap.formats;
+    lastClipboardText = snap.text;
+    lastClipboardHtml = snap.html;
+    lastClipboardImageHash = snap.imageHash || '';
     return;
   }
 
-  // Değişiklik algılandı, yeni durumu sakla
-  lastClipboardText = currentText;
-  lastClipboardHtml = currentHtml;
-  lastFormats = currentFormats;
-  lastClipboardImageHash = currentHash;
+  // Yeni içerik
+  lastClipboardText = snap.text;
+  lastClipboardHtml = snap.html;
+  lastFormats = snap.formats;
+  lastClipboardImageHash = snap.imageHash || '';
+  lastImageHashCheckAt = Date.now();
 
-  // Görsel kontrolü
-  if (currentImage && !currentImage.isEmpty()) {
-    handleNewImage(currentImage);
+  if (snap.imageHash && snap.image && !snap.image.isEmpty()) {
+    handleNewImage(snap.image, snap.imageHash);
+    lastImportedContentSignature = signature;
     return;
   }
 
-  const trimmedText = currentText ? currentText.trim() : '';
+  const trimmedText = snap.text ? snap.text.trim() : '';
 
-  // 1. Özel Metin Tipleri Kontrolü (Kod, URL, E-posta)
   if (trimmedText.length > 0) {
-    // URL Kontrolü
     if (/^https?:\/\/[^\s]+$/i.test(trimmedText) || /^www\.[^\s]+$/i.test(trimmedText)) {
-      handleNewClipboardItem(currentText, 'url');
+      handleNewClipboardItem(snap.text, 'url');
+      lastImportedContentSignature = signature;
       return;
     }
-    // E-posta Kontrolü
     if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmedText)) {
-      handleNewClipboardItem(currentText, 'email');
+      handleNewClipboardItem(snap.text, 'email');
+      lastImportedContentSignature = signature;
       return;
     }
-    // Kod Kontrolü (Zengin metin olsun olmasın, düz metin kod ise koddur)
-    if (isCodeContent(currentText)) {
-      handleNewClipboardItem(currentText, 'code');
+    if (isCodeContent(snap.text)) {
+      handleNewClipboardItem(snap.text, 'code');
+      lastImportedContentSignature = signature;
       return;
     }
   }
 
-  // 2. HTML (Zengin Metin) Kontrolü
-  if (currentHtml && currentHtml.trim().length > 0) {
-    const strippedHtml = currentHtml.replace(/<[^>]*>/g, '').trim();
-    const isRichContent = currentHtml.includes('<') && strippedHtml !== currentText.trim();
-
+  if (snap.html && snap.html.trim().length > 0) {
+    const strippedHtml = snap.html.replace(/<[^>]*>/g, '').trim();
+    const isRichContent = snap.html.includes('<') && strippedHtml !== (snap.text || '').trim();
     if (isRichContent) {
-      handleNewClipboardItem(currentHtml, 'html');
+      handleNewClipboardItem(snap.html, 'html');
+      lastImportedContentSignature = signature;
       return;
     }
   }
 
-  // 3. Normal Düz Metin Kontrolü
-  if (currentText && currentText.trim().length > 0) {
-    handleNewClipboardItem(currentText, 'text');
-    return;
+  if (snap.text && snap.text.trim().length > 0) {
+    handleNewClipboardItem(snap.text, 'text');
+    lastImportedContentSignature = signature;
   }
 }
 
@@ -1541,8 +1572,7 @@ function handleNewClipboardItem(content, contentType) {
       char_count: content.length,
     });
 
-    // Renderer'a bildir
-    if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow && !mainWindow.isDestroyed() && item) {
       mainWindow.webContents.send('clipboard-changed', item);
     }
   } catch (err) {
@@ -1552,13 +1582,18 @@ function handleNewClipboardItem(content, contentType) {
 
 /**
  * Yeni görsel clipboard öğesini işler.
+ * @param {Electron.NativeImage} image
+ * @param {string} [precomputedHash]
  */
-function handleNewImage(image) {
+function handleNewImage(image, precomputedHash = '') {
   if (!db.isReady()) return;
 
   try {
+    const imageHash = precomputedHash || hashImage(image);
+    if (!imageHash) return;
+
     // Görseli dosyaya kaydet — DB ile aynı klasörü kullan (özel konum destekli)
-    // Öncelik: activeDataDir > getDbPath() > userData (her senaryoda doğru yere gider)
+    // content_hash ile mükerrer kontrolü addClipboardItem içinde yapılır
     const dbFile = db.getDbPath();
     const baseDir = activeDataDir || (dbFile ? path.dirname(dbFile) : app.getPath('userData'));
     const imagesDir = path.join(baseDir, 'images');
@@ -1575,11 +1610,16 @@ function handleNewImage(image) {
       content: `[Görsel: ${formatBytes(pngBuffer.length)}]`,
       content_type: 'image',
       image_path: imagePath,
+      content_hash: imageHash,
       char_count: 0,
     });
 
-    // Renderer'a bildir
-    if (mainWindow && !mainWindow.isDestroyed()) {
+    // Duplicate by hash → existing row returned; remove unused new file
+    if (item && item.image_path && item.image_path !== imagePath && fs.existsSync(imagePath)) {
+      try { fs.unlinkSync(imagePath); } catch (_) { /* ignore */ }
+    }
+
+    if (mainWindow && !mainWindow.isDestroyed() && item) {
       mainWindow.webContents.send('clipboard-changed', item);
     }
   } catch (err) {
@@ -1654,43 +1694,98 @@ function detectSensitiveContent(text) {
 // Global Kısayollar
 // ═══════════════════════════════════════════════════════════════
 
-function registerGlobalShortcuts() {
-  try {
-    let shortcut = 'Ctrl+Shift+V';
-    if (db.isReady()) {
-      const saved = db.getSetting('globalShortcut');
-      if (saved) shortcut = saved;
-    }
-
-    const registered = globalShortcut.register(shortcut, () => {
-      toggleWindow();
-    });
-
-    if (!registered) {
-      console.warn(`Global kısayol kaydedilemedi: ${shortcut}`);
-    }
-
-    if (db.isReady() && db.getSetting('winVIntegration') === 'true') {
-      const winVRegistered = registerWinVShortcut();
-      if (!winVRegistered) db.saveSetting('winVIntegration', 'false');
-    }
-  } catch (err) {
-    console.error('Global kısayol kayıt hatası:', err);
-  }
+function normalizeAccelerator(shortcut) {
+  return String(shortcut || '').replace(/\s+/g, '').toLowerCase();
 }
 
-function updateGlobalShortcut(nextShortcut) {
-  const shortcut = requireString(nextShortcut, 'Global kısayol', 60).trim();
+function validateAccelerator(nextShortcut, label) {
+  const shortcut = requireString(nextShortcut, label, 60).trim();
   if (!/^(?=.*(?:Ctrl|Alt|Shift|Meta|Super)\+).+\+[^+]+$/i.test(shortcut)) {
-    throw new Error('Global kısayol en az bir değiştirici ve bir ana tuş içermelidir.');
+    throw new Error(`${label} en az bir değiştirici ve bir ana tuş içermelidir.`);
   }
-  const normalized = shortcut.replace(/\s+/g, '').toLowerCase();
+  const normalized = normalizeAccelerator(shortcut);
   const reserved = new Set([
     'ctrl+c', 'ctrl+v', 'ctrl+x', 'ctrl+a', 'ctrl+z', 'ctrl+y', 'ctrl+f',
     'ctrl+1', 'ctrl+2', 'ctrl+shift+m', 'alt+f4', 'super+v', 'meta+v',
   ]);
   if (reserved.has(normalized)) {
     throw new Error('Bu kombinasyon sistem veya uygulama içinde kullanılan bir kısayolla çakışıyor.');
+  }
+  return shortcut;
+}
+
+function registerGlobalShortcuts() {
+  try {
+    let shortcut = 'Ctrl+Shift+V';
+    let notesShortcut = 'Ctrl+Shift+N';
+    if (db.isReady()) {
+      const saved = db.getSetting('globalShortcut');
+      if (saved) shortcut = saved;
+      const savedNotes = db.getSetting('notesGlobalShortcut');
+      if (savedNotes) notesShortcut = savedNotes;
+    }
+
+    const registered = globalShortcut.register(shortcut, () => {
+      toggleWindow();
+    });
+    if (!registered) {
+      console.warn(`Global kısayol kaydedilemedi: ${shortcut}`);
+    }
+
+    if (notesShortcut && normalizeAccelerator(notesShortcut) !== normalizeAccelerator(shortcut)) {
+      const notesRegistered = globalShortcut.register(notesShortcut, () => {
+        toggleNotesWindow();
+      });
+      if (!notesRegistered) {
+        console.warn(`Notlar kısayolu kaydedilemedi: ${notesShortcut}`);
+      }
+    }
+  } catch (err) {
+    console.error('Global kısayol kayıt hatası:', err);
+  }
+}
+
+/**
+ * Opens (or toggles) the Notes workspace via global shortcut.
+ */
+function toggleNotesWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    applyWorkspaceMode('notes', true);
+    showWindow();
+    return;
+  }
+
+  if (Date.now() - lastBlurTime < 200) {
+    return;
+  }
+
+  if (mainWindow.isVisible()) {
+    const mode = db.isReady() ? (db.getSetting('workspaceMode') || 'clipboard') : 'clipboard';
+    if (mode === 'notes') {
+      hideWindow();
+      return;
+    }
+    applyWorkspaceMode('notes', true);
+    showWindow();
+    return;
+  }
+
+  if (GetForegroundWindow) {
+    const activeHwnd = GetForegroundWindow();
+    if (isValidTargetWindow(activeHwnd)) {
+      lastActiveWindowHwnd = activeHwnd;
+    }
+  }
+  applyWorkspaceMode('notes', true);
+  showWindow();
+}
+
+function updateGlobalShortcut(nextShortcut) {
+  const shortcut = validateAccelerator(nextShortcut, 'Global kısayol');
+  const notesShortcut = db.getSetting('notesGlobalShortcut') || 'Ctrl+Shift+N';
+  if (normalizeAccelerator(shortcut) === normalizeAccelerator(notesShortcut)) {
+    throw new Error('Pano ve Notlar kısayolları aynı olamaz.');
   }
 
   const previous = db.getSetting('globalShortcut') || 'Ctrl+Shift+V';
@@ -1706,29 +1801,24 @@ function updateGlobalShortcut(nextShortcut) {
   return shortcut;
 }
 
-function registerWinVShortcut() {
-  if (process.platform !== 'win32') return false;
-  try {
-    globalShortcut.unregister('Super+V');
-    return globalShortcut.register('Super+V', () => showWindow());
-  } catch (err) {
-    console.error('Win+V kaydı başarısız:', err);
-    return false;
+function updateNotesGlobalShortcut(nextShortcut) {
+  const shortcut = validateAccelerator(nextShortcut, 'Notlar kısayolu');
+  const clipboardShortcut = db.getSetting('globalShortcut') || 'Ctrl+Shift+V';
+  if (normalizeAccelerator(shortcut) === normalizeAccelerator(clipboardShortcut)) {
+    throw new Error('Pano ve Notlar kısayolları aynı olamaz.');
   }
-}
 
-function setWinVIntegration(enabled) {
-  if (!enabled) {
-    globalShortcut.unregister('Super+V');
-    db.saveSetting('winVIntegration', 'false');
-    return { enabled: false };
+  const previous = db.getSetting('notesGlobalShortcut') || 'Ctrl+Shift+N';
+  if (shortcut === previous && globalShortcut.isRegistered(previous)) return shortcut;
+
+  if (previous) globalShortcut.unregister(previous);
+  const registered = globalShortcut.register(shortcut, () => toggleNotesWindow());
+  if (!registered) {
+    if (previous) globalShortcut.register(previous, () => toggleNotesWindow());
+    throw new Error('Bu kısayol başka bir uygulama tarafından kullanılıyor. Önceki kısayol korundu.');
   }
-  if (!registerWinVShortcut()) {
-    db.saveSetting('winVIntegration', 'false');
-    throw new Error('Win+V Windows veya başka bir uygulama tarafından kullanılıyor.');
-  }
-  db.saveSetting('winVIntegration', 'true');
-  return { enabled: true };
+  db.saveSetting('notesGlobalShortcut', shortcut);
+  return shortcut;
 }
 
 function isRunningAsAdministrator() {
@@ -1836,6 +1926,8 @@ function registerIPCHandlers() {
     try {
       id = requirePositiveInteger(id);
       const result = db.deleteClipboardItem(id);
+      // OS panosu hâlâ aynı içeriği tutuyor olabilir — yeniden kaydetme
+      markOsClipboardAsKnown();
       return { success: true, data: result };
     } catch (err) {
       console.error('delete-clipboard-item hatası:', err);
@@ -1846,6 +1938,8 @@ function registerIPCHandlers() {
   ipcMain.handle('clear-clipboard-history', async () => {
     try {
       const count = db.clearHistory();
+      // OS panosu hâlâ aynı içeriği tutuyor olabilir — yeniden kaydetme
+      markOsClipboardAsKnown();
       return { success: true, data: { deleted: count } };
     } catch (err) {
       console.error('clear-clipboard-history hatası:', err);
@@ -2053,41 +2147,20 @@ function registerIPCHandlers() {
         clipboard.writeText(databaseContent);
       }
 
-      // Clipboard değerlerini güncelle
+      // Clipboard değerlerini güncelle (paste geçmişe yeni kayıt yazmaz)
       updateLastClipboardState();
 
-      // Yapıştırılan metni de veritabanında en üste taşı/ekle
-      if (db.isReady()) {
+      // Bilinen bir geçmiş öğesi yapıştırıldıysa yalnızca "son kullanım" zamanını güncelle
+      if (id && db.isReady()) {
         try {
-          let isSensitive = 0;
-          const detectSensitive = db.getSetting('detectSensitive');
-          if (detectSensitive === 'true') {
-            isSensitive = detectSensitiveContent(databaseContent) ? 1 : 0;
-          }
-
-          let contentType = 'text';
-          const trimmed = databaseContent.trim();
-          if (/^https?:\/\/[^\s]+$/i.test(trimmed) || /^www\.[^\s]+$/i.test(trimmed)) {
-            contentType = 'url';
-          } else if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
-            contentType = 'email';
-          } else if (isCodeContent(trimmed)) {
-            contentType = 'code';
-          }
-
-          const item = db.addClipboardItem({
-            content: databaseContent,
-            content_type: contentType,
-            is_sensitive: isSensitive,
-            char_count: databaseContent.length,
-          });
-
-          // Renderer'a bildir ki arayüzde en üste çıksın
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('clipboard-changed', item);
+          const touched = typeof db.touchClipboardItem === 'function'
+            ? db.touchClipboardItem(id)
+            : null;
+          if (touched && mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('clipboard-changed', touched);
           }
         } catch (dbErr) {
-          console.error('Yapıştırma sırasında DB güncellenemedi:', dbErr);
+          console.error('Yapıştırma sonrası öğe zamanı güncellenemedi:', dbErr);
         }
       }
 
@@ -2097,8 +2170,7 @@ function registerIPCHandlers() {
 
         // 1. Önce hedef pencereyi öne getir (ClipBoardPrime hala odaktayken bu yetkiye sahiptir)
         if (pasteTargetHwnd && SetForegroundWindow) {
-          const setFocusResult = SetForegroundWindow(pasteTargetHwnd);
-          console.log('Ön-SetForegroundWindow sonucu:', setFocusResult);
+          SetForegroundWindow(pasteTargetHwnd);
         }
 
         // 2. Kısa bir süre bekleyip odağın geçişini sağla, ardından ClipBoardPrime'ı gizle
@@ -2114,17 +2186,8 @@ function registerIPCHandlers() {
             // Electron gizlenirken Windows odağı başka bir pencereye verebilir.
             // Sabitlenen hedefi gizleme sonrasında yeniden öne getir.
             if (pasteTargetHwnd && SetForegroundWindow) {
-              const refocusResult = SetForegroundWindow(pasteTargetHwnd);
-              console.log('Son-SetForegroundWindow sonucu:', refocusResult);
+              SetForegroundWindow(pasteTargetHwnd);
               await new Promise(resolve => setTimeout(resolve, 80));
-            }
-
-            // Hedef pencereyi ve sınıfını logla
-            if (pasteTargetHwnd && GetClassNameA) {
-              const buf = Buffer.alloc(256);
-              const len = GetClassNameA(pasteTargetHwnd, buf, 256);
-              const className = buf.toString('ascii', 0, len).trim();
-              console.log('Odak geri yukleniyor, Hedef Pencere Sınıfı:', className);
             }
 
             // Sanal klavye kodları ve modifikatörler
@@ -2351,6 +2414,11 @@ function registerIPCHandlers() {
       const { key, value } = validateSetting(payload.key, payload.value);
       if (key === 'globalShortcut') {
         const shortcut = updateGlobalShortcut(value);
+        mainWindow?.webContents.send('settings-changed', { key, value: shortcut });
+        return { success: true, data: shortcut };
+      }
+      if (key === 'notesGlobalShortcut') {
+        const shortcut = updateNotesGlobalShortcut(value);
         mainWindow?.webContents.send('settings-changed', { key, value: shortcut });
         return { success: true, data: shortcut };
       }
@@ -2585,21 +2653,6 @@ function registerIPCHandlers() {
       return { success: true, data: bounds };
     } catch (err) {
       console.error('reset-window-bounds hatası:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('set-win-v-integration', async (_event, enabled) => {
-    try {
-      const data = setWinVIntegration(enabled === true);
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('settings-changed', {
-          key: 'winVIntegration',
-          value: String(data.enabled),
-        });
-      }
-      return { success: true, data };
-    } catch (err) {
       return { success: false, error: err.message };
     }
   });

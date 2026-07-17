@@ -15,7 +15,6 @@ const SettingsPanel = (() => {
     // Form Inputs
     theme: document.getElementById('setting-theme'),
     autostart: document.getElementById('setting-autostart'),
-    winV: document.getElementById('setting-win-v'),
     adminStatus: document.getElementById('setting-admin-status'),
     restartAsAdminBtn: document.getElementById('restart-as-admin-btn'),
     sensitive: document.getElementById('setting-sensitive'),
@@ -25,6 +24,7 @@ const SettingsPanel = (() => {
     retentionTypeInputs: document.querySelectorAll('[data-retention-type]'),
     pollInterval: document.getElementById('setting-poll-interval'),
     shortcut: document.getElementById('setting-shortcut'),
+    notesShortcut: document.getElementById('setting-notes-shortcut'),
     blurToTray: document.getElementById('setting-blur-to-tray'),
     clearSearchOnHide: document.getElementById('setting-clear-search-on-hide'),
     clearNotesSearchOnHide: document.getElementById('setting-clear-notes-search-on-hide'),
@@ -39,6 +39,7 @@ const SettingsPanel = (() => {
     spaceKeyAction: document.getElementById('setting-space-key-action'),
     hoverPreview: document.getElementById('setting-hover-preview'),
     hoverPreviewDelay: document.getElementById('setting-hover-preview-delay'),
+    keyboardHelp: document.getElementById('setting-keyboard-help'),
     appFontSize: document.getElementById('setting-app-font-size'),
     language: document.getElementById('setting-language'),
     
@@ -73,10 +74,13 @@ const SettingsPanel = (() => {
     // Tab geçişleri
     elements.tabs.forEach((tab) => {
       tab.addEventListener('click', () => {
-        elements.tabs.forEach(t => t.classList.remove('active'));
+        elements.tabs.forEach((t) => {
+          const active = t === tab;
+          t.classList.toggle('active', active);
+          t.setAttribute('aria-selected', String(active));
+        });
         elements.sections.forEach(s => s.classList.remove('active'));
 
-        tab.classList.add('active');
         const targetSection = document.getElementById(`settings-${tab.dataset.tab}`);
         if (targetSection) targetSection.classList.add('active');
       });
@@ -85,21 +89,6 @@ const SettingsPanel = (() => {
     // ─── Ayarların Değişimi Kayıt Dinleyicileri ───
     elements.theme.addEventListener('change', (e) => saveSetting('theme', e.target.value));
     elements.autostart.addEventListener('change', (e) => saveSetting('startWithWindows', String(e.target.checked)));
-    elements.winV?.addEventListener('change', async (e) => {
-      const response = await window.api.setWinVIntegration(e.target.checked);
-      if (!response?.success) {
-        e.target.checked = false;
-        Utils.showToast(response?.error || 'Win+V etkinleştirilemedi', 'warning');
-        return;
-      }
-      currentSettings.winVIntegration = String(response.data.enabled);
-      Utils.showToast(
-        response.data.enabled
-          ? (window.i18n ? window.i18n.t('settings.winVEnabled') : 'Win+V etkinleştirildi.')
-          : (window.i18n ? window.i18n.t('settings.winVDisabled') : 'Win+V kapatıldı.'),
-        'success'
-      );
-    });
     elements.restartAsAdminBtn?.addEventListener('click', restartAsAdministrator);
     elements.sensitive.addEventListener('change', (e) => saveSetting('detectSensitive', String(e.target.checked)));
     elements.historyLimit.addEventListener('change', (e) => saveSetting('maxHistory', e.target.value));
@@ -153,6 +142,12 @@ const SettingsPanel = (() => {
     }
     if (elements.hoverPreviewDelay) {
       elements.hoverPreviewDelay.addEventListener('change', (e) => saveSetting('hoverPreviewDelay', e.target.value));
+    }
+    if (elements.keyboardHelp) {
+      elements.keyboardHelp.addEventListener('change', (e) => {
+        saveSetting('showKeyboardHelp', String(e.target.checked));
+        window.App?.applyKeyboardHelpVisibility?.();
+      });
     }
     elements.appFontSize.addEventListener('change', (e) => {
       saveSetting('appFontSize', e.target.value);
@@ -212,29 +207,43 @@ const SettingsPanel = (() => {
       }
     });
 
-    // ─── Kısayol Düzenleme Mantığı ───
-    let isListeningShortcut = false;
+    // ─── Kısayol Düzenleme Mantığı (pano + notlar) ───
+    setupShortcutCapture(elements.shortcut, {
+      settingKey: 'globalShortcut',
+      fallback: 'Ctrl+Shift+V',
+      getCurrent: () => currentSettings.globalShortcut || 'Ctrl+Shift+V',
+    });
+    setupShortcutCapture(elements.notesShortcut, {
+      settingKey: 'notesGlobalShortcut',
+      fallback: 'Ctrl+Shift+N',
+      getCurrent: () => currentSettings.notesGlobalShortcut || 'Ctrl+Shift+N',
+    });
+  }
 
-    elements.shortcut.addEventListener('focus', () => {
-      isListeningShortcut = true;
-      elements.shortcut.classList.add('is-capturing');
-      elements.shortcut.value = window.i18n ? window.i18n.t('settings.shortcutListening') : 'Kombinasyona bas...';
+  function setupShortcutCapture(input, { settingKey, fallback, getCurrent }) {
+    if (!input) return;
+    let isListening = false;
+
+    input.addEventListener('focus', () => {
+      isListening = true;
+      input.classList.add('is-capturing');
+      input.value = window.i18n ? window.i18n.t('settings.shortcutListening') : 'Kombinasyona bas...';
     });
 
-    elements.shortcut.addEventListener('blur', () => {
-      isListeningShortcut = false;
-      elements.shortcut.classList.remove('is-capturing');
-      elements.shortcut.value = currentSettings.globalShortcut || 'Ctrl+Shift+V';
+    input.addEventListener('blur', () => {
+      isListening = false;
+      input.classList.remove('is-capturing');
+      input.value = getCurrent() || fallback;
     });
 
-    elements.shortcut.addEventListener('keydown', (e) => {
-      if (!isListeningShortcut) return;
+    input.addEventListener('keydown', (e) => {
+      if (!isListening) return;
 
       e.preventDefault();
       e.stopPropagation();
 
       if (e.key === 'Escape') {
-        elements.shortcut.blur();
+        input.blur();
         return;
       }
 
@@ -249,24 +258,19 @@ const SettingsPanel = (() => {
 
       if (!isModifierKey) {
         let keyName = key;
-        // Harfleri büyüt
         if (keyName.length === 1) {
           keyName = keyName.toUpperCase();
-        } else {
-          // Özel tuşları normalize et
-          if (keyName === ' ') keyName = 'Space';
-          else if (keyName === 'ArrowUp') keyName = 'Up';
-          else if (keyName === 'ArrowDown') keyName = 'Down';
-          else if (keyName === 'ArrowLeft') keyName = 'Left';
-          else if (keyName === 'ArrowRight') keyName = 'Right';
-        }
+        } else if (keyName === ' ') keyName = 'Space';
+        else if (keyName === 'ArrowUp') keyName = 'Up';
+        else if (keyName === 'ArrowDown') keyName = 'Down';
+        else if (keyName === 'ArrowLeft') keyName = 'Left';
+        else if (keyName === 'ArrowRight') keyName = 'Right';
 
         if (modifiers.length > 0) {
           const shortcutString = `${modifiers.join('+')}+${keyName}`;
-          elements.shortcut.value = shortcutString;
-          
-          saveSetting('globalShortcut', shortcutString);
-          elements.shortcut.blur();
+          input.value = shortcutString;
+          saveSetting(settingKey, shortcutString);
+          input.blur();
         }
       }
     });
@@ -302,8 +306,8 @@ const SettingsPanel = (() => {
         
         // UI alanlarını doldur
         elements.theme.value = currentSettings.theme || 'dark';
-        elements.autostart.checked = currentSettings.startWithWindows === 'true' || currentSettings.startWithWindows === undefined || currentSettings.startWithWindows === null || currentSettings.startWithWindows === '';
-        if (elements.winV) elements.winV.checked = currentSettings.winVIntegration === 'true';
+        // Opt-in autostart: only explicit 'true' enables the toggle
+        elements.autostart.checked = currentSettings.startWithWindows === 'true';
         await refreshPrivilegeStatus();
         elements.sensitive.checked = currentSettings.detectSensitive === 'true';
         elements.historyLimit.value = currentSettings.maxHistory || '0';
@@ -316,6 +320,9 @@ const SettingsPanel = (() => {
         applyRetentionTypeRules(currentSettings.retentionTypeRules);
         elements.pollInterval.value = currentSettings.pollingInterval || '500';
         elements.shortcut.value = currentSettings.globalShortcut || 'Ctrl+Shift+V';
+        if (elements.notesShortcut) {
+          elements.notesShortcut.value = currentSettings.notesGlobalShortcut || 'Ctrl+Shift+N';
+        }
         if (elements.blurToTray) {
           elements.blurToTray.checked = currentSettings.blurToTray === 'true';
         }
@@ -349,6 +356,9 @@ const SettingsPanel = (() => {
         }
         if (elements.hoverPreviewDelay) {
           elements.hoverPreviewDelay.value = currentSettings.hoverPreviewDelay || '500';
+        }
+        if (elements.keyboardHelp) {
+          elements.keyboardHelp.checked = currentSettings.showKeyboardHelp !== 'false';
         }
         elements.appFontSize.value = currentSettings.appFontSize || '13px';
 
@@ -435,6 +445,11 @@ const SettingsPanel = (() => {
         // Tema ayarı değiştiyse anında uygula
         if (key === 'theme') {
           applyTheme(value);
+          window.App?.updateThemeToggleIcon?.(value);
+        }
+        if (key === 'showKeyboardHelp') {
+          if (window.App) window.App.settings.showKeyboardHelp = value;
+          window.App?.applyKeyboardHelpVisibility?.();
         }
       } else {
         Utils.showToast((window.i18n ? window.i18n.t('toast.settingFailed') : 'Ayar kaydedilemedi') + ': ' + response?.error, 'error');
@@ -450,7 +465,6 @@ const SettingsPanel = (() => {
   function updateUIField(key, value) {
     if (key === 'theme') elements.theme.value = value;
     else if (key === 'startWithWindows') elements.autostart.checked = value === 'true';
-    else if (key === 'winVIntegration' && elements.winV) elements.winV.checked = value === 'true';
     else if (key === 'detectSensitive') elements.sensitive.checked = value === 'true';
     else if (key === 'maxHistory') elements.historyLimit.value = value;
     else if (key === 'retentionDays' && elements.retentionDays) elements.retentionDays.value = value;
@@ -460,6 +474,7 @@ const SettingsPanel = (() => {
     else if (key === 'retentionTypeRules') applyRetentionTypeRules(value);
     else if (key === 'pollingInterval') elements.pollInterval.value = value;
     else if (key === 'globalShortcut') elements.shortcut.value = value;
+    else if (key === 'notesGlobalShortcut' && elements.notesShortcut) elements.notesShortcut.value = value;
     else if (key === 'blurToTray' && elements.blurToTray) elements.blurToTray.checked = value === 'true';
     else if (key === 'clearSearchOnHide' && elements.clearSearchOnHide) elements.clearSearchOnHide.checked = value === 'true';
     else if (key === 'clearNotesSearchOnHide' && elements.clearNotesSearchOnHide) elements.clearNotesSearchOnHide.checked = value === 'true';
@@ -483,6 +498,10 @@ const SettingsPanel = (() => {
       elements.hoverPreview.checked = value === 'true';
     }
     else if (key === 'hoverPreviewDelay' && elements.hoverPreviewDelay) elements.hoverPreviewDelay.value = value;
+    else if (key === 'showKeyboardHelp' && elements.keyboardHelp) {
+      elements.keyboardHelp.checked = value !== 'false';
+      window.App?.applyKeyboardHelpVisibility?.();
+    }
     else if (key === 'appFontSize') {
       elements.appFontSize.value = value;
       applyFontSizes(value);

@@ -83,7 +83,7 @@ test('IPC handlerları renderer penceresi oluşturulmadan önce kaydedilir', () 
 test('pano öğesi olayları öğe kapsamındaki bağlama fonksiyonunda kalır', () => {
   const source = read('src/js/clipboard-panel.js');
   const contextMenuBlock = source.match(
-    /function setupContextMenuActions\(\) \{([\s\S]*?)\n  \}\n\n  async function executeItemAction/
+    /function setupContextMenuActions\(\) \{([\s\S]*?)\r?\n  \}\r?\n\r?\n  async function executeItemAction/
   );
 
   assert.ok(contextMenuBlock, 'setupContextMenuActions fonksiyonu bulunamadı');
@@ -159,7 +159,8 @@ test('temel etkileşimler klavye ve ekran okuyucu desteği taşır', () => {
   const app = read('src/js/app.js');
   const html = read('src/index.html');
   const css = read('src/styles/main.css');
-  assert.match(app, /elements\.resizer\.addEventListener\('keydown'/);
+  // Single-workspace UI: resizer is intentionally unused; keyboard cards remain accessible
+  assert.match(app, /setupKeyboardShortcuts/);
   assert.match(html, /id="toast-container" role="status" aria-live="polite"/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
   assert.doesNotMatch(read('src/js/clipboard-panel.js'), /<div class="accordion-view-more"/);
@@ -216,16 +217,26 @@ test('klavye kısayolları güvenli kayıt ve düzenleme alanı koruması kullan
   assert.match(app, /const closeOrder = \[/);
   assert.match(notes, /e\.key\.toLowerCase\(\) === 'e'/);
   assert.match(notes, /e\.key === 'Home' \|\| e\.key === 'End'/);
+  const clipboard = read('src/js/clipboard-panel.js');
+  assert.match(clipboard, /e\.key === 'Home' \|\| e\.key === 'End'/);
 });
 
-test('veri konumu taşmaz ve kartlar hover ile klavye odağı kazanır', () => {
+test('veri konumu taşmaz ve kartlar hover ile odak çalmaz', () => {
   const css = read('src/styles/main.css');
   const clipboard = read('src/js/clipboard-panel.js');
   const notes = read('src/js/notes-panel.js');
   assert.match(css, /\.data-location-row\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto[^}]*min-width:\s*0/s);
   assert.match(css, /\.data-location-path\s*\{[^}]*min-width:\s*0/s);
-  assert.match(clipboard, /mouseenter[\s\S]*?focus\(\{ preventScroll: true \}\)/);
-  assert.match(notes, /mouseenter[\s\S]*?focus\(\{ preventScroll: true \}\)/);
+  assert.match(clipboard, /Hover only highlights — never steals keyboard focus/);
+  assert.match(notes, /Hover only highlights — never steals keyboard focus/);
+  assert.doesNotMatch(
+    clipboard,
+    /addEventListener\('mouseenter'[\s\S]{0,400}?focus\(\{\s*preventScroll:\s*true\s*\}\)/
+  );
+  assert.doesNotMatch(
+    notes,
+    /addEventListener\('mouseenter'[\s\S]{0,400}?focus\(\{\s*preventScroll:\s*true\s*\}\)/
+  );
 });
 
 test('pano ve not kartları tutarlı animasyonlu genişletme kontrolü kullanır', () => {
@@ -367,7 +378,9 @@ test('kurulum ve veri ayarları gerçek release davranışını doğru açıklar
   const onboarding = read('src/js/onboarding.js');
   const tr = JSON.parse(read('src/locales/tr.json'));
   assert.match(html, /id="onboarding-theme"[\s\S]*?<option value="system"/);
-  assert.match(onboarding, /settings\?\.globalShortcut \|\| 'Ctrl\+Shift\+V'/);
+  assert.match(onboarding, /settings\?\.globalShortcut \|\| ''\)\.trim\(\) \|\| 'Ctrl\+Shift\+V'/);
+  assert.match(onboarding, /id=\"onboarding-ready\"|get\('onboarding-ready'\)/);
+  assert.match(onboarding, /createElement\('kbd'\)/);
   assert.match(tr.onboarding.readyDesc, /\{\{shortcut\}\}/);
   assert.match(tr.settings.exportDesc, /\.cpbackup/);
   assert.match(tr.settings.importDesc, /mevcut içeriğe ekleyin/);
