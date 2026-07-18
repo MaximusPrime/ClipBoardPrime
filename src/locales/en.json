@@ -363,8 +363,10 @@
     "featureTray": "Global shortcut and system tray integration",
     "projectDesc": "ClipBoardPrime is a premium desktop application that lets you intelligently manage your clipboard and store frequently used content integrated with a practical notepad.",
     "devProfile": "Developer Profile",
+    "studioSite": "Studio Website",
+    "productPage": "Product Page",
     "sourceCode": "Source Code",
-    "copyright": "© 2026 ClipBoardPrime. All rights reserved."
+    "copyright": "© 2026 Maximus Prime Software. All rights reserved."
   },
   "backup": {
     "exportPasswordTitle": "Backup Password",

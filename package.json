@@ -21,11 +21,32 @@
     "electron": "^43.1.1",
     "electron-builder": "^26.15.3"
   },
-  "author": "Maximus Prime",
+  "author": {
+    "name": "Maximus Prime",
+    "email": "b.maximus.prime@gmail.com",
+    "url": "https://github.com/MaximusPrime"
+  },
+  "contributors": [
+    {
+      "name": "Maximus Prime Software",
+      "email": "maximusprimesoftware@gmail.com",
+      "url": "https://maximusprimesoftware.pages.dev/"
+    }
+  ],
+  "homepage": "https://maximusprimesoftware.pages.dev/projects/clipboardprime/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MaximusPrimeSoftware/ClipBoardPrime.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MaximusPrimeSoftware/ClipBoardPrime/issues",
+    "email": "maximusprimesoftware@gmail.com"
+  },
   "license": "GPL-3.0-only",
   "build": {
     "appId": "com.clipboardprime.app",
     "productName": "ClipBoardPrime",
+    "copyright": "Copyright © 2026 Maximus Prime Software",
     "win": {
       "icon": "build/icon.ico",
       "target": [

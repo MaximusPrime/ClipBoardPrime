@@ -113,6 +113,9 @@ Değişikliklerinizi tamamladıktan sonra ana depoya bir Pull Request (PR) gönd
 
 Sorularınız veya işbirliği önerileriniz için aşağıdaki kanallardan bize ulaşabilirsiniz:
 
-*   **Proje Yöneticisi**: Maximus Decimus Meridius ([MaximusPrime77](https://github.com/MaximusPrime77))
+*   **Proje Yöneticisi**: Maximus Prime ([MaximusPrime](https://github.com/MaximusPrime))
+*   **Stüdyo**: [Maximus Prime Software](https://maximusprimesoftware.pages.dev/)
 *   **E-posta**: [b.maximus.prime@gmail.com](mailto:b.maximus.prime@gmail.com)
-*   **Depo Bağlantısı**: [https://github.com/MaximusPrime77/ClipBoardPrime](https://github.com/MaximusPrime77/ClipBoardPrime)
+*   **Stüdyo e-posta**: [maximusprimesoftware@gmail.com](mailto:maximusprimesoftware@gmail.com)
+*   **Organizasyon**: [github.com/MaximusPrimeSoftware](https://github.com/MaximusPrimeSoftware)
+*   **Depo Bağlantısı**: [https://github.com/MaximusPrimeSoftware/ClipBoardPrime](https://github.com/MaximusPrimeSoftware/ClipBoardPrime)

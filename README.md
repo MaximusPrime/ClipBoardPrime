@@ -149,7 +149,7 @@ The importer remains compatible with earlier JSON exports. New exports use the e
 
 ## Installation
 
-Download the installer or portable executable from the project’s [GitHub Releases](https://github.com/MaximusPrime77/ClipBoardPrime/releases) page.
+Download the installer or portable executable from the project’s [GitHub Releases](https://github.com/MaximusPrimeSoftware/ClipBoardPrime/releases) page.
 
 | Distribution | Behavior |
 |---|---|
@@ -172,7 +172,7 @@ Download the installer or portable executable from the project’s [GitHub Relea
 ### Set up the project
 
 ```bash
-git clone https://github.com/MaximusPrime77/ClipBoardPrime.git
+git clone https://github.com/MaximusPrimeSoftware/ClipBoardPrime.git
 cd ClipBoardPrime
 npm install
 npm run dev
@@ -255,21 +255,29 @@ ClipBoardPrime is licensed under the [GNU General Public License v3.0](LICENSE).
 
 ## Author and support
 
-- **Developer:** Maximus Prime
-- **Studio:** Maximus Prime Software
-- **GitHub:** [@MaximusPrime77](https://github.com/MaximusPrime77)
-- **Email:** [b.maximus.prime@gmail.com](mailto:b.maximus.prime@gmail.com)
-- **Repository:** [github.com/MaximusPrime77/ClipBoardPrime](https://github.com/MaximusPrime77/ClipBoardPrime)
+| | |
+|---|---|
+| **Developer** | Maximus Prime |
+| **Studio** | Maximus Prime Software |
+| **Website** | [maximusprimesoftware.pages.dev](https://maximusprimesoftware.pages.dev/) |
+| **Product page** | [ClipBoardPrime](https://maximusprimesoftware.pages.dev/projects/clipboardprime/) |
+| **Studio email** | [maximusprimesoftware@gmail.com](mailto:maximusprimesoftware@gmail.com) |
+| **Developer email** | [b.maximus.prime@gmail.com](mailto:b.maximus.prime@gmail.com) |
+| **GitHub** | [@MaximusPrime](https://github.com/MaximusPrime) |
+| **Organization** | [@MaximusPrimeSoftware](https://github.com/MaximusPrimeSoftware) |
+| **Repository** | [MaximusPrimeSoftware/ClipBoardPrime](https://github.com/MaximusPrimeSoftware/ClipBoardPrime) |
 
 ---
 
 <div align="center">
   <h3>Maximus Prime Software</h3>
-  <a href="https://github.com/MaximusPrime77">
+  <a href="https://maximusprimesoftware.pages.dev/">
     <img src="assets/maximus-prime-software.png" alt="Maximus Prime Software brand logo" width="240">
   </a>
   <p>
     <strong>Designed and developed by Maximus Prime Software.</strong><br>
-    <sub>Private by design. Built for productive Windows workflows.</sub>
+    <sub>Private by design. Built for productive Windows workflows.</sub><br>
+    <a href="https://maximusprimesoftware.pages.dev/">maximusprimesoftware.pages.dev</a> ·
+    <a href="https://github.com/MaximusPrimeSoftware">@MaximusPrimeSoftware</a>
   </p>
 </div>
