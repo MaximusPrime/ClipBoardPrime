@@ -89,9 +89,61 @@ const NotesPanel = (() => {
    */
   function init() {
     setupEventListeners();
+    setupCategoryFilterDrag();
     loadCategories().then(() => {
       applyOpenFilter();
       loadNotes();
+    });
+  }
+
+  function isUserCategoryFilterButton(btn) {
+    if (!btn || !btn.dataset) return false;
+    const value = btn.dataset.category;
+    // User categories use numeric ids; system chips: '', pinned, favorites, null
+    return /^\d+$/.test(String(value || ''));
+  }
+
+  function setupCategoryFilterDrag() {
+    if (!elements.categoryFilter || !window.Utils || !Utils.enableFilterTabDrag) return;
+    Utils.enableFilterTabDrag(elements.categoryFilter, {
+      isDraggable: isUserCategoryFilterButton,
+      onReorder: async (buttons) => {
+        const ordered = buttons
+          .filter(isUserCategoryFilterButton)
+          .map((btn, index) => ({
+            id: parseInt(btn.dataset.category, 10),
+            sort_order: index,
+          }))
+          .filter((item) => Number.isFinite(item.id));
+
+        if (ordered.length === 0) return;
+
+        // Keep local list in sync for dropdowns
+        const byId = new Map(categoriesList.map((c) => [c.id, c]));
+        const reordered = [];
+        ordered.forEach((item) => {
+          const cat = byId.get(item.id);
+          if (cat) {
+            cat.sort_order = item.sort_order;
+            reordered.push(cat);
+          }
+        });
+        categoriesList = reordered.length ? reordered : categoriesList;
+
+        try {
+          const response = await window.api.reorderCategories(ordered);
+          if (!response || !response.success) {
+            Utils.showToast(
+              window.i18n ? window.i18n.t('toast.categoryReorderFailed') : 'Kategori sırası kaydedilemedi',
+              'error'
+            );
+            await loadCategories();
+          }
+        } catch (err) {
+          console.error('reorderCategories failed:', err);
+          await loadCategories();
+        }
+      },
     });
   }
 
@@ -103,6 +155,7 @@ const NotesPanel = (() => {
     elements.categoryFilter.addEventListener('click', (e) => {
       const btn = e.target.closest('.filter-btn');
       if (!btn) return;
+      if (btn.classList.contains('filter-btn-dragging')) return;
 
       elements.categoryFilter.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
@@ -427,11 +480,17 @@ const NotesPanel = (() => {
     elements.categoryFilter.innerHTML = '';
     
     // "Tüm Kategoriler" butonu
-    const createCategoryFilterButton = (value, label, icon, color) => {
+    const createCategoryFilterButton = (value, label, icon, color, { userCategory = false } = {}) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `filter-btn${activeCategoryFilter === value ? ' active' : ''}`;
       button.dataset.category = value;
+      if (userCategory) {
+        button.draggable = true;
+        button.classList.add('filter-btn-draggable');
+        button.title = window.i18n ? window.i18n.t('tooltip.dragToReorder') : 'Sürükleyerek sırala';
+      }
+      button.setAttribute('aria-selected', String(activeCategoryFilter === value));
       const iconElement = document.createElement('span');
       iconElement.className = 'filter-emoji';
       iconElement.style.setProperty('--category-color', color);
@@ -481,13 +540,14 @@ const NotesPanel = (() => {
     separator.className = 'filter-separator';
     elements.categoryFilter.appendChild(separator);
 
-    // Kategori butonları
+    // Kategori butonları (sürüklenebilir)
     categoriesList.forEach((cat) => {
       const btn = createCategoryFilterButton(
         String(cat.id),
         getLocalizedCategoryName(cat.name),
         Utils.Icons[cat.icon] || Utils.Icons.folder,
-        cat.color || 'var(--text-secondary)'
+        cat.color || 'var(--text-secondary)',
+        { userCategory: true }
       );
       elements.categoryFilter.appendChild(btn);
     });

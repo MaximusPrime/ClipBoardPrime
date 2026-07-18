@@ -330,6 +330,111 @@ const Utils = (() => {
     el.focus({ preventScroll: true });
   }
 
+  /**
+   * Horizontal filter/category chip drag-and-drop reorder.
+   * @param {HTMLElement} container
+   * @param {object} options
+   * @param {(buttons: HTMLElement[]) => void|Promise<void>} options.onReorder
+   * @param {(btn: HTMLElement) => boolean} [options.isDraggable] — default: all .filter-btn
+   * @param {string} [options.buttonSelector]
+   */
+  function enableFilterTabDrag(container, options = {}) {
+    if (!container || container.dataset.dragReady === '1') return;
+    container.dataset.dragReady = '1';
+
+    const buttonSelector = options.buttonSelector || '.filter-btn';
+    const isDraggable = typeof options.isDraggable === 'function'
+      ? options.isDraggable
+      : () => true;
+
+    let dragEl = null;
+    let suppressClick = false;
+
+    const getButtons = () => Array.from(container.querySelectorAll(buttonSelector));
+
+    const refreshDraggable = () => {
+      getButtons().forEach((btn) => {
+        const allow = isDraggable(btn);
+        btn.draggable = allow;
+        btn.classList.toggle('filter-btn-draggable', allow);
+        if (allow) {
+          btn.title = window.i18n ? window.i18n.t('tooltip.dragToReorder') : 'Sürükleyerek sırala';
+        }
+      });
+    };
+
+    container.addEventListener('click', (e) => {
+      if (!suppressClick) return;
+      // Swallow the click that browsers fire after a successful drag-drop.
+      e.stopPropagation();
+      e.preventDefault();
+      suppressClick = false;
+    }, true);
+
+    container.addEventListener('dragstart', (e) => {
+      const btn = e.target.closest(buttonSelector);
+      if (!btn || !container.contains(btn) || !isDraggable(btn)) {
+        e.preventDefault();
+        return;
+      }
+      dragEl = btn;
+      suppressClick = false;
+      btn.classList.add('filter-btn-dragging');
+      try {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', btn.dataset.filter || btn.dataset.category || 'tab');
+      } catch (_) { /* ignore */ }
+    });
+
+    container.addEventListener('dragend', () => {
+      if (dragEl) dragEl.classList.remove('filter-btn-dragging');
+      getButtons().forEach((b) => b.classList.remove('filter-btn-drag-over'));
+      dragEl = null;
+      // Keep suppressClick true briefly if drop set it.
+      setTimeout(() => { suppressClick = false; }, 50);
+    });
+
+    container.addEventListener('dragover', (e) => {
+      if (!dragEl) return;
+      e.preventDefault();
+      try { e.dataTransfer.dropEffect = 'move'; } catch (_) { /* ignore */ }
+      const over = e.target.closest(buttonSelector);
+      getButtons().forEach((b) => b.classList.toggle('filter-btn-drag-over', b === over && b !== dragEl && isDraggable(b)));
+    });
+
+    container.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      if (!dragEl) return;
+      const over = e.target.closest(buttonSelector);
+      getButtons().forEach((b) => b.classList.remove('filter-btn-drag-over'));
+      if (!over || over === dragEl || !container.contains(over) || !isDraggable(over)) {
+        dragEl.classList.remove('filter-btn-dragging');
+        dragEl = null;
+        return;
+      }
+
+      const rect = over.getBoundingClientRect();
+      const before = e.clientX < rect.left + rect.width / 2;
+      if (before) container.insertBefore(dragEl, over);
+      else container.insertBefore(dragEl, over.nextSibling);
+
+      dragEl.classList.remove('filter-btn-dragging');
+      dragEl = null;
+      suppressClick = true;
+
+      if (typeof options.onReorder === 'function') {
+        await options.onReorder(getButtons());
+      }
+    });
+
+    // MutationObserver so newly rendered category chips become draggable
+    const mo = new MutationObserver(() => refreshDraggable());
+    mo.observe(container, { childList: true, subtree: false });
+    refreshDraggable();
+
+    return { refreshDraggable };
+  }
+
   return {
     Icons,
     formatDate,
@@ -348,6 +453,7 @@ const Utils = (() => {
     destroyFocusTrap,
     canHoverSelectCard,
     hoverSelectCard,
+    enableFilterTabDrag,
   };
 
 })();

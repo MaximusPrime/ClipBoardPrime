@@ -46,11 +46,72 @@ const ClipboardPanel = (() => {
   /**
    * Modülü başlatır ve olay dinleyicilerini tanımlar
    */
+  const DEFAULT_FILTER_ORDER = ['all', 'pinned', 'favorites', 'text', 'image', 'url', 'email', 'code'];
+
   function init() {
     setupEventListeners();
     setupContextMenuActions();
+    applyClipboardFilterOrder();
+    setupFilterDrag();
     applyOpenFilter();
     loadHistory(false);
+  }
+
+  function parseFilterOrder(raw) {
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!Array.isArray(parsed)) return [...DEFAULT_FILTER_ORDER];
+      const valid = new Set(DEFAULT_FILTER_ORDER);
+      const cleaned = parsed.filter((key) => valid.has(key));
+      DEFAULT_FILTER_ORDER.forEach((key) => {
+        if (!cleaned.includes(key)) cleaned.push(key);
+      });
+      return cleaned;
+    } catch (_) {
+      return [...DEFAULT_FILTER_ORDER];
+    }
+  }
+
+  /** Persist / restore filter chip order in the clipboard toolbar. */
+  function applyClipboardFilterOrder() {
+    if (!elements.filters) return;
+    const settings = window.App && window.App.settings;
+    const order = parseFilterOrder(settings && settings.clipboardFilterOrder);
+    const buttons = Array.from(elements.filters.querySelectorAll('.filter-btn'));
+    const byKey = Object.fromEntries(buttons.map((b) => [b.dataset.filter, b]));
+    const separator = elements.filters.querySelector('.filter-separator');
+
+    order.forEach((key) => {
+      if (byKey[key]) elements.filters.appendChild(byKey[key]);
+      if (key === 'favorites' && separator) elements.filters.appendChild(separator);
+    });
+  }
+
+  async function saveClipboardFilterOrder(buttons) {
+    const order = buttons.map((b) => b.dataset.filter).filter(Boolean);
+    // Keep separator after favorites if present
+    const separator = elements.filters.querySelector('.filter-separator');
+    const fav = elements.filters.querySelector('.filter-btn[data-filter="favorites"]');
+    if (separator && fav && fav.nextSibling !== separator) {
+      elements.filters.insertBefore(separator, fav.nextSibling);
+    }
+    try {
+      if (window.api && window.api.saveSetting) {
+        await window.api.saveSetting('clipboardFilterOrder', JSON.stringify(order));
+      }
+      if (window.App && window.App.settings) {
+        window.App.settings.clipboardFilterOrder = JSON.stringify(order);
+      }
+    } catch (err) {
+      console.error('clipboardFilterOrder save failed:', err);
+    }
+  }
+
+  function setupFilterDrag() {
+    if (!elements.filters || !window.Utils || !Utils.enableFilterTabDrag) return;
+    Utils.enableFilterTabDrag(elements.filters, {
+      onReorder: (buttons) => saveClipboardFilterOrder(buttons),
+    });
   }
 
   /**
@@ -67,6 +128,8 @@ const ClipboardPanel = (() => {
     elements.filters.addEventListener('click', (e) => {
       const btn = e.target.closest('.filter-btn');
       if (!btn) return;
+      // Ignore click that ends a drag (browser may still fire click)
+      if (btn.classList.contains('filter-btn-dragging')) return;
 
       // Aktif sınıfını güncelle
       elements.filters.querySelectorAll('.filter-btn').forEach((b) => {

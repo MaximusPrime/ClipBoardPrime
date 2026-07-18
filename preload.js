@@ -47,6 +47,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'get-stats',
   'paste-to-active-window',
   'reorder-notes',
+  'reorder-categories',
   'open-external',
   'get-app-info',
   'reveal-sensitive-content',
@@ -133,6 +134,7 @@ contextBridge.exposeInMainWorld('api', {
   togglePinNote: (id) => safeInvoke('toggle-pin-note', id),
   updateNoteDate: (id, newDateStr) => safeInvoke('update-note-date', id, newDateStr),
   reorderNotes: (orderedIds) => safeInvoke('reorder-notes', orderedIds),
+  reorderCategories: (orderedIds) => safeInvoke('reorder-categories', orderedIds),
 
   // ── Categories ─────────────────────────────────────────────
   getCategories: () => safeInvoke('get-categories'),

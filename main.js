@@ -304,6 +304,7 @@ const ALLOWED_SETTING_KEYS = new Set([
   'windowBounds', 'trayBalloonShown', 'clearSearchOnHide',
   'clearNotesSearchOnHide', 'hideAfterPaste',
   'windowOpenPosition', 'clipboardOpenFilter', 'notesOpenFilter',
+  'clipboardFilterOrder',
   'clipboardQuickActions', 'clipboardQuickActionOrder',
   'workspaceMode', 'workspaceOpenMode', 'dualWindowBounds',
   'clipboardWindowBounds', 'notesWindowBounds',
@@ -2351,6 +2352,17 @@ function registerIPCHandlers() {
       return { success: true };
     } catch (err) {
       console.error('reorder-notes hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('reorder-categories', async (_event, orderedIds) => {
+    try {
+      orderedIds = requireIdOrderList(orderedIds);
+      db.reorderCategories(orderedIds);
+      return { success: true };
+    } catch (err) {
+      console.error('reorder-categories hatası:', err);
       return { success: false, error: err.message };
     }
   });

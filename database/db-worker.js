@@ -79,6 +79,9 @@ parentPort.on('message', (message) => {
       case 'deleteCategory':
         result = db.deleteCategory(params);
         break;
+      case 'reorderCategories':
+        result = db.reorderCategories(params);
+        break;
 
       // ── Settings ───────────────────────────────────────────────
       case 'getSetting':

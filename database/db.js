@@ -57,6 +57,7 @@ const DEFAULT_SETTINGS = {
   windowOpenPosition: 'remember',
   clipboardOpenFilter: 'preserve',
   notesOpenFilter: 'preserve',
+  clipboardFilterOrder: '["all","pinned","favorites","text","image","url","email","code"]',
   clipboardQuickActions: '["copy","pin","favorite","note","delete"]',
   clipboardQuickActionOrder: '["copy","pin","favorite","note","delete"]',
   workspaceMode: 'clipboard',
@@ -1066,6 +1067,21 @@ function reorderNotes(orderedIds) {
 }
 
 /**
+ * Kategorilerin sırasını günceller.
+ * @param {Array} orderedIds - [{id, sort_order}]
+ */
+function reorderCategories(orderedIds) {
+  const stmt = db.prepare('UPDATE categories SET sort_order = ? WHERE id = ?');
+  const updateMany = db.transaction(() => {
+    for (const item of orderedIds) {
+      stmt.run(item.sort_order, item.id);
+    }
+  });
+  updateMany();
+  return true;
+}
+
+/**
  * Notun güncelleme tarihini doğrudan değiştirir.
  */
 function updateNoteDate(id, newDateStr) {
@@ -1908,6 +1924,7 @@ module.exports = {
   getCategoryById,
   getCategories,
   deleteCategory,
+  reorderCategories,
 
   // Settings
   getSetting,
