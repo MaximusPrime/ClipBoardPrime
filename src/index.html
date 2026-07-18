@@ -25,14 +25,30 @@
         <button class="workspace-switcher-btn" id="workspace-clipboard-btn" type="button" data-workspace="clipboard" aria-pressed="true">
           <svg class="icon-svg" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
           <span data-i18n="nav.clipboardShort">Pano</span>
+          <span class="workspace-count" id="clipboard-count" title="Pano öğe sayısı">0</span>
         </button>
         <button class="workspace-switcher-btn" id="workspace-notes-btn" type="button" data-workspace="notes" aria-pressed="false">
           <svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
           <span data-i18n="nav.notesShort">Notlar</span>
+          <span class="workspace-count" id="notes-count" title="Not sayısı">0</span>
         </button>
       </nav>
 
       <div class="titlebar-actions">
+        <!-- Panel actions lifted into titlebar for a more compact chrome -->
+        <div class="titlebar-panel-actions titlebar-panel-actions-clipboard" aria-label="Pano işlemleri">
+          <button class="titlebar-btn titlebar-panel-btn danger" id="clear-history-btn" data-tooltip="Geçmişi Temizle" data-i18n="[data-tooltip]tooltip.clearHistory" aria-label="Geçmişi temizle" type="button">
+            <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          </button>
+        </div>
+        <div class="titlebar-panel-actions titlebar-panel-actions-notes" aria-label="Not işlemleri">
+          <button class="titlebar-btn titlebar-panel-btn" id="manage-categories-btn" data-tooltip="Kategoriler" data-i18n="[data-tooltip]tooltip.categories" aria-label="Kategorileri yönet" type="button">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          </button>
+          <button class="titlebar-btn titlebar-panel-btn primary" id="new-note-btn" data-tooltip="Yeni Not" data-i18n="[data-tooltip]btn.newNote" aria-label="Yeni not oluştur" type="button">
+            <svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
         <button class="titlebar-btn" id="theme-toggle" data-tooltip="Tema Değiştir" data-i18n="[data-tooltip]tooltip.changeTheme" aria-label="Temayı değiştir"></button>
         <button class="titlebar-btn" id="settings-btn" data-tooltip="Ayarlar" data-i18n="[data-tooltip]tooltip.settings" aria-label="Ayarlar">
           <svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -45,21 +61,11 @@
 
       <!-- ─── Clipboard Panel ─── -->
       <section id="clipboard-panel">
-        <div class="panel-toolbar">
-          <div class="panel-toolbar-title">
-            <span class="panel-icon"><svg class="icon-svg" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span>
-            <span data-i18n="nav.clipboard">Pano Geçmişi</span>
-            <span class="panel-count" id="clipboard-count">0</span>
-          </div>
+        <div class="panel-toolbar panel-toolbar-search-only">
           <div class="panel-search-wrapper">
             <span class="search-icon"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
             <input type="text" id="clipboard-search" class="panel-search-input" placeholder="Panoda ara... (Ctrl+F)" data-i18n="[placeholder]search.clipboard" autocomplete="off" spellcheck="false" aria-label="Pano geçmişinde ara">
             <button class="search-clear-btn" id="clipboard-search-clear" aria-label="Aramayı temizle" data-i18n="[aria-label]search.clearAria" type="button">✕</button>
-          </div>
-          <div class="panel-header-actions">
-            <button class="panel-btn danger" id="clear-history-btn" data-tooltip="Geçmişi Temizle" data-i18n="[data-tooltip]tooltip.clearHistory" aria-label="Geçmişi temizle">
-              <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg> <span data-i18n="btn.clear">Temizle</span>
-            </button>
           </div>
         </div>
         <div class="clipboard-advanced-filters" id="clipboard-advanced-filters">
@@ -137,24 +143,11 @@
  
       <!-- ─── Notes Panel ─── -->
       <section id="notes-panel" aria-label="Not Defteri Paneli">
-        <div class="panel-toolbar">
-          <div class="panel-toolbar-title">
-            <span class="panel-icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span>
-            <span data-i18n="nav.notes">Notlarım</span>
-            <span class="panel-count" id="notes-count">0</span>
-          </div>
+        <div class="panel-toolbar panel-toolbar-search-only">
           <div class="panel-search-wrapper">
             <span class="search-icon"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
             <input type="text" id="notes-search" class="panel-search-input" placeholder="Notlarda ara... (Ctrl+F)" data-i18n="[placeholder]search.notes" autocomplete="off" spellcheck="false" aria-label="Notlarda ara">
             <button class="search-clear-btn" id="notes-search-clear" aria-label="Aramayı temizle" data-i18n="[aria-label]search.clearAria" type="button">✕</button>
-          </div>
-          <div class="panel-header-actions">
-            <button class="panel-btn" id="manage-categories-btn" data-tooltip="Kategoriler" data-i18n="[data-tooltip]tooltip.categories" aria-label="Kategorileri yönet" type="button">
-              <svg class="icon-svg" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg> <span data-i18n="btn.categoryPlus">Kategori +</span>
-            </button>
-            <button class="panel-btn primary" id="new-note-btn" aria-label="Yeni not oluştur" type="button">
-              <svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> <span data-i18n="btn.newNote">Yeni Not</span>
-            </button>
           </div>
         </div>
 
