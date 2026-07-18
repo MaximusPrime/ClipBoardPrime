@@ -37,8 +37,10 @@ const SettingsPanel = (() => {
     workspaceOpenMode: document.getElementById('setting-workspace-open-mode'),
     resetWindowBoundsBtn: document.getElementById('reset-window-bounds-btn'),
     spaceKeyAction: document.getElementById('setting-space-key-action'),
-    hoverPreview: document.getElementById('setting-hover-preview'),
-    hoverPreviewDelay: document.getElementById('setting-hover-preview-delay'),
+    clipboardClickOpensPreview: document.getElementById('setting-clipboard-click-opens-preview'),
+    clipboardDoubleClickPaste: document.getElementById('setting-clipboard-double-click-paste'),
+    noteContentClickOpensModal: document.getElementById('setting-note-content-click-opens-modal'),
+    noteDoubleClickOpensModal: document.getElementById('setting-note-double-click-opens-modal'),
     keyboardHelp: document.getElementById('setting-keyboard-help'),
     appFontSize: document.getElementById('setting-app-font-size'),
     language: document.getElementById('setting-language'),
@@ -135,13 +137,25 @@ const SettingsPanel = (() => {
     if (elements.spaceKeyAction) {
       elements.spaceKeyAction.addEventListener('change', (e) => saveSetting('spaceKeyAction', e.target.value));
     }
-    if (elements.hoverPreview) {
-      elements.hoverPreview.addEventListener('change', (e) => {
-        saveSetting('hoverPreviewEnabled', String(e.target.checked));
+    if (elements.clipboardClickOpensPreview) {
+      elements.clipboardClickOpensPreview.addEventListener('change', (e) => {
+        saveSetting('clipboardClickOpensPreview', String(e.target.checked));
       });
     }
-    if (elements.hoverPreviewDelay) {
-      elements.hoverPreviewDelay.addEventListener('change', (e) => saveSetting('hoverPreviewDelay', e.target.value));
+    if (elements.clipboardDoubleClickPaste) {
+      elements.clipboardDoubleClickPaste.addEventListener('change', (e) => {
+        saveSetting('clipboardDoubleClickPaste', String(e.target.checked));
+      });
+    }
+    if (elements.noteContentClickOpensModal) {
+      elements.noteContentClickOpensModal.addEventListener('change', (e) => {
+        saveSetting('noteContentClickOpensModal', String(e.target.checked));
+      });
+    }
+    if (elements.noteDoubleClickOpensModal) {
+      elements.noteDoubleClickOpensModal.addEventListener('change', (e) => {
+        saveSetting('noteDoubleClickOpensModal', String(e.target.checked));
+      });
     }
     if (elements.keyboardHelp) {
       elements.keyboardHelp.addEventListener('change', (e) => {
@@ -351,11 +365,19 @@ const SettingsPanel = (() => {
         if (elements.spaceKeyAction) {
           elements.spaceKeyAction.value = currentSettings.spaceKeyAction || 'copy';
         }
-        if (elements.hoverPreview) {
-          elements.hoverPreview.checked = currentSettings.hoverPreviewEnabled === 'true';
+        // Legacy expandedClickOpensModal → yeni ayrı toggle'lara bir kez taşı
+        await migrateInteractionSettings(currentSettings);
+        if (elements.clipboardClickOpensPreview) {
+          elements.clipboardClickOpensPreview.checked = currentSettings.clipboardClickOpensPreview !== 'false';
         }
-        if (elements.hoverPreviewDelay) {
-          elements.hoverPreviewDelay.value = currentSettings.hoverPreviewDelay || '500';
+        if (elements.clipboardDoubleClickPaste) {
+          elements.clipboardDoubleClickPaste.checked = currentSettings.clipboardDoubleClickPaste !== 'false';
+        }
+        if (elements.noteContentClickOpensModal) {
+          elements.noteContentClickOpensModal.checked = currentSettings.noteContentClickOpensModal !== 'false';
+        }
+        if (elements.noteDoubleClickOpensModal) {
+          elements.noteDoubleClickOpensModal.checked = currentSettings.noteDoubleClickOpensModal === 'true';
         }
         if (elements.keyboardHelp) {
           elements.keyboardHelp.checked = currentSettings.showKeyboardHelp !== 'false';
@@ -432,6 +454,29 @@ const SettingsPanel = (() => {
   }
 
   /**
+   * Eski tek toggle (expandedClickOpensModal) → pano/not ayrı toggle'lara taşı.
+   */
+  async function migrateInteractionSettings(settings) {
+    if (!settings || settings.interactionSettingsMigrated === 'true') return;
+    const legacyOff = settings.expandedClickOpensModal === 'false';
+    if (legacyOff) {
+      settings.clipboardClickOpensPreview = 'false';
+      settings.noteContentClickOpensModal = 'false';
+      await saveSetting('clipboardClickOpensPreview', 'false', false);
+      await saveSetting('noteContentClickOpensModal', 'false', false);
+    }
+    settings.interactionSettingsMigrated = 'true';
+    await saveSetting('interactionSettingsMigrated', 'true', false);
+    if (window.App?.settings) {
+      window.App.settings.interactionSettingsMigrated = 'true';
+      if (legacyOff) {
+        window.App.settings.clipboardClickOpensPreview = 'false';
+        window.App.settings.noteContentClickOpensModal = 'false';
+      }
+    }
+  }
+
+  /**
    * Tek bir ayarı veritabanına kaydeder
    */
   async function saveSetting(key, value, showToast = true) {
@@ -439,6 +484,7 @@ const SettingsPanel = (() => {
       const response = await window.api.saveSetting(key, value);
       if (response && response.success) {
         currentSettings[key] = value;
+        if (window.App?.settings) window.App.settings[key] = value;
         if (showToast) {
           Utils.showToast(window.i18n ? window.i18n.t('toast.settingSaved') : 'Ayar kaydedildi', 'success');
         }
@@ -448,14 +494,22 @@ const SettingsPanel = (() => {
           window.App?.updateThemeToggleIcon?.(value);
         }
         if (key === 'showKeyboardHelp') {
-          if (window.App) window.App.settings.showKeyboardHelp = value;
           window.App?.applyKeyboardHelpVisibility?.();
         }
       } else {
-        Utils.showToast((window.i18n ? window.i18n.t('toast.settingFailed') : 'Ayar kaydedilemedi') + ': ' + response?.error, 'error');
+        // Sessiz kayıtlar (migrasyon vb.) kullanıcıya kırmızı toast basmasın
+        const msg = (window.i18n ? window.i18n.t('toast.settingFailed') : 'Ayar kaydedilemedi') + ': ' + (response?.error || '');
+        if (showToast) {
+          Utils.showToast(msg, 'error');
+        } else {
+          console.warn('[settings]', key, response?.error || msg);
+        }
       }
     } catch (err) {
       console.error(err);
+      if (showToast) {
+        Utils.showToast(window.i18n ? window.i18n.t('toast.settingFailed') : 'Ayar kaydedilemedi', 'error');
+      }
     }
   }
 
@@ -494,10 +548,18 @@ const SettingsPanel = (() => {
     }
     else if (key === 'workspaceOpenMode' && elements.workspaceOpenMode) elements.workspaceOpenMode.value = value;
     else if (key === 'spaceKeyAction' && elements.spaceKeyAction) elements.spaceKeyAction.value = value;
-    else if (key === 'hoverPreviewEnabled' && elements.hoverPreview) {
-      elements.hoverPreview.checked = value === 'true';
+    else if (key === 'clipboardClickOpensPreview' && elements.clipboardClickOpensPreview) {
+      elements.clipboardClickOpensPreview.checked = value !== 'false';
     }
-    else if (key === 'hoverPreviewDelay' && elements.hoverPreviewDelay) elements.hoverPreviewDelay.value = value;
+    else if (key === 'clipboardDoubleClickPaste' && elements.clipboardDoubleClickPaste) {
+      elements.clipboardDoubleClickPaste.checked = value !== 'false';
+    }
+    else if (key === 'noteContentClickOpensModal' && elements.noteContentClickOpensModal) {
+      elements.noteContentClickOpensModal.checked = value !== 'false';
+    }
+    else if (key === 'noteDoubleClickOpensModal' && elements.noteDoubleClickOpensModal) {
+      elements.noteDoubleClickOpensModal.checked = value === 'true';
+    }
     else if (key === 'showKeyboardHelp' && elements.keyboardHelp) {
       elements.keyboardHelp.checked = value !== 'false';
       window.App?.applyKeyboardHelpVisibility?.();

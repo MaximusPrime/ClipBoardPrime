@@ -1060,6 +1060,44 @@ img { max-width: 100%; display: block; }
   background: var(--danger-bg);
 }
 
+/* Göz / önizleme butonu — hafif vurgu, sürekli animasyon yok */
+.clip-action-btn.preview-btn.eye-action-btn,
+.note-action-btn.detail-btn.eye-action-btn {
+  color: var(--accent-primary);
+  opacity: 0.78;
+}
+
+.clip-item:hover .clip-action-btn.preview-btn.eye-action-btn,
+.note-item:hover .note-action-btn.detail-btn.eye-action-btn,
+.clip-item.hover-focused .clip-action-btn.preview-btn.eye-action-btn,
+.note-item.hover-focused .note-action-btn.detail-btn.eye-action-btn {
+  opacity: 1;
+}
+
+.clip-action-btn.preview-btn.eye-action-btn:hover,
+.note-action-btn.detail-btn.eye-action-btn:hover {
+  color: var(--accent-primary);
+  background: var(--accent-subtle);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-primary) 28%, transparent),
+    0 0 8px color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  transform: scale(1.06);
+}
+
+.clip-action-btn.preview-btn.eye-action-btn:active,
+.note-action-btn.detail-btn.eye-action-btn:active {
+  transform: scale(0.92);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .clip-item:hover .clip-action-btn.preview-btn.eye-action-btn .icon-svg,
+  .note-item:hover .note-action-btn.detail-btn.eye-action-btn .icon-svg,
+  .clip-item.hover-focused .clip-action-btn.preview-btn.eye-action-btn .icon-svg,
+  .note-item.hover-focused .note-action-btn.detail-btn.eye-action-btn .icon-svg {
+    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent-primary) 40%, transparent));
+  }
+}
+
 .setting-row-stacked {
   align-items: flex-start;
   flex-direction: column;
@@ -1363,6 +1401,7 @@ body.is-resizing-detail-dialog * {
   display: none;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
   color: var(--text-primary);
   background: var(--bg-secondary);
   border: 1px solid var(--border-hover);
@@ -1372,6 +1411,9 @@ body.is-resizing-detail-dialog * {
   pointer-events: auto;
   min-width: 300px;
   min-height: 200px;
+  /* Kompakt varsayılan; JS ölçer, CSS tavan taşmayı engeller */
+  max-width: min(520px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
 }
 
 .clipboard-quick-preview.visible {
@@ -1379,9 +1421,17 @@ body.is-resizing-detail-dialog * {
   animation: scaleIn 0.12s ease;
 }
 
+/* Büyüt: neredeyse tam pencere — kompakt ile belirgin fark */
 .clipboard-quick-preview.is-expanded {
+  max-width: calc(100vw - 16px) !important;
+  max-height: calc(100vh - 16px) !important;
+  min-height: 0;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl), 0 0 0 1px color-mix(in srgb, var(--accent-primary) 18%, transparent);
+}
+
+.clipboard-quick-preview.is-custom-size {
+  min-height: 0;
 }
 
 .clipboard-quick-preview.is-expanded .clipboard-quick-preview-body,
@@ -1399,7 +1449,13 @@ body.is-resizing-detail-dialog * {
 
 .clipboard-quick-preview.is-expanded .clipboard-quick-preview-image,
 .clipboard-quick-preview.is-custom-size .clipboard-quick-preview-image {
-  max-height: min(72vh, 100%);
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.clipboard-quick-preview.is-expanded .clipboard-quick-preview-image-wrap {
+  min-height: 0;
+  height: 100%;
 }
 
 .clipboard-quick-preview-header {
@@ -1428,6 +1484,15 @@ body.is-resizing-detail-dialog * {
   border: 1px solid var(--border-primary);
   border-radius: 4px;
   font-size: 9px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+.clipboard-quick-preview-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .clipboard-quick-preview-body {
@@ -1453,8 +1518,9 @@ body.is-resizing-detail-dialog * {
 }
 
 .clipboard-quick-preview-text {
-  max-height: 55vh;
-  overflow: auto;
+  /* Modal yüksekliği pencereye göre; içerik body scroll ile akar */
+  max-height: none;
+  overflow: visible;
   white-space: pre-wrap;
   word-break: break-word;
   user-select: text;
@@ -1464,7 +1530,7 @@ body.is-resizing-detail-dialog * {
 
 .clipboard-quick-preview-image {
   max-width: 100%;
-  max-height: 55vh;
+  max-height: min(70vh, 100%);
   object-fit: contain;
   margin: 0 auto;
   border-radius: var(--radius-sm);
@@ -1598,12 +1664,6 @@ body.is-resizing-preview * {
 
 .clipboard-quick-preview-body {
   user-select: text;
-}
-
-.clipboard-quick-preview-tools {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 /* ═══════════════════════════════════════════════════════════════

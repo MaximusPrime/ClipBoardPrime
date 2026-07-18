@@ -269,6 +269,28 @@ const NotesPanel = (() => {
       e.stopPropagation();
       toggleDetailExpanded();
     });
+    // Overlay boşluğuna (modal dışına) tıklayınca kapat — yeni not editörüne uygulanmaz
+    elements.detailModal?.addEventListener('click', (e) => {
+      if (e.target !== elements.detailModal) return;
+      if (detailResizeState) return;
+      closeDetailModal();
+    });
+    // Space ile aç/kapa — odak büyüt butonundayken de Space kapatır (pano önizlemesiyle aynı)
+    elements.detailModal?.addEventListener('keydown', (e) => {
+      if (e.key !== ' ' && e.key !== 'Escape') return;
+      if (e.target?.matches?.('input, textarea, select') || e.target?.isContentEditable) return;
+      if (e.key === 'Escape') {
+        // ESC global app.js'de de kapatır; burada sadece Space'i ele al
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) closeDetailModal();
+    });
+    // İçerik alanına odaklanabilsin (Space butonları tetiklemesin)
+    if (elements.detailContent && !elements.detailContent.hasAttribute('tabindex')) {
+      elements.detailContent.setAttribute('tabindex', '0');
+    }
     elements.detailResizeHandle?.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -617,7 +639,7 @@ const NotesPanel = (() => {
         <div class="note-item-header">
           <div class="note-item-title">${highlightedTitle}</div>
           <div class="note-item-actions">
-            <button class="note-action-btn detail-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.details') : 'Detayları Göster'}" aria-label="${window.i18n ? window.i18n.t('tooltip.details') : 'Detayları göster'}">${Utils.Icons.eye}</button>
+            <button class="note-action-btn detail-btn eye-action-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.showDetail') : 'Detayları Göster'}" aria-label="${window.i18n ? window.i18n.t('tooltip.showDetail') : 'Detayları göster'}">${Utils.Icons.eye}</button>
             <button class="note-action-btn copy-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Notu Kopyala'}">${Utils.Icons.copy}</button>
             <button class="note-action-btn edit-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.edit') : 'Düzenle'}" aria-label="${window.i18n ? window.i18n.t('tooltip.edit') : 'Notu Düzenle'}">${Utils.Icons.edit}</button>
             <button class="note-action-btn fav-btn ${note.is_favorite ? 'fav-active' : ''}" data-tooltip="${note.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavoriteNote') : 'Favorilerden Kaldır') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere Ekle')}" aria-label="${note.is_favorite ? (window.i18n ? window.i18n.t('tooltip.unfavoriteNote') : 'Favorilerden kaldır') : (window.i18n ? window.i18n.t('tooltip.favorite') : 'Favorilere ekle')}">${Utils.Icons.star}</button>
@@ -715,21 +737,42 @@ const NotesPanel = (() => {
         if (card !== el) card.classList.remove('hover-focused');
       });
       el.classList.add('hover-focused');
-      // Hover only highlights — never steals keyboard focus
+      // Fare üzerindeyken kartı seç — Space ile hemen açılabilsin
+      Utils.hoverSelectCard(el);
     });
 
     el.addEventListener('mouseleave', () => {
       el.classList.remove('hover-focused');
     });
 
-    // Klavye navigasyonu (Ok tuşları ile odaklanma, Enter/Space ile detayı açma)
-    el.addEventListener('keydown', (e) => {
+    // Klavye navigasyonu (Ok tuşları ile odaklanma, Enter/Space)
+    el.addEventListener('keydown', async (e) => {
       if (e.target !== el) return;
       if (e.key === ' ') {
+        const spaceAction = window.App?.settings?.spaceKeyAction || 'copy';
         // Workspace switch is handled globally in app.js
-        if ((window.App?.settings?.spaceKeyAction || 'copy') === 'workspace') return;
+        if (spaceAction === 'workspace') return;
         e.preventDefault();
-        openDetailModal(note);
+        if (e.repeat) return;
+        if (spaceAction === 'copy') {
+          // Space = kopyala (pano ile tutarlı); detay için Enter / göz
+          try {
+            const response = await window.api.copyToClipboard(note.content, 'text', false);
+            if (response && response.success) {
+              Utils.copyFlashAnimation(el);
+              Utils.showToast(window.i18n ? window.i18n.t('toast.noteCopied') : 'Not panoya kopyalandı!', 'success');
+            }
+          } catch (err) {
+            console.error(err);
+          }
+          return;
+        }
+        // preview: detay aç/kapa
+        if (elements.detailModal?.classList.contains('active')) {
+          closeDetailModal();
+        } else {
+          openDetailModal(note);
+        }
         return;
       }
       if (e.key === 'Enter') {
@@ -802,24 +845,46 @@ const NotesPanel = (() => {
       });
     }
 
-    // Nota tıklayınca akordiyon aç/kapat
+    // Nota tıklayınca:
+    // - Kapalıysa → akordiyon aç
+    // - Açık + başlık → akordiyon kapat
+    // - Açık + içerik (+ayar) → detay modalı
     el.addEventListener('click', (e) => {
       if (isDraggingGlobal) return;
-      // Aksiyon butonları, akordiyon içeriği ve ok butonu hariç
+      // Aksiyon ve kontrol butonları her zaman hariç
       if (e.target.closest('.note-action-btn') ||
-          e.target.closest('.note-item-accordion') ||
           e.target.closest('.note-accordion-toggle') ||
-          e.target.closest('.accordion-close-btn')) return;
+          e.target.closest('.accordion-close-btn') ||
+          e.target.closest('.accordion-view-more')) return;
 
       const isOpen = el.classList.contains('accordion-open');
       const isHeaderClick = e.target.closest('.note-item-header');
+      const isContentClick = e.target.closest('.note-item-accordion');
+      const s = window.App?.settings || {};
+      const openModalOnContentClick = s.noteContentClickOpensModal != null && s.noteContentClickOpensModal !== ''
+        ? s.noteContentClickOpensModal !== 'false'
+        : s.expandedClickOpensModal !== 'false';
 
       if (isOpen && isHeaderClick) {
-        // Akordiyon açıksa ve başlığa tıklandıysa → kapat
+        // Başlığa tık → her zaman daralt (modal değil)
         el.classList.remove('accordion-open');
         updateNoteDraggableState(el);
-      } else if (!isOpen) {
-        // Akordiyon kapalıysa → aç (başlık veya başka bir yere tıklanmış olabilir)
+        return;
+      }
+
+      if (isOpen && openModalOnContentClick && isContentClick) {
+        // İçerikte metin seçiliyse modal açma — kullanıcı kopyalamak istiyor olabilir
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+        openDetailModal(note);
+        return;
+      }
+
+      // Ayar kapalıyken içerik tıklaması seçim için yoksayılır
+      if (isContentClick) return;
+
+      if (!isOpen) {
+        // Akordiyon kapalıysa → aç
         document.querySelectorAll('.note-item.accordion-open').forEach(item => {
           item.classList.remove('accordion-open');
           updateNoteDraggableState(item);
@@ -872,9 +937,11 @@ const NotesPanel = (() => {
       await handleNoteReorder(draggedNoteId, note.id);
     });
 
-    // Çift tıklama ile detay modalını aç
+    // Başlığa çift tık → detay modalı (ayar: varsayılan kapalı; tek tık açma ile çakışmasın)
     el.addEventListener('dblclick', (e) => {
+      if (window.App?.settings?.noteDoubleClickOpensModal !== 'true') return;
       if (e.target.closest('.note-action-btn') || e.target.closest('.note-item-accordion')) return;
+      // Yalnızca başlık / kart gövdesi dışı akordiyon içeriği hariç
       openDetailModal(note);
     });
 
@@ -1013,6 +1080,10 @@ const NotesPanel = (() => {
     elements.detailModal.classList.add('active');
     applyDetailDialogSize();
     Utils.initFocusTrap(elements.detailModal);
+    // Büyüt butonuna değil içerik alanına odaklan — Space ile kapatma çalışsın
+    setTimeout(() => {
+      elements.detailContent?.focus({ preventScroll: true });
+    }, 120);
   }
 
   function closeDetailModal() {

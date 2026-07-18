@@ -172,9 +172,51 @@ test('Space önizlemesi metin seçimi sırasında açık kalır', () => {
   const css = read('src/styles/main.css');
   assert.match(source, /let previewPinned = false/);
   assert.match(source, /previewPinned = true;\s*showQuickPreview/);
-  assert.match(source, /spaceKeyAction === 'preview' && !previewPinned/);
   assert.match(source, /clipboard-quick-preview-body" tabindex="0"/);
   assert.match(css, /\.clipboard-quick-preview-body\s*\{[^}]*user-select:\s*text/s);
+});
+
+test('hover kart seçimi ve göz önizleme butonu', () => {
+  const clip = read('src/js/clipboard-panel.js');
+  const notes = read('src/js/notes-panel.js');
+  const utils = read('src/js/utils.js');
+  const html = read('src/index.html');
+  assert.match(utils, /function hoverSelectCard/);
+  assert.match(clip, /Utils\.hoverSelectCard\(el\)/);
+  assert.match(notes, /Utils\.hoverSelectCard\(el\)/);
+  assert.match(clip, /preview-btn eye-action-btn/);
+  assert.match(notes, /detail-btn eye-action-btn/);
+  assert.match(notes, /e\.key !== ' ' && e\.key !== 'Escape'/);
+  assert.doesNotMatch(html, /setting-hover-preview/);
+  assert.doesNotMatch(clip, /hoverPreviewEnabled/);
+});
+
+test('etkileşim ayarları pano ve notlarda ayrı bağlı', () => {
+  const clip = read('src/js/clipboard-panel.js');
+  const notes = read('src/js/notes-panel.js');
+  const settings = read('src/js/settings.js');
+  const html = read('src/index.html');
+  const main = read('main.js');
+  const db = read('database/db.js');
+  assert.match(html, /id="setting-clipboard-click-opens-preview"/);
+  assert.match(html, /id="setting-clipboard-double-click-paste"/);
+  assert.match(html, /id="setting-note-content-click-opens-modal"/);
+  assert.match(html, /id="setting-note-double-click-opens-modal"/);
+  assert.match(settings, /clipboardClickOpensPreview/);
+  assert.match(settings, /noteContentClickOpensModal/);
+  assert.match(settings, /migrateInteractionSettings/);
+  assert.match(main, /clipboardClickOpensPreview/);
+  assert.match(main, /noteContentClickOpensModal/);
+  assert.match(db, /clipboardClickOpensPreview:\s*'true'/);
+  assert.match(db, /noteDoubleClickOpensModal:\s*'false'/);
+  assert.match(notes, /noteContentClickOpensModal/);
+  assert.match(notes, /noteDoubleClickOpensModal !== 'true'/);
+  assert.match(notes, /spaceAction === 'copy'/);
+  assert.match(notes, /isHeaderClick/);
+  assert.match(clip, /clipboardClickOpensPreview/);
+  assert.match(clip, /clipboardDoubleClickPaste/);
+  assert.match(clip, /openPinnedQuickPreview\(item, el\)/);
+  assert.doesNotMatch(clip, /clip-item-meta[\s\S]{0,80}collapseCard/);
 });
 
 test('pano Devamını Gör eylemi ayrı modal yerine Space önizlemesini kullanır', () => {
@@ -194,8 +236,11 @@ test('Space hızlı önizlemesi kompakt pencerenin merkezinde konumlanır', () =
     /function positionQuickPreview\(preview, owner\) \{([\s\S]*?)\n  \}/
   );
   assert.ok(positionBlock, 'positionQuickPreview fonksiyonu bulunamadı');
-  assert.match(positionBlock[1], /\(window\.innerWidth - width\) \/ 2/);
-  assert.match(positionBlock[1], /\(window\.innerHeight - measuredHeight\) \/ 2/);
+  // Pencere içinde clamp + merkez; kompakt varsayılan
+  assert.match(positionBlock[1], /vw - margin - width/);
+  assert.match(positionBlock[1], /vh - margin - height/);
+  assert.match(positionBlock[1], /needsTempMeasure/);
+  assert.match(positionBlock[1], /PREVIEW_COMPACT_MAX_WIDTH/);
   assert.doesNotMatch(positionBlock[1], /owner\.getBoundingClientRect/);
 });
 
@@ -205,12 +250,17 @@ test('hızlı önizleme büyütme, boyutlandırma ve kapanınca sıfırlama suna
   assert.match(source, /let previewExpanded = false/);
   assert.match(source, /function togglePreviewExpanded\(\)/);
   assert.match(source, /function startPreviewResize\(/);
+  assert.match(source, /function scheduleQuickPreviewRelayout\(\)/);
   assert.match(source, /data-preview-expand/);
   assert.match(source, /data-preview-close/);
   assert.match(source, /data-preview-resize/);
   assert.match(source, /previewExpanded = false;\s*previewCustomSize = null/);
+  assert.match(source, /visualViewport/);
   assert.match(css, /\.clipboard-quick-preview\.is-expanded/);
+  assert.match(css, /max-width:\s*calc\(100vw - 16px\)/);
+  assert.match(css, /max-height:\s*calc\(100vh - 16px\)/);
   assert.match(css, /\.clipboard-quick-preview-resize/);
+  assert.match(read('src/js/clipboard-panel.js'), /<kbd title="Space">Space<\/kbd>/);
 });
 
 test('not ve pano detay modalları viewport ile dinamik büyür', () => {
@@ -252,22 +302,19 @@ test('klavye kısayolları güvenli kayıt ve düzenleme alanı koruması kullan
   assert.match(clipboard, /e\.key === 'Home' \|\| e\.key === 'End'/);
 });
 
-test('veri konumu taşmaz ve kartlar hover ile odak çalmaz', () => {
+test('veri konumu taşmaz ve hover seçimi arama/modal odağından çalmaz', () => {
   const css = read('src/styles/main.css');
   const clipboard = read('src/js/clipboard-panel.js');
   const notes = read('src/js/notes-panel.js');
+  const utils = read('src/js/utils.js');
   assert.match(css, /\.data-location-row\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto[^}]*min-width:\s*0/s);
   assert.match(css, /\.data-location-path\s*\{[^}]*min-width:\s*0/s);
-  assert.match(clipboard, /Hover only highlights — never steals keyboard focus/);
-  assert.match(notes, /Hover only highlights — never steals keyboard focus/);
-  assert.doesNotMatch(
-    clipboard,
-    /addEventListener\('mouseenter'[\s\S]{0,400}?focus\(\{\s*preventScroll:\s*true\s*\}\)/
-  );
-  assert.doesNotMatch(
-    notes,
-    /addEventListener\('mouseenter'[\s\S]{0,400}?focus\(\{\s*preventScroll:\s*true\s*\}\)/
-  );
+  // Hover kartı seçer ama input/modal odağından çalmaz
+  assert.match(utils, /function canHoverSelectCard/);
+  assert.match(utils, /matches\('input, textarea, select'\)/);
+  assert.match(utils, /modal-overlay\.active/);
+  assert.match(clipboard, /Utils\.hoverSelectCard\(el\)/);
+  assert.match(notes, /Utils\.hoverSelectCard\(el\)/);
 });
 
 test('pano ve not kartları tutarlı animasyonlu genişletme kontrolü kullanır', () => {

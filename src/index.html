@@ -457,39 +457,62 @@
               <div class="setting-row">
                 <div class="setting-label">
                   <span data-i18n="settings.spaceKeyActionLabel">Space Tuşu Davranışı</span>
-                  <small data-i18n="settings.spaceKeyActionDesc">Space tuşunun panoda veya notlarda ne yapacağını seçin</small>
+                  <small data-i18n="settings.spaceKeyActionDesc">Seçili pano veya not kartında Space ne yapsın: kopyala, önizleme/detay veya pano–notlar geçişi</small>
                 </div>
                 <div class="setting-value">
                   <select class="setting-select" id="setting-space-key-action" aria-label="Space tuşu davranışı">
                     <option value="copy" data-i18n="settings.spaceKeyCopy">Panoya kopyala</option>
-                    <option value="preview" data-i18n="settings.spaceKeyPreview">Hızlı önizleme</option>
+                    <option value="preview" data-i18n="settings.spaceKeyPreview">Önizleme / not detayı</option>
                     <option value="workspace" data-i18n="settings.spaceKeyWorkspace">Pano / Notlar geçişi</option>
                   </select>
                 </div>
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span data-i18n="settings.hoverPreviewLabel">Hover Önizleme</span>
-                  <small data-i18n="settings.hoverPreviewDesc">İmleç pano kartında beklediğinde hızlı önizleme göster</small>
+                  <span data-i18n="settings.clipboardClickOpensPreviewLabel">Panoda tek tıkla önizleme</span>
+                  <small data-i18n="settings.clipboardClickOpensPreviewDesc">Pano kartına tek tıklayınca hızlı önizleme açılsın. Akordiyon yalnızca alttaki ok ile açılır/kapanır</small>
                 </div>
                 <div class="setting-value">
                   <label class="toggle-switch">
-                    <input type="checkbox" id="setting-hover-preview" aria-label="Pano kartlarında hover önizlemeyi etkinleştir">
+                    <input type="checkbox" id="setting-clipboard-click-opens-preview" aria-label="Panoda tek tıkla önizleme" checked>
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span data-i18n="settings.hoverPreviewDelayLabel">Hover Gecikmesi</span>
-                  <small data-i18n="settings.hoverPreviewDelayDesc">Önizleme açılmadan önce beklenecek süre</small>
+                  <span data-i18n="settings.clipboardDoubleClickPasteLabel">Panoda çift tıkla yapıştır</span>
+                  <small data-i18n="settings.clipboardDoubleClickPasteDesc">Çift tık metni aktif pencereye yapıştırır. Açıkken tek tık önizlemesi kısa gecikmeyle açılır (çakışmayı önlemek için)</small>
                 </div>
                 <div class="setting-value">
-                  <select class="setting-select" id="setting-hover-preview-delay" aria-label="Hover önizleme gecikmesi">
-                    <option value="300">300ms</option>
-                    <option value="500">500ms</option>
-                    <option value="1000">1000ms</option>
-                  </select>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-clipboard-double-click-paste" aria-label="Panoda çift tıkla yapıştır" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.noteContentClickOpensModalLabel">Not içeriğine tıklayınca detay</span>
+                  <small data-i18n="settings.noteContentClickOpensModalDesc">Akordiyon açıkken not gövdesine tıklayınca detay açılsın. Başlığa tıklayınca daraltılır</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-note-content-click-opens-modal" aria-label="Not içeriğine tıklayınca detay" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.noteDoubleClickOpensModalLabel">Başlığa çift tıkla notu aç</span>
+                  <small data-i18n="settings.noteDoubleClickOpensModalDesc">Not başlığına çift tıklayınca detay açılsın. İçerik tıkı açıksa genelde kapalı bırakın</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-note-double-click-opens-modal" aria-label="Başlığa çift tıkla notu aç">
+                    <span class="toggle-slider"></span>
+                  </label>
                 </div>
               </div>
                 <div class="setting-row">

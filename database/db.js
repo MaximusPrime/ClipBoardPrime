@@ -64,6 +64,13 @@ const DEFAULT_SETTINGS = {
   spaceKeyAction: 'copy',
   hoverPreviewEnabled: 'false',
   hoverPreviewDelay: '500',
+  // Legacy (tek toggle) — yeni ayrı ayarlara migrate edilir
+  expandedClickOpensModal: 'true',
+  clipboardClickOpensPreview: 'true',
+  noteContentClickOpensModal: 'true',
+  clipboardDoubleClickPaste: 'true',
+  noteDoubleClickOpensModal: 'false',
+  interactionSettingsMigrated: 'false',
   showKeyboardHelp: 'true',
   retentionDays: '0',
   retentionKeepFavorites: 'true',

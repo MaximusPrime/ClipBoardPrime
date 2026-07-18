@@ -38,9 +38,10 @@ const ClipboardPanel = (() => {
   let previewResizeState = null;
   let previewResizeBound = false;
   const limit = 50;
-  const PREVIEW_COMPACT_MAX_WIDTH = 480;
   const PREVIEW_MIN_WIDTH = 300;
   const PREVIEW_MIN_HEIGHT = 200;
+  /** Varsayılan (kompakt) önizleme üst genişlik — büyütünce neredeyse tam pencere */
+  const PREVIEW_COMPACT_MAX_WIDTH = 520;
 
   /**
    * Modülü başlatır ve olay dinleyicilerini tanımlar
@@ -488,10 +489,14 @@ const ClipboardPanel = (() => {
       badgesHTML += `</div>`;
     }
 
-    // Hassas veri maske kaldır butonu
+    // Hızlı önizleme (göz) — Space ayarından bağımsız her zaman erişilebilir
+    const previewLabel = window.i18n ? window.i18n.t('tooltip.quickPreview') : 'Hızlı Önizleme';
+    const previewBtnHTML = `<button class="clip-action-btn preview-btn eye-action-btn" data-tooltip="${previewLabel}" aria-label="${previewLabel}" type="button">${Utils.Icons.eye}</button>`;
+
+    // Hassas veri maske kaldır butonu (kilit ikonu — göz önizlemeden ayrı)
     let sensitiveBtnHTML = '';
     if (item.is_sensitive) {
-      sensitiveBtnHTML = `<button class="clip-action-btn sensitive-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.showContent') : 'İçeriği Göster'}" aria-label="${window.i18n ? window.i18n.t('tooltip.showContent') : 'Hassas içeriği göster veya gizle'}">${Utils.Icons.eye}</button>`;
+      sensitiveBtnHTML = `<button class="clip-action-btn sensitive-btn" data-tooltip="${window.i18n ? window.i18n.t('tooltip.showContent') : 'İçeriği Göster'}" aria-label="${window.i18n ? window.i18n.t('tooltip.showContent') : 'Hassas içeriği göster veya gizle'}">${Utils.Icons.lock}</button>`;
     }
 
     // Uzun metinler için genişletme butonu (chevron-down)
@@ -521,6 +526,7 @@ const ClipboardPanel = (() => {
         </div>
       </div>
       <div class="clip-item-actions">
+        ${previewBtnHTML}
         ${sensitiveBtnHTML}
         <button class="clip-action-btn clip-primary-action paste-btn" data-tooltip="${primaryActionTooltip}" aria-label="${primaryActionTooltip}">
           ${item.content_type === 'image' ? Utils.Icons.copy : Utils.Icons.paste}
@@ -637,16 +643,43 @@ const ClipboardPanel = (() => {
       }, { once: true });
     }
 
-    // Sol tık: kartı odakla. Genişletme expand butonuyla; çift tık metin için yapıştırır.
+    // Pano işleyişi (notlardan farklı — başlık yok):
+    // - Alt ortadaki ok: yalnızca akordiyon aç/kapa
+    // - Tek tık (ayar): hızlı önizleme
+    // - Çift tık (ayar): yapıştır — açıkken tek tık gecikmeli
+    // - Görsel: tek tık görüntüleyici
+    let singleClickTimer = null;
     el.addEventListener('click', (e) => {
       if (e.target.closest('.clip-action-btn') ||
-          e.target.closest('.clip-item-preview') ||
           e.target.closest('.accordion-view-more')) return;
 
       el.focus({ preventScroll: true });
 
       if (item.content_type === 'image' && item.image_path && e.detail === 1) {
         openImageViewer(item.image_path);
+        return;
+      }
+
+      const s = window.App?.settings || {};
+      const openOnClick = s.clipboardClickOpensPreview != null && s.clipboardClickOpensPreview !== ''
+        ? s.clipboardClickOpensPreview !== 'false'
+        : s.expandedClickOpensModal !== 'false';
+      if (!openOnClick || e.detail !== 1) return;
+
+      // Metin seçiliyse önizleme açma
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+
+      const dblPaste = s.clipboardDoubleClickPaste !== 'false';
+      clearTimeout(singleClickTimer);
+      if (dblPaste) {
+        // Çift tık yapıştırmayla çakışmasın diye kısa gecikme
+        singleClickTimer = setTimeout(() => {
+          singleClickTimer = null;
+          openPinnedQuickPreview(item, el);
+        }, 220);
+      } else {
+        openPinnedQuickPreview(item, el);
       }
     });
 
@@ -654,6 +687,9 @@ const ClipboardPanel = (() => {
     el.addEventListener('dblclick', async (e) => {
       if (e.target.closest('.clip-action-btn') || e.target.closest('.clip-item-preview')) return;
       if (item.content_type === 'image') return;
+      clearTimeout(singleClickTimer);
+      singleClickTimer = null;
+      if (window.App?.settings?.clipboardDoubleClickPaste === 'false') return;
       await pasteToActiveWindow(item);
     });
 
@@ -691,6 +727,19 @@ const ClipboardPanel = (() => {
       viewMoreBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         openPinnedQuickPreview(item, el);
+      });
+    }
+
+    // Göz butonu -> hızlı önizleme (Space ayarından bağımsız)
+    const previewBtn = el.querySelector('.preview-btn');
+    if (previewBtn) {
+      previewBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (item.content_type === 'image' && item.image_path) {
+          openImageViewer(item.image_path);
+        } else {
+          toggleQuickPreview(item, el);
+        }
       });
     }
 
@@ -733,7 +782,7 @@ const ClipboardPanel = (() => {
           } else {
             revealedContent = null;
             previewEl.textContent = window.i18n ? window.i18n.t('sensitive.placeholder') : '•••••••••••• (Hassas Veri)';
-            sensitiveBtn.innerHTML = Utils.Icons.eye;
+            sensitiveBtn.innerHTML = Utils.Icons.lock;
             sensitiveBtn.setAttribute('data-tooltip', window.i18n ? window.i18n.t('tooltip.showContent') : 'İçeriği Göster');
           }
         }
@@ -890,28 +939,12 @@ const ClipboardPanel = (() => {
         if (card !== el) card.classList.remove('hover-focused');
       });
       el.classList.add('hover-focused');
-      // Hover only highlights — never steals keyboard focus
-      if (window.App?.settings?.hoverPreviewEnabled !== 'true') return;
-      if (previewPinned) return;
-      clearTimeout(previewTimer);
-      const delay = Number.parseInt(window.App?.settings?.hoverPreviewDelay || '500', 10);
-      previewTimer = setTimeout(() => {
-        showQuickPreview(item, el);
-      }, Number.isFinite(delay) ? delay : 500);
+      // Fare üzerindeyken kartı seç — Space ile hemen açılabilsin
+      Utils.hoverSelectCard(el);
     });
 
-    el.addEventListener('mouseleave', (event) => {
+    el.addEventListener('mouseleave', () => {
       el.classList.remove('hover-focused');
-      clearTimeout(previewTimer);
-      if (previewElement && previewElement.contains(event.relatedTarget)) return;
-      previewTimer = setTimeout(() => {
-        if (!previewPinned) hideQuickPreview();
-      }, 180);
-    });
-
-    el.addEventListener('focusout', (event) => {
-      if (previewElement && previewElement.contains(event.relatedTarget)) return;
-      if (window.App?.settings?.spaceKeyAction === 'preview' && !previewPinned) hideQuickPreview();
     });
   }
 
@@ -1136,25 +1169,24 @@ const ClipboardPanel = (() => {
       hideQuickPreview();
       owner?.focus();
     });
+    // Uygulama içinde önizleme dışına (boş alan, başka kart, toolbar…) tıklayınca kapat
+    // capture: alt öğeler stopPropagation etse bile yakalanır
     document.addEventListener('pointerdown', (event) => {
-      if (!previewPinned || !previewElement?.classList.contains('visible')) return;
-      if (previewElement.contains(event.target) || previewOwner?.contains(event.target)) return;
+      if (!previewElement?.classList.contains('visible')) return;
+      if (previewResizeState) return;
+      if (previewElement.contains(event.target)) return;
+      const owner = previewOwner;
       hideQuickPreview();
-    });
+      // Odak önizlemeden sonra makul bir yere dönsün
+      if (owner?.isConnected && typeof owner.focus === 'function') {
+        try { owner.focus({ preventScroll: true }); } catch { /* ignore */ }
+      }
+    }, true);
     if (!previewResizeBound) {
       previewResizeBound = true;
-      window.addEventListener('resize', () => {
-        if (!previewElement?.classList.contains('visible')) return;
-        // Keep custom size when possible, but re-clamp to the new viewport.
-        if (previewCustomSize) {
-          const margin = previewExpanded ? 12 : 10;
-          previewCustomSize = {
-            width: Math.min(previewCustomSize.width, window.innerWidth - margin * 2),
-            height: Math.min(previewCustomSize.height, window.innerHeight - margin * 2),
-          };
-        }
-        positionQuickPreview(previewElement, previewOwner);
-      });
+      // Ana pencere büyüyünce/küçülünce (maximize dahil) önizlemeyi yeniden ölçekle
+      window.addEventListener('resize', scheduleQuickPreviewRelayout);
+      window.visualViewport?.addEventListener('resize', scheduleQuickPreviewRelayout);
       document.addEventListener('pointermove', onPreviewResizeMove);
       document.addEventListener('pointerup', onPreviewResizeEnd);
       document.addEventListener('pointercancel', onPreviewResizeEnd);
@@ -1225,10 +1257,10 @@ const ClipboardPanel = (() => {
       <div class="clipboard-quick-preview-header">
         <span>${Utils.getContentTypeIcon(item.content_type)} ${typeLabel}</span>
         <span class="clipboard-quick-preview-tools">
+          <kbd title="Space">Space</kbd>
           ${item.content_type === 'image' ? '' : `<button class="clip-action-btn" data-preview-copy type="button" aria-label="${window.i18n ? window.i18n.t('tooltip.copy') : 'Kopyala'}">${Utils.Icons.copy}</button>`}
           <button class="clip-action-btn" data-preview-expand type="button" aria-label="${expandLabel}" data-tooltip="${expandLabel}" title="${expandLabel}">${previewExpanded ? Utils.Icons.restore : Utils.Icons.maximize}</button>
           <button class="clip-action-btn clipboard-quick-preview-close" data-preview-close type="button" aria-label="${closeLabel}" data-tooltip="${closeLabel}" title="${closeLabel}">${Utils.Icons.close}</button>
-          <kbd>Space</kbd>
         </span>
       </div>
       <div class="clipboard-quick-preview-body" tabindex="0">${content}</div>
@@ -1262,8 +1294,12 @@ const ClipboardPanel = (() => {
     previewOwner = owner;
     preview.classList.toggle('is-expanded', previewExpanded);
     preview.classList.toggle('is-custom-size', Boolean(previewCustomSize));
-    positionQuickPreview(preview, owner);
     preview.classList.add('visible');
+    // visible olduktan sonra ölç — alt kenar pencere dışına taşmasın
+    positionQuickPreview(preview, owner);
+    requestAnimationFrame(() => {
+      if (previewElement?.classList.contains('visible')) positionQuickPreview(previewElement, previewOwner);
+    });
   }
 
   function togglePreviewExpanded() {
@@ -1333,51 +1369,121 @@ const ClipboardPanel = (() => {
     document.body.classList.remove('is-resizing-preview');
   }
 
+  let previewRelayoutRaf = 0;
+
+  /**
+   * Ana pencere boyutu değişince (maximize/restore/resize) önizlemeyi
+   * not detay modalı gibi viewport’a göre yeniden uygular.
+   */
+  function scheduleQuickPreviewRelayout() {
+    if (!previewElement?.classList.contains('visible')) return;
+    if (previewRelayoutRaf) cancelAnimationFrame(previewRelayoutRaf);
+    previewRelayoutRaf = requestAnimationFrame(() => {
+      previewRelayoutRaf = 0;
+      relayoutQuickPreview();
+      // Maximize sonrası ikinci layout turu (boyut bazen iki adımda oturur)
+      requestAnimationFrame(() => {
+        if (previewElement?.classList.contains('visible')) relayoutQuickPreview();
+      });
+    });
+  }
+
+  function relayoutQuickPreview() {
+    if (!previewElement?.classList.contains('visible')) return;
+    if (previewCustomSize) {
+      const margin = 10;
+      previewCustomSize = {
+        width: Math.min(previewCustomSize.width, window.innerWidth - margin * 2),
+        height: Math.min(previewCustomSize.height, window.innerHeight - margin * 2),
+      };
+    }
+    positionQuickPreview(previewElement, previewOwner);
+  }
+
   function positionQuickPreview(preview, owner) {
-    const margin = previewExpanded && !previewCustomSize ? 12 : 10;
-    const maxWidth = Math.max(PREVIEW_MIN_WIDTH, window.innerWidth - margin * 2);
-    const maxHeight = Math.max(PREVIEW_MIN_HEIGHT, window.innerHeight - margin * 2);
+    // Büyüt: 8px kenar; varsayılan: 12px. Her zaman ana pencere içinde kalır.
+    const margin = previewExpanded && !previewCustomSize ? 8 : 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const maxWidth = Math.max(PREVIEW_MIN_WIDTH, vw - margin * 2);
+    const maxHeight = Math.max(PREVIEW_MIN_HEIGHT, vh - margin * 2);
+
+    // display:none iken scrollHeight 0/yanlış olur — ölçüm için geçici göster
+    const computedDisplay = window.getComputedStyle(preview).display;
+    const needsTempMeasure = computedDisplay === 'none';
+    if (needsTempMeasure) {
+      preview.style.visibility = 'hidden';
+      preview.style.display = 'flex';
+    }
 
     let width;
-    let height = null;
+    let height;
 
     if (previewCustomSize) {
-      width = Math.min(maxWidth, Math.max(PREVIEW_MIN_WIDTH, previewCustomSize.width));
-      height = Math.min(maxHeight, Math.max(PREVIEW_MIN_HEIGHT, previewCustomSize.height));
+      const customMargin = 10;
+      const customMaxW = Math.max(PREVIEW_MIN_WIDTH, vw - customMargin * 2);
+      const customMaxH = Math.max(PREVIEW_MIN_HEIGHT, vh - customMargin * 2);
+      width = Math.min(customMaxW, Math.max(PREVIEW_MIN_WIDTH, previewCustomSize.width));
+      height = Math.min(customMaxH, Math.max(PREVIEW_MIN_HEIGHT, previewCustomSize.height));
     } else if (previewExpanded) {
+      // Büyüt: ana pencereyi neredeyse doldur (kompakt ile net fark)
       width = maxWidth;
       height = maxHeight;
     } else {
+      // Kompakt varsayılan: okunaklı kart boyutu; pencere küçülürse sığdır
       width = Math.min(PREVIEW_COMPACT_MAX_WIDTH, maxWidth);
-    }
-
-    preview.style.width = `${Math.round(width)}px`;
-    if (height != null) {
-      preview.style.height = `${Math.round(height)}px`;
-      preview.style.maxHeight = `${Math.round(height)}px`;
-    } else {
+      preview.style.minHeight = '';
+      preview.style.width = `${Math.round(width)}px`;
+      preview.style.maxWidth = `${Math.round(width)}px`;
       preview.style.height = '';
       preview.style.maxHeight = `${maxHeight}px`;
+      // Layout’u zorla, sonra gerçek yüksekliği oku ve sabitle (taşmayı önler)
+      void preview.offsetHeight;
+      height = Math.min(Math.max(preview.scrollHeight || PREVIEW_MIN_HEIGHT, PREVIEW_MIN_HEIGHT), maxHeight);
     }
 
-    // Measure after size styles so compact mode can center vertically.
-    const measuredHeight = height != null
-      ? height
-      : Math.min(preview.scrollHeight || 360, maxHeight);
-    const left = Math.max(margin, Math.round((window.innerWidth - width) / 2));
-    const top = Math.max(margin, Math.round((window.innerHeight - measuredHeight) / 2));
-    preview.style.left = `${left}px`;
-    preview.style.top = `${top}px`;
+    // Sert clamp — asla viewport dışına çıkmasın
+    width = Math.min(Math.max(PREVIEW_MIN_WIDTH, width), maxWidth);
+    height = Math.min(Math.max(PREVIEW_MIN_HEIGHT, height), maxHeight);
+
+    preview.style.width = `${Math.round(width)}px`;
+    preview.style.maxWidth = `${Math.round(width)}px`;
+    preview.style.height = `${Math.round(height)}px`;
+    preview.style.maxHeight = `${Math.round(height)}px`;
+    preview.style.minHeight = '';
+
+    let left = Math.round((vw - width) / 2);
+    let top = Math.round((vh - height) / 2);
+    left = Math.max(margin, Math.min(left, vw - margin - width));
+    top = Math.max(margin, Math.min(top, vh - margin - height));
+
+    // Alt/sağ taşma son güvenlik ağı
+    if (left + width > vw - margin) left = Math.max(margin, vw - margin - width);
+    if (top + height > vh - margin) top = Math.max(margin, vh - margin - height);
+
+    preview.style.left = `${Math.round(left)}px`;
+    preview.style.top = `${Math.round(top)}px`;
+
+    if (needsTempMeasure) {
+      preview.style.visibility = '';
+      preview.style.display = '';
+    }
   }
 
   function hideQuickPreview() {
     clearTimeout(previewTimer);
+    if (previewRelayoutRaf) {
+      cancelAnimationFrame(previewRelayoutRaf);
+      previewRelayoutRaf = 0;
+    }
     onPreviewResizeEnd();
     if (previewElement) {
       previewElement.classList.remove('visible', 'is-expanded', 'is-custom-size');
       previewElement.style.width = '';
+      previewElement.style.maxWidth = '';
       previewElement.style.height = '';
       previewElement.style.maxHeight = '';
+      previewElement.style.minHeight = '';
       previewElement.style.left = '';
       previewElement.style.top = '';
     }
@@ -1794,6 +1900,7 @@ const ClipboardPanel = (() => {
   // ═══════════════════════════════════════════════════════════════
 
   function setupModalEventListeners() {
+    const detailModal = document.getElementById('clip-detail-modal');
     const detailCloseBtn = document.getElementById('clip-detail-close-btn');
     const detailCloseBottomBtn = document.getElementById('clip-detail-close-bottom-btn');
     const editorCloseBtn = document.getElementById('clip-editor-close-btn');
@@ -1803,6 +1910,11 @@ const ClipboardPanel = (() => {
 
     if (detailCloseBtn) detailCloseBtn.addEventListener('click', () => closeClipDetailModal());
     if (detailCloseBottomBtn) detailCloseBottomBtn.addEventListener('click', () => closeClipDetailModal());
+    // Overlay boşluğuna tıklayınca pano detayını kapat (düzenleme modalına uygulanmaz)
+    detailModal?.addEventListener('click', (e) => {
+      if (e.target !== detailModal) return;
+      closeClipDetailModal();
+    });
     if (editorCloseBtn) editorCloseBtn.addEventListener('click', () => closeClipEditorModal());
     if (editorCancelBtn) editorCancelBtn.addEventListener('click', () => closeClipEditorModal());
     if (editorSaveBtn) editorSaveBtn.addEventListener('click', () => saveClipItem());
