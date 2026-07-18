@@ -305,6 +305,7 @@ const ALLOWED_SETTING_KEYS = new Set([
   'clearNotesSearchOnHide', 'hideAfterPaste',
   'windowOpenPosition', 'clipboardOpenFilter', 'notesOpenFilter',
   'clipboardFilterOrder',
+  'notesFilterOrder',
   'clipboardQuickActions', 'clipboardQuickActionOrder',
   'workspaceMode', 'workspaceOpenMode', 'dualWindowBounds',
   'clipboardWindowBounds', 'notesWindowBounds',
@@ -2285,7 +2286,10 @@ function registerIPCHandlers() {
         id: note.id ? requirePositiveInteger(note.id, 'Not kimliği') : undefined,
         title: requireString(note.title || '', 'Not başlığı', 500),
         content: requireString(note.content || '', 'Not içeriği', 10_000_000),
-        category_id: note.category_id ? requirePositiveInteger(note.category_id, 'Kategori kimliği') : null,
+        category_id: requirePositiveInteger(
+          note.category_id || db.getDefaultCategoryId(),
+          'Kategori kimliği'
+        ),
       };
       let result;
       if (note.id) {

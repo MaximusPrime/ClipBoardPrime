@@ -58,6 +58,7 @@ const DEFAULT_SETTINGS = {
   clipboardOpenFilter: 'preserve',
   notesOpenFilter: 'preserve',
   clipboardFilterOrder: '["all","pinned","favorites","text","image","url","email","code"]',
+  notesFilterOrder: '["all","pinned","favorites"]',
   clipboardQuickActions: '["copy","pin","favorite","note","delete"]',
   clipboardQuickActionOrder: '["copy","pin","favorite","note","delete"]',
   workspaceMode: 'clipboard',
@@ -158,6 +159,9 @@ function initialize(userDataPath, customLocation, options = {}) {
 
     // Varsayılan verileri ekle
     seedDefaults();
+
+    // Notlar kategorisiz olamaz — null category_id varsayılan kategoriye taşınır
+    migrateNotesRequireCategory();
     if (isExistingInstallation && !hadOnboardingSetting) {
       saveSetting('onboardingCompleted', 'true');
     }
@@ -915,6 +919,8 @@ function cleanupExpiredHistory() {
  * @returns {Object} Oluşturulan not
  */
 function addNote(note) {
+  const categoryId = note.category_id || getDefaultCategoryId();
+  if (!categoryId) throw new Error('Not için kategori zorunludur.');
   const stmt = db.prepare(`
     INSERT INTO notes (title, content, category_id, color, is_pinned)
     VALUES (?, ?, ?, ?, ?)
@@ -922,7 +928,7 @@ function addNote(note) {
   const result = stmt.run(
     note.title || 'Başlıksız Not',
     note.content || '',
-    note.category_id || null,
+    categoryId,
     note.color || '#3b82f6',
     note.is_pinned || 0
   );
@@ -935,6 +941,8 @@ function addNote(note) {
  * @returns {Object} Güncellenen not
  */
 function updateNote(note) {
+  const categoryId = note.category_id || getDefaultCategoryId();
+  if (!categoryId) throw new Error('Not için kategori zorunludur.');
   const stmt = db.prepare(`
     UPDATE notes SET
       title = ?,
@@ -948,7 +956,7 @@ function updateNote(note) {
   stmt.run(
     note.title || 'Başlıksız Not',
     note.content || '',
-    note.category_id || null,
+    categoryId,
     note.color || '#3b82f6',
     note.is_pinned || 0,
     note.id
@@ -1144,12 +1152,54 @@ function getCategories() {
 }
 
 /**
- * Kategoriyi siler.
+ * Varsayılan kategori (sort_order ASC, id ASC).
+ * En az bir kategori yoksa seedDefaults ile oluşturulmalı.
+ */
+function getDefaultCategoryId(excludeId = null) {
+  if (excludeId != null) {
+    const row = db
+      .prepare(
+        'SELECT id FROM categories WHERE id != ? ORDER BY sort_order ASC, id ASC LIMIT 1'
+      )
+      .get(excludeId);
+    return row ? row.id : null;
+  }
+  const row = db
+    .prepare('SELECT id FROM categories ORDER BY sort_order ASC, id ASC LIMIT 1')
+    .get();
+  return row ? row.id : null;
+}
+
+/**
+ * Kategorisiz notları varsayılan kategoriye taşır.
+ */
+function migrateNotesRequireCategory() {
+  try {
+    const defaultId = getDefaultCategoryId();
+    if (!defaultId) return;
+    db.prepare('UPDATE notes SET category_id = ? WHERE category_id IS NULL').run(defaultId);
+  } catch (err) {
+    console.error('Notes require-category migration hatası:', err);
+    throw err;
+  }
+}
+
+/**
+ * Kategoriyi siler. Bağlı notlar silinmez; başka (veya varsayılan) kategoriye taşınır.
+ * Son kategori silinemez.
  */
 function deleteCategory(id) {
-  const stmt = db.prepare('DELETE FROM categories WHERE id = ?');
   const transaction = db.transaction((catId) => {
-    return stmt.run(catId).changes > 0;
+    const count = db.prepare('SELECT COUNT(*) AS c FROM categories').get().c;
+    if (count <= 1) {
+      throw new Error('En az bir kategori kalmalıdır.');
+    }
+    const fallbackId = getDefaultCategoryId(catId);
+    if (!fallbackId) {
+      throw new Error('Yedek kategori bulunamadı.');
+    }
+    db.prepare('UPDATE notes SET category_id = ? WHERE category_id = ?').run(fallbackId, catId);
+    return db.prepare('DELETE FROM categories WHERE id = ?').run(catId).changes > 0;
   });
   return transaction(id);
 }
@@ -1925,6 +1975,7 @@ module.exports = {
   getCategories,
   deleteCategory,
   reorderCategories,
+  getDefaultCategoryId,
 
   // Settings
   getSetting,

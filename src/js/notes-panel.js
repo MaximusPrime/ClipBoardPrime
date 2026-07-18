@@ -96,55 +96,105 @@ const NotesPanel = (() => {
     });
   }
 
+  const DEFAULT_NOTES_FILTER_ORDER = ['all', 'pinned', 'favorites'];
+  const SYSTEM_FILTER_KEYS = new Set(['all', 'pinned', 'favorites', '']);
+
   function isUserCategoryFilterButton(btn) {
     if (!btn || !btn.dataset) return false;
-    const value = btn.dataset.category;
-    // User categories use numeric ids; system chips: '', pinned, favorites, null
-    return /^\d+$/.test(String(value || ''));
+    return /^\d+$/.test(String(btn.dataset.category || ''));
   }
 
-  function setupCategoryFilterDrag() {
-    if (!elements.categoryFilter || !window.Utils || !Utils.enableFilterTabDrag) return;
-    Utils.enableFilterTabDrag(elements.categoryFilter, {
-      isDraggable: isUserCategoryFilterButton,
-      onReorder: async (buttons) => {
-        const ordered = buttons
-          .filter(isUserCategoryFilterButton)
-          .map((btn, index) => ({
-            id: parseInt(btn.dataset.category, 10),
-            sort_order: index,
-          }))
-          .filter((item) => Number.isFinite(item.id));
+  function isNotesFilterButton(btn) {
+    return Boolean(btn && btn.classList && btn.classList.contains('filter-btn'));
+  }
 
-        if (ordered.length === 0) return;
+  function parseNotesFilterOrder(raw) {
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!Array.isArray(parsed)) return [...DEFAULT_NOTES_FILTER_ORDER];
+      const system = [];
+      parsed.forEach((key) => {
+        if (key === 'all' || key === 'pinned' || key === 'favorites') {
+          if (!system.includes(key)) system.push(key);
+        }
+      });
+      DEFAULT_NOTES_FILTER_ORDER.forEach((key) => {
+        if (!system.includes(key)) system.push(key);
+      });
+      return system;
+    } catch (_) {
+      return [...DEFAULT_NOTES_FILTER_ORDER];
+    }
+  }
 
-        // Keep local list in sync for dropdowns
+  async function saveNotesFilterOrder(buttons) {
+    // Persist only system chip order; user categories use DB sort_order.
+    const systemOrder = buttons
+      .map((b) => {
+        const v = b.dataset.category;
+        if (v === '' || v === undefined) return 'all';
+        if (v === 'pinned' || v === 'favorites') return v;
+        return null;
+      })
+      .filter(Boolean);
+
+    // Ensure all system keys present once
+    DEFAULT_NOTES_FILTER_ORDER.forEach((key) => {
+      if (!systemOrder.includes(key)) systemOrder.push(key);
+    });
+
+    const categoryOrder = buttons
+      .filter(isUserCategoryFilterButton)
+      .map((btn, index) => ({
+        id: parseInt(btn.dataset.category, 10),
+        sort_order: index,
+      }))
+      .filter((item) => Number.isFinite(item.id));
+
+    try {
+      if (window.api?.saveSetting) {
+        await window.api.saveSetting('notesFilterOrder', JSON.stringify(systemOrder));
+      }
+      if (window.App?.settings) {
+        window.App.settings.notesFilterOrder = JSON.stringify(systemOrder);
+      }
+      if (categoryOrder.length > 0) {
         const byId = new Map(categoriesList.map((c) => [c.id, c]));
         const reordered = [];
-        ordered.forEach((item) => {
+        categoryOrder.forEach((item) => {
           const cat = byId.get(item.id);
           if (cat) {
             cat.sort_order = item.sort_order;
             reordered.push(cat);
           }
         });
-        categoriesList = reordered.length ? reordered : categoriesList;
+        if (reordered.length) categoriesList = reordered;
 
-        try {
-          const response = await window.api.reorderCategories(ordered);
-          if (!response || !response.success) {
-            Utils.showToast(
-              window.i18n ? window.i18n.t('toast.categoryReorderFailed') : 'Kategori sırası kaydedilemedi',
-              'error'
-            );
-            await loadCategories();
-          }
-        } catch (err) {
-          console.error('reorderCategories failed:', err);
+        const response = await window.api.reorderCategories(categoryOrder);
+        if (!response || !response.success) {
+          Utils.showToast(
+            window.i18n ? window.i18n.t('toast.categoryReorderFailed') : 'Kategori sırası kaydedilemedi',
+            'error'
+          );
           await loadCategories();
         }
-      },
+      }
+    } catch (err) {
+      console.error('saveNotesFilterOrder failed:', err);
+      await loadCategories();
+    }
+  }
+
+  function setupCategoryFilterDrag() {
+    if (!elements.categoryFilter || !window.Utils || !Utils.enableFilterTabDrag) return;
+    Utils.enableFilterTabDrag(elements.categoryFilter, {
+      isDraggable: isNotesFilterButton,
+      onReorder: (buttons) => saveNotesFilterOrder(buttons),
     });
+  }
+
+  function getDefaultCategoryId() {
+    return categoriesList.length > 0 ? categoriesList[0].id : null;
   }
 
   /**
@@ -382,10 +432,8 @@ const NotesPanel = (() => {
           params.pinned = true;
         } else if (activeCategoryFilter === 'favorites') {
           params.favorite = true;
-        } else if (activeCategoryFilter === 'null') {
-          params.category_id = null;
-        } else {
-          params.category_id = parseInt(activeCategoryFilter);
+        } else if (/^\d+$/.test(activeCategoryFilter)) {
+          params.category_id = parseInt(activeCategoryFilter, 10);
         }
       }
 
@@ -438,7 +486,8 @@ const NotesPanel = (() => {
     if (configured === 'pinned' || configured === 'favorites') {
       nextFilter = configured;
     } else if (configured === 'uncategorized') {
-      nextFilter = 'null';
+      // Legacy setting — uncategorized notes no longer exist
+      nextFilter = '';
     } else if (configured.startsWith('category:')) {
       const categoryId = configured.slice('category:'.length);
       if (categoriesList.some((category) => String(category.id) === categoryId)) {
@@ -479,17 +528,14 @@ const NotesPanel = (() => {
     // 1. Filtre Sekmeleri (Paralel Sekme)
     elements.categoryFilter.innerHTML = '';
     
-    // "Tüm Kategoriler" butonu
-    const createCategoryFilterButton = (value, label, icon, color, { userCategory = false } = {}) => {
+    const createCategoryFilterButton = (value, label, icon, color) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `filter-btn${activeCategoryFilter === value ? ' active' : ''}`;
       button.dataset.category = value;
-      if (userCategory) {
-        button.draggable = true;
-        button.classList.add('filter-btn-draggable');
-        button.title = window.i18n ? window.i18n.t('tooltip.dragToReorder') : 'Sürükleyerek sırala';
-      }
+      button.draggable = true;
+      button.classList.add('filter-btn-draggable');
+      button.title = window.i18n ? window.i18n.t('tooltip.dragToReorder') : 'Sürükleyerek sırala';
       button.setAttribute('aria-selected', String(activeCategoryFilter === value));
       const iconElement = document.createElement('span');
       iconElement.className = 'filter-emoji';
@@ -501,71 +547,52 @@ const NotesPanel = (() => {
       return button;
     };
 
-    const allBtn = createCategoryFilterButton(
-      '',
-      window.i18n ? window.i18n.t('filter.allCategories') : 'Tüm Kategoriler',
-      Utils.Icons.tag,
-      '#6366f1'
-    );
-    elements.categoryFilter.appendChild(allBtn);
+    const systemButtons = {
+      all: createCategoryFilterButton(
+        '',
+        window.i18n ? window.i18n.t('filter.allCategories') : 'Tüm Kategoriler',
+        Utils.Icons.tag,
+        '#6366f1'
+      ),
+      pinned: createCategoryFilterButton(
+        'pinned',
+        window.i18n ? window.i18n.t('filter.pinned') : 'Sabitler',
+        Utils.Icons.pin,
+        '#2563eb'
+      ),
+      favorites: createCategoryFilterButton(
+        'favorites',
+        window.i18n ? window.i18n.t('filter.favorites') : 'Favoriler',
+        Utils.Icons.star,
+        '#eab308'
+      ),
+    };
 
-    // "Sabitler" butonu
-    const pinnedBtn = createCategoryFilterButton(
-      'pinned',
-      window.i18n ? window.i18n.t('filter.pinned') : 'Sabitler',
-      Utils.Icons.pin,
-      '#2563eb'
-    );
-    elements.categoryFilter.appendChild(pinnedBtn);
-
-    // "Favoriler" butonu
-    const favBtn = createCategoryFilterButton(
-      'favorites',
-      window.i18n ? window.i18n.t('filter.favorites') : 'Favoriler',
-      Utils.Icons.star,
-      '#eab308'
-    );
-    elements.categoryFilter.appendChild(favBtn);
-
-    const uncategorizedBtn = createCategoryFilterButton(
-      'null',
-      window.i18n ? window.i18n.t('settings.notesOpenFilterUncategorized') : 'Kategorisiz',
-      Utils.Icons.folder,
-      '#64748b'
-    );
-    elements.categoryFilter.appendChild(uncategorizedBtn);
+    const systemOrder = parseNotesFilterOrder(window.App?.settings?.notesFilterOrder);
+    systemOrder.forEach((key) => {
+      if (systemButtons[key]) elements.categoryFilter.appendChild(systemButtons[key]);
+    });
 
     // Separatör çizgi
     const separator = document.createElement('div');
     separator.className = 'filter-separator';
     elements.categoryFilter.appendChild(separator);
 
-    // Kategori butonları (sürüklenebilir)
+    // Kullanıcı kategorileri (sürüklenebilir)
     categoriesList.forEach((cat) => {
       const btn = createCategoryFilterButton(
         String(cat.id),
         getLocalizedCategoryName(cat.name),
         Utils.Icons[cat.icon] || Utils.Icons.folder,
-        cat.color || 'var(--text-secondary)',
-        { userCategory: true }
+        cat.color || 'var(--text-secondary)'
       );
       elements.categoryFilter.appendChild(btn);
     });
 
-    // 2. Editor modal custom dropdown options
+    // 2. Editor modal custom dropdown options (kategori zorunlu — boş seçenek yok)
     const optionsContainer = document.getElementById('note-edit-category-options');
     if (optionsContainer) {
       optionsContainer.innerHTML = '';
-      
-      // Add "(Kategorisiz)" option
-      const nullOpt = document.createElement('div');
-      nullOpt.className = 'custom-select-option';
-      nullOpt.dataset.value = '';
-      nullOpt.innerHTML = `
-        <span class="icon-svg category-option-placeholder"></span>
-        <span>${window.i18n ? window.i18n.t('note.noCategoryOption') : '(Kategorisiz)'}</span>
-      `;
-      optionsContainer.appendChild(nullOpt);
 
       categoriesList.forEach((cat) => {
         const opt = document.createElement('div');
@@ -693,7 +720,7 @@ const NotesPanel = (() => {
       
       const categoryTagHTML = note.category_name
         ? `<span class="note-category-tag category-colored">${note.category_icon_svg || ''} ${Utils.escapeHtml(getLocalizedCategoryName(note.category_name))}</span>`
-        : `<span class="note-category-tag uncategorized">${window.i18n ? window.i18n.t('note.noCategory') : 'Kategorisiz'}</span>`;
+        : '';
 
       el.innerHTML = `
         <div class="note-item-header">
@@ -1276,13 +1303,8 @@ const NotesPanel = (() => {
     const triggerText = document.getElementById('note-edit-category-selected-text');
     if (!triggerIcon || !triggerText) return;
 
-    if (!val) {
-      triggerIcon.innerHTML = '';
-      triggerText.textContent = window.i18n ? window.i18n.t('note.noCategoryOption') : '(Kategorisiz)';
-      return;
-    }
-
-    const cat = categoriesList.find(c => c.id === parseInt(val));
+    const resolved = val || getDefaultCategoryId() || '';
+    const cat = categoriesList.find((c) => String(c.id) === String(resolved));
     if (cat) {
       const rawIcon = Utils.Icons[cat.icon] || Utils.Icons.folder;
       triggerIcon.innerHTML = rawIcon;
@@ -1290,13 +1312,14 @@ const NotesPanel = (() => {
       triggerText.textContent = getLocalizedCategoryName(cat.name);
     } else {
       triggerIcon.innerHTML = '';
-      triggerText.textContent = window.i18n ? window.i18n.t('note.noCategoryOption') : '(Kategorisiz)';
+      triggerText.textContent = window.i18n ? window.i18n.t('note.selectCategory') : 'Kategori seçin';
     }
   }
 
   function setEditCategoryValue(val) {
-    elements.editCategory.value = val || '';
-    updateCustomCategorySelectUI(val);
+    const resolved = val || getDefaultCategoryId() || '';
+    elements.editCategory.value = resolved ? String(resolved) : '';
+    updateCustomCategorySelectUI(resolved);
   }
 
   function captureEditorBaseline() {
@@ -1330,7 +1353,7 @@ const NotesPanel = (() => {
       elements.editId.value = note.id;
       elements.editTitle.value = note.title || '';
       elements.editContent.value = note.content || '';
-      setEditCategoryValue(note.category_id || '');
+      setEditCategoryValue(note.category_id || getDefaultCategoryId());
       selectedColor = note.color || 'charcoal';
     } else {
       // Yeni not ekleme modu
@@ -1339,15 +1362,11 @@ const NotesPanel = (() => {
       elements.editId.value = '';
       elements.editTitle.value = '';
       elements.editContent.value = '';
-      // Varsayılan olarak aktif kategori filtresini seç
-      if (activeCategoryFilter && activeCategoryFilter !== 'null' && /^\d+$/.test(activeCategoryFilter)) {
+      // Aktif kategori filtresi (sayısal) veya varsayılan kategori
+      if (activeCategoryFilter && /^\d+$/.test(activeCategoryFilter)) {
         setEditCategoryValue(activeCategoryFilter);
       } else {
-        if (categoriesList.length > 0) {
-          setEditCategoryValue(categoriesList[0].id);
-        } else {
-          setEditCategoryValue('');
-        }
+        setEditCategoryValue(getDefaultCategoryId());
       }
       selectedColor = 'charcoal';
     }
@@ -1392,7 +1411,7 @@ const NotesPanel = (() => {
     elements.editorModal.classList.remove('active');
     Utils.destroyFocusTrap(elements.editorModal);
     elements.editorForm.reset();
-    updateCustomCategorySelectUI('');
+    setEditCategoryValue(getDefaultCategoryId());
     elements.categoryPreview.classList.add('hidden');
     selectedColor = 'charcoal';
     editorBaseline = null;
@@ -1434,7 +1453,9 @@ const NotesPanel = (() => {
   async function saveNote() {
     const title = elements.editTitle.value.trim();
     const content = elements.editContent.value.trim();
-    const categoryId = elements.editCategory.value ? parseInt(elements.editCategory.value) : null;
+    const categoryId = elements.editCategory.value
+      ? parseInt(elements.editCategory.value, 10)
+      : getDefaultCategoryId();
     const id = elements.editId.value ? parseInt(elements.editId.value) : null;
 
     if (!title && !content) {
@@ -1442,13 +1463,19 @@ const NotesPanel = (() => {
       return;
     }
 
+    if (!categoryId) {
+      Utils.showToast(
+        window.i18n ? window.i18n.t('toast.noteCategoryRequired') : 'Not için bir kategori seçmelisiniz',
+        'warning'
+      );
+      return;
+    }
+
     try {
       // Kategori rengini bul
       let noteColor = '#475569';
-      if (categoryId) {
-        const cat = categoriesList.find(c => c.id === categoryId);
-        if (cat) noteColor = cat.color;
-      }
+      const cat = categoriesList.find((c) => c.id === categoryId);
+      if (cat) noteColor = cat.color;
 
       const noteData = {
         title: title || (window.i18n ? window.i18n.t('note.untitled') : 'Başlıksız Not'),
@@ -1541,7 +1568,9 @@ const NotesPanel = (() => {
         
         const confirmed = await window.App.confirm(
           window.i18n ? window.i18n.t('confirm.deleteCategoryTitle') : 'Kategoriyi Sil',
-          window.i18n ? window.i18n.t('confirm.deleteCategoryMsg', { name: getLocalizedCategoryName(cat.name) }) : `"${cat.name}" kategorisini silmek istediğinize emin misiniz? Bu kategoriye bağlı notlar silinmez, "Kategorisiz" olarak güncellenir.`,
+          window.i18n
+            ? window.i18n.t('confirm.deleteCategoryMsg', { name: getLocalizedCategoryName(cat.name) })
+            : `"${cat.name}" kategorisini silmek istediğinize emin misiniz? Bağlı notlar silinmez; varsayılan kategoriye taşınır.`,
           Utils.Icons.alertTriangle
         );
 
