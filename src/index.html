@@ -67,6 +67,11 @@
             <input type="text" id="clipboard-search" class="panel-search-input" placeholder="Panoda ara... (Ctrl+F)" data-i18n="[placeholder]search.clipboard" autocomplete="off" spellcheck="false" aria-label="Pano geçmişinde ara">
             <button class="search-clear-btn" id="clipboard-search-clear" aria-label="Aramayı temizle" data-i18n="[aria-label]search.clearAria" type="button">✕</button>
           </div>
+          <button class="advanced-filter-toolbar-btn" id="clipboard-advanced-filter-btn" type="button" aria-expanded="false" data-tooltip="Gelişmiş Filtreler" data-i18n="[data-tooltip]advancedFilter.title">
+            <svg class="icon-svg" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+            <span data-i18n="advancedFilter.title">Gelişmiş</span>
+            <b id="clipboard-advanced-filter-count"></b>
+          </button>
         </div>
         <div class="clipboard-advanced-filters" id="clipboard-advanced-filters">
           <select class="setting-select" id="clipboard-filter-period" aria-label="Kayıt dönemi">
@@ -119,11 +124,6 @@
             <span class="filter-emoji"><svg class="icon-svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></span> <span data-i18n="filter.code">Kod</span>
           </button>
         </div>
-          <button class="advanced-filter-toolbar-btn" id="clipboard-advanced-filter-btn" type="button" aria-expanded="false" data-tooltip="Gelişmiş Filtreler" data-i18n="[data-tooltip]advancedFilter.title">
-            <svg class="icon-svg" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-            <span data-i18n="advancedFilter.title">Gelişmiş</span>
-            <b id="clipboard-advanced-filter-count"></b>
-          </button>
         </div>
         <div class="clipboard-keyboard-help" aria-label="Pano kartı klavye kısayolları">
           <span><kbd>C</kbd> <span data-i18n="keyboard.copy">Kopyala</span></span>
