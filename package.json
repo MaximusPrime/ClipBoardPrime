@@ -36,10 +36,10 @@
   "homepage": "https://maximusprimesoftware.pages.dev/projects/clipboardprime/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MaximusPrime/ClipBoardPrime.git"
+    "url": "git+https://github.com/MaximusPrimeSoftware/ClipBoardPrime.git"
   },
   "bugs": {
-    "url": "https://github.com/MaximusPrime/ClipBoardPrime/issues",
+    "url": "https://github.com/MaximusPrimeSoftware/ClipBoardPrime/issues",
     "email": "maximusprimesoftware@gmail.com"
   },
   "license": "GPL-3.0-only",

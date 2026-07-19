@@ -116,4 +116,4 @@ Sorularınız veya işbirliği önerileriniz için aşağıdaki kanallardan bize
 *   **Proje Yöneticisi**: Maximus Prime ([MaximusPrime](https://github.com/MaximusPrime))
 *   **Stüdyo**: [Maximus Prime Software](https://maximusprimesoftware.pages.dev/)
 *   **Stüdyo e-posta**: [maximusprimesoftware@gmail.com](mailto:maximusprimesoftware@gmail.com)
-*   **Depo**: [github.com/MaximusPrime/ClipBoardPrime](https://github.com/MaximusPrime/ClipBoardPrime)
+*   **Depo**: [github.com/MaximusPrimeSoftware/ClipBoardPrime](https://github.com/MaximusPrimeSoftware/ClipBoardPrime)

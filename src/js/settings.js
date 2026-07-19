@@ -410,7 +410,7 @@ const SettingsPanel = (() => {
             if (authorEl) authorEl.textContent = `${appInfo.author}`;
             const studioLinkEl = document.getElementById('about-studio-link');
             if (studioLinkEl) studioLinkEl.dataset.url = 'https://maximusprimesoftware.pages.dev/';
-            if (sourceLinkEl) sourceLinkEl.dataset.url = 'https://github.com/MaximusPrime/ClipBoardPrime';
+            if (sourceLinkEl) sourceLinkEl.dataset.url = 'https://github.com/MaximusPrimeSoftware/ClipBoardPrime';
 
             // Taşınabilir (Portable) Sürüm
             if (isPortableMode) {

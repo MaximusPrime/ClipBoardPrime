@@ -149,7 +149,7 @@ The importer remains compatible with earlier JSON exports. New exports use the e
 
 ## Installation
 
-Download the installer or portable executable from the project’s [GitHub Releases](https://github.com/MaximusPrime/ClipBoardPrime/releases) page.
+Download the installer or portable executable from the project’s [GitHub Releases](https://github.com/MaximusPrimeSoftware/ClipBoardPrime/releases) page.
 
 | Distribution | Behavior |
 |---|---|
@@ -172,7 +172,7 @@ Download the installer or portable executable from the project’s [GitHub Relea
 ### Set up the project
 
 ```bash
-git clone https://github.com/MaximusPrime/ClipBoardPrime.git
+git clone https://github.com/MaximusPrimeSoftware/ClipBoardPrime.git
 cd ClipBoardPrime
 npm install
 npm run dev
@@ -263,7 +263,7 @@ ClipBoardPrime is licensed under the [GNU General Public License v3.0](LICENSE).
 | **Product page** | [ClipBoardPrime](https://maximusprimesoftware.pages.dev/projects/clipboardprime/) |
 | **Studio email** | [maximusprimesoftware@gmail.com](mailto:maximusprimesoftware@gmail.com) |
 | **GitHub** | [@MaximusPrime](https://github.com/MaximusPrime) |
-| **Repository** | [MaximusPrime/ClipBoardPrime](https://github.com/MaximusPrime/ClipBoardPrime) |
+| **Repository** | [MaximusPrimeSoftware/ClipBoardPrime](https://github.com/MaximusPrimeSoftware/ClipBoardPrime) |
 
 ---
 
