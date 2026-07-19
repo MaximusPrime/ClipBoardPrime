@@ -149,7 +149,7 @@ The importer remains compatible with earlier JSON exports. New exports use the e
 
 ## Installation
 
-Download the installer or portable executable from the project’s [GitHub Releases](https://github.com/MaximusPrimeSoftware/ClipBoardPrime/releases) page.
+Download the installer or portable executable from the project’s [GitHub Releases](https://github.com/MaximusPrime/ClipBoardPrime/releases) page.
 
 | Distribution | Behavior |
 |---|---|
@@ -172,7 +172,7 @@ Download the installer or portable executable from the project’s [GitHub Relea
 ### Set up the project
 
 ```bash
-git clone https://github.com/MaximusPrimeSoftware/ClipBoardPrime.git
+git clone https://github.com/MaximusPrime/ClipBoardPrime.git
 cd ClipBoardPrime
 npm install
 npm run dev
@@ -262,10 +262,8 @@ ClipBoardPrime is licensed under the [GNU General Public License v3.0](LICENSE).
 | **Website** | [maximusprimesoftware.pages.dev](https://maximusprimesoftware.pages.dev/) |
 | **Product page** | [ClipBoardPrime](https://maximusprimesoftware.pages.dev/projects/clipboardprime/) |
 | **Studio email** | [maximusprimesoftware@gmail.com](mailto:maximusprimesoftware@gmail.com) |
-| **Developer email** | [b.maximus.prime@gmail.com](mailto:b.maximus.prime@gmail.com) |
 | **GitHub** | [@MaximusPrime](https://github.com/MaximusPrime) |
-| **Organization** | [@MaximusPrimeSoftware](https://github.com/MaximusPrimeSoftware) |
-| **Repository** | [MaximusPrimeSoftware/ClipBoardPrime](https://github.com/MaximusPrimeSoftware/ClipBoardPrime) |
+| **Repository** | [MaximusPrime/ClipBoardPrime](https://github.com/MaximusPrime/ClipBoardPrime) |
 
 ---
 
@@ -278,6 +276,6 @@ ClipBoardPrime is licensed under the [GNU General Public License v3.0](LICENSE).
     <strong>Designed and developed by Maximus Prime Software.</strong><br>
     <sub>Private by design. Built for productive Windows workflows.</sub><br>
     <a href="https://maximusprimesoftware.pages.dev/">maximusprimesoftware.pages.dev</a> ·
-    <a href="https://github.com/MaximusPrimeSoftware">@MaximusPrimeSoftware</a>
+    <a href="https://github.com/MaximusPrime">@MaximusPrime</a>
   </p>
 </div>

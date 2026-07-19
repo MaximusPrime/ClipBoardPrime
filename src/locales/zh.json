@@ -365,9 +365,7 @@
     "featureDb": "异步多线程数据库引擎",
     "featureTray": "全局快捷键与系统托盘集成",
     "projectDesc": "ClipBoardPrime 是一款高级桌面应用程序，让您智能管理剪贴板，并将常用内容与实用记事本集成存储。",
-    "devProfile": "开发者主页",
-    "studioSite": "工作室官网",
-    "productPage": "产品页面",
+    "studioSite": "官方网站",
     "sourceCode": "源代码",
     "copyright": "© 2026 Maximus Prime Software. 保留所有权利。"
   },

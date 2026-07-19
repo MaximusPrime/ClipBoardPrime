@@ -401,7 +401,6 @@ const SettingsPanel = (() => {
             const titleEl = document.getElementById('about-app-title');
             const versionEl = document.getElementById('about-app-version');
             const authorEl = document.getElementById('about-app-author');
-            const devLinkEl = document.getElementById('about-dev-link');
             const sourceLinkEl = document.getElementById('about-source-link');
 
             if (titleEl) titleEl.textContent = appInfo.name;
@@ -409,12 +408,9 @@ const SettingsPanel = (() => {
               ? window.i18n.t('settings.version', { version: appInfo.version })
               : `Sürüm ${appInfo.version}`;
             if (authorEl) authorEl.textContent = `${appInfo.author}`;
-            if (devLinkEl) devLinkEl.dataset.url = 'https://github.com/MaximusPrime';
             const studioLinkEl = document.getElementById('about-studio-link');
             if (studioLinkEl) studioLinkEl.dataset.url = 'https://maximusprimesoftware.pages.dev/';
-            const productLinkEl = document.getElementById('about-product-link');
-            if (productLinkEl) productLinkEl.dataset.url = 'https://maximusprimesoftware.pages.dev/projects/clipboardprime/';
-            if (sourceLinkEl) sourceLinkEl.dataset.url = 'https://github.com/MaximusPrimeSoftware/ClipBoardPrime';
+            if (sourceLinkEl) sourceLinkEl.dataset.url = 'https://github.com/MaximusPrime/ClipBoardPrime';
 
             // Taşınabilir (Portable) Sürüm
             if (isPortableMode) {

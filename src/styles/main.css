@@ -3600,7 +3600,7 @@ a.meta-item:hover .icon-svg {
 
 .about-buttons .btn {
   flex: 1;
-  max-width: 160px;
+  max-width: 200px;
   height: 36px;
   font-weight: 600;
 }
