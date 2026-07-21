@@ -1776,59 +1776,10 @@ const ClipboardPanel = (() => {
       // replaceChildren kullandığımız için hem date header'lar güncellenir hem de titreme olmaz.
       renderHistory(false, true, elements.list.scrollTop);
 
-      // Ekranda listenin başına kusursuz şekilde gelmesi için scroll'u en üst seviyeye akıcı şekilde kaydırıyoruz.
-      const isAlreadyAtTop = elements.list.scrollTop === 0;
-
-      const triggerFlash = () => {
-        const newEl = elements.list.querySelector(`.clip-item[data-id="${item.id}"]`);
-        if (newEl) {
-          Utils.copyFlashAnimation(newEl);
-        }
-      };
-
-      if (isAlreadyAtTop) {
-        triggerFlash();
-      } else {
-        let safetyTimeoutId = null;
-
-        // Kaydırma (scroll) animasyonu tamamlandığında en üstteki öğeyi flaşlatmak için dinleyiciler ekliyoruz.
-        const handleScrollEnd = () => {
-          if (elements.list.scrollTop === 0) {
-            cleanup();
-            triggerFlash();
-          }
-        };
-
-        const handleScroll = () => {
-          if (elements.list.scrollTop === 0) {
-            cleanup();
-            triggerFlash();
-          }
-        };
-
-        const cleanup = () => {
-          elements.list.removeEventListener('scroll', handleScroll);
-          elements.list.removeEventListener('scrollend', handleScrollEnd);
-          if (safetyTimeoutId) {
-            clearTimeout(safetyTimeoutId);
-            safetyTimeoutId = null;
-          }
-        };
-
-        elements.list.addEventListener('scroll', handleScroll);
-        elements.list.addEventListener('scrollend', handleScrollEnd);
-
-        // Akıcı yukarı kaydırma başlat
-        elements.list.scrollTo({ top: 0, behavior: 'smooth' });
-
-        // Güvenlik önlemi: Eğer beklenmedik şekilde scroll 0'a tam oturmazsa, 800ms sonra zorla flaşlat ve temizle.
-        safetyTimeoutId = setTimeout(() => {
-          cleanup();
-          const newEl = elements.list.querySelector(`.clip-item[data-id="${item.id}"]`);
-          if (newEl && !newEl.classList.contains('copy-flash')) {
-            triggerFlash();
-          }
-        }, 800);
+      // Yeni eklenen/kopyalanan öğeyi bul ve kopyalama efektini uygula (scroll konumu değiştirilmeden)
+      const newEl = elements.list.querySelector(`.clip-item[data-id="${item.id}"]`);
+      if (newEl) {
+        Utils.copyFlashAnimation(newEl);
       }
 
       // Sayaçları güncelle
