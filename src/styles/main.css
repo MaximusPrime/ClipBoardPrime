@@ -3453,9 +3453,24 @@ body.is-resizing-preview * {
 
 .company-brand-card span,
 .company-brand-card a {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-muted);
   font-size: 11px;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.company-brand-card a:hover {
+  color: var(--accent-primary, #3b82f6);
+}
+
+.company-brand-card .brand-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
 .about-app-title {

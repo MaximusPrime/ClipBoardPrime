@@ -403,7 +403,7 @@ const SettingsPanel = (() => {
             const authorEl = document.getElementById('about-app-author');
             const sourceLinkEl = document.getElementById('about-source-link');
 
-            if (titleEl) titleEl.textContent = appInfo.name;
+            if (titleEl) titleEl.textContent = 'ClipBoardPrime';
             if (versionEl) versionEl.textContent = window.i18n
               ? window.i18n.t('settings.version', { version: appInfo.version })
               : `Sürüm ${appInfo.version}`;

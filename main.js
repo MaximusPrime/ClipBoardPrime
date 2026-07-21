@@ -1876,7 +1876,7 @@ function registerIPCHandlers() {
       return {
         success: true,
         data: {
-          name: app.getName(),
+          name: 'ClipBoardPrime',
           version: app.getVersion(),
           isDev: isDev,
           isPortable: isPortable,
