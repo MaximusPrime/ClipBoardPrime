@@ -3520,12 +3520,12 @@ body.is-resizing-preview * {
   justify-content: center;
   width: 52px;
   height: 52px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border-radius: 12px;
+  background: transparent;
   color: #ffffff;
   font-size: 22px;
   font-weight: 700;
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
   flex-shrink: 0;
   user-select: none;
   overflow: hidden;
@@ -3534,7 +3534,8 @@ body.is-resizing-preview * {
 .developer-avatar img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  border-radius: 12px;
 }
 
 .developer-info {
@@ -3629,8 +3630,34 @@ a.meta-item:hover .icon-svg {
 .about-buttons .btn {
   flex: 1;
   max-width: 200px;
-  height: 36px;
+  height: 38px;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+}
+
+.about-btn-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.about-btn-icon:not(.about-github-icon) {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.about-github-icon {
+  fill: currentColor;
+  stroke: none;
 }
 
 .about-copyright {
