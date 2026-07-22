@@ -20,11 +20,11 @@ const shots = [
       {shots.map((shot, index) => (
         <button
           type="button"
-          class="glass group relative overflow-hidden rounded-2xl p-2 text-left transition duration-300 hover:border-sky-500/60 hover:shadow-[0_0_30px_rgba(14,165,233,0.2)] focus:outline-none"
+          class="glass group relative overflow-hidden rounded-2xl p-2.5 text-left transition duration-300 hover:border-sky-500/60 hover:shadow-[0_0_30px_rgba(14,165,233,0.2)] focus:outline-none flex flex-col justify-between"
           onclick={`openLightbox('${shot.src}', '${shot.title.replace(/'/g, "\\'")}', '${shot.desc.replace(/'/g, "\\'")}')`}
         >
-          <div class="overflow-hidden rounded-xl bg-slate-950 aspect-[4/3] flex items-center justify-center relative">
-            <img src={shot.src} alt={shot.title} class="w-full h-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" />
+          <div class="overflow-hidden rounded-xl bg-slate-950/80 min-h-[260px] h-64 w-full flex items-center justify-center p-2 relative border border-white/5">
+            <img src={shot.src} alt={shot.title} class="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-[1.03]" loading="lazy" />
             <div class="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center backdrop-blur-[2px]">
               <span class="rounded-full bg-sky-500/90 text-slate-950 p-3 shadow-lg transform translate-y-2 group-hover:translate-y-0 transition duration-300">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"/></svg>
@@ -50,8 +50,10 @@ const shots = [
       >
         ✕ Close (Esc)
       </button>
-      <div class="w-full overflow-hidden rounded-2xl border border-white/20 bg-slate-900 shadow-2xl p-2">
-        <img id="lightbox-img" src="" alt="" class="w-full max-h-[75vh] object-contain rounded-xl" />
+      <div class="w-full overflow-hidden rounded-2xl border border-white/20 bg-slate-900 shadow-2xl p-3">
+        <div class="w-full flex items-center justify-center bg-slate-950 rounded-xl p-2">
+          <img id="lightbox-img" src="" alt="" class="max-h-[72vh] max-w-full object-contain rounded-lg shadow-lg" />
+        </div>
         <div class="p-4 text-center">
           <h3 id="lightbox-title" class="font-bold text-lg text-white"></h3>
           <p id="lightbox-desc" class="text-xs text-slate-400 mt-1 max-w-2xl mx-auto"></p>
