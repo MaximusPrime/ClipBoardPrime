@@ -1,0 +1,23 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+}
+
+const { title = 'ClipBoardPrime - Windows Clipboard Manager & Notes Workspace' } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/ClipBoardPrime/favicon.svg" />
+    <title>{title}</title>
+    <meta name="description" content="Store clipboard history locally in SQLite, paste into active windows instantly via Win32 SendInput, and convert items into organized notes." />
+  </head>
+  <body class="bg-[#030712] text-slate-100 antialiased selection:bg-sky-500 selection:text-slate-950">
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,27 @@
+---
+interface Props {
+  currentLang: 'tr' | 'en';
+}
+const { currentLang } = Astro.props;
+---
+
+<div class="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1 text-xs font-semibold">
+  <a
+    href="/ClipBoardPrime/tr"
+    class:list={[
+      "rounded px-2 py-1 transition",
+      currentLang === "tr" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-white"
+    ]}
+  >
+    TR
+  </a>
+  <a
+    href="/ClipBoardPrime/en"
+    class:list={[
+      "rounded px-2 py-1 transition",
+      currentLang === "en" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-white"
+    ]}
+  >
+    EN
+  </a>
+</div>
