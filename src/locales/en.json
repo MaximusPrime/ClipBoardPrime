@@ -35,7 +35,11 @@
     "change": "Change",
     "confirm": "Confirm",
     "back": "Back",
-    "next": "Next"
+    "next": "Next",
+    "selectMode": "Select",
+    "deleteSelected": "Delete Selected",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All"
   },
   "search": {
     "clipboard": "Search clipboard... (Ctrl+F)",
@@ -87,6 +91,7 @@
     "itemFavAdded": "Added to favorites",
     "itemFavRemoved": "Removed from favorites",
     "itemDeleted": "Item deleted",
+    "itemsDeleted": "{{count}} items deleted",
     "historyCleared": "{{count}} items cleared.",
     "historyClearFailed": "Failed to clear",
     "historyLoadFailed": "Failed to load clipboard history",
@@ -122,12 +127,16 @@
     "changeLocationTitle": "Move Data Location",
     "changeLocationMsg": "Are you sure you want to change the database location and copy your current data to the new location?",
     "importDataTitle": "Import Data",
-    "importDataMsg": "The data from the selected backup file will be added to your current database. Do you want to continue?"
+    "importDataMsg": "The data from the selected backup file will be added to your current database. Do you want to continue?",
+    "deleteSelectedTitle": "Delete Selected Items",
+    "deleteSelectedMsg": "Are you sure you want to delete {{count}} selected items from clipboard history?"
   },
   "date": {
     "today": "Today",
     "yesterday": "Yesterday",
     "thisWeek": "This Week",
+    "lastWeek": "Last Week",
+    "thisMonth": "This Month",
     "older": "Older",
     "other": "Other",
     "justNow": "Just now",
@@ -428,7 +437,9 @@
     "openClipboard": "Open Compact Clipboard",
     "openNotes": "Open Compact Notes",
     "settings": "Settings",
-    "exit": "Exit"
+    "exit": "Exit",
+    "balloonTitle": "ClipBoardPrime",
+    "balloonContent": "Application continues running in the system tray. Click the tray icon or use the Ctrl+Shift+V shortcut to open."
   },
   "preview": {
     "title": "Quick Preview",

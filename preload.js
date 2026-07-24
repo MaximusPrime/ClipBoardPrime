@@ -24,6 +24,7 @@ function getBootstrapSettings() {
 const ALLOWED_INVOKE_CHANNELS = [
   'get-clipboard-history',
   'delete-clipboard-item',
+  'delete-clipboard-items-batch',
   'update-clipboard-item',
   'clear-clipboard-history',
   'toggle-pin-clipboard',
@@ -106,6 +107,7 @@ contextBridge.exposeInMainWorld('api', {
   // ── Clipboard ──────────────────────────────────────────────
   getClipboardHistory: (params) => safeInvoke('get-clipboard-history', params),
   deleteClipboardItem: (id) => safeInvoke('delete-clipboard-item', id),
+  deleteClipboardItemsBatch: (ids) => safeInvoke('delete-clipboard-items-batch', ids),
   clearClipboardHistory: () => safeInvoke('clear-clipboard-history'),
   togglePinClipboard: (id) => safeInvoke('toggle-pin-clipboard', id),
   toggleFavoriteClipboard: (id) => safeInvoke('toggle-favorite-clipboard', id),

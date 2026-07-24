@@ -17,6 +17,7 @@ const NotesPanel = (() => {
     // Editor Modal
     editorModal: document.getElementById('note-editor-modal'),
     editorCloseBtn: document.getElementById('note-editor-close-btn'),
+    editorExpandBtn: document.getElementById('note-editor-expand-btn'),
     editorCancelBtn: document.getElementById('note-editor-cancel-btn'),
     editorSaveBtn: document.getElementById('note-editor-save-btn'),
     editorForm: document.getElementById('note-editor-form'),
@@ -59,6 +60,7 @@ const NotesPanel = (() => {
   let selectedColor = 'charcoal';
   let isDraggingGlobal = false;
   let editorBaseline = null;
+  let editorExpanded = false;
   let detailExpanded = false;
   let detailCustomSize = null; // { width, height }
   let detailResizeState = null;
@@ -266,6 +268,10 @@ const NotesPanel = (() => {
 
     // ─── Editör Modalı Dinleyicileri ───
     elements.editorCloseBtn.addEventListener('click', () => { requestCloseEditor(); });
+    elements.editorExpandBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleEditorExpanded();
+    });
     elements.editorCancelBtn.addEventListener('click', () => { requestCloseEditor(); });
     elements.editorForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -1187,6 +1193,32 @@ const NotesPanel = (() => {
     return detailExpanded ? 'Varsayılan boyuta dön' : 'Büyüt';
   }
 
+  function updateEditorExpandButton() {
+    const btn = elements.editorExpandBtn;
+    if (!btn) return;
+    const label = window.i18n
+      ? window.i18n.t(editorExpanded ? 'preview.restore' : 'preview.expand')
+      : (editorExpanded ? 'Varsayılan boyuta dön' : 'Büyüt');
+    btn.innerHTML = editorExpanded ? Utils.Icons.restore : Utils.Icons.maximize;
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('data-tooltip', label);
+    btn.setAttribute('title', label);
+  }
+
+  function toggleEditorExpanded() {
+    editorExpanded = !editorExpanded;
+    const dialog = elements.editorModal?.querySelector('.modal');
+    dialog?.classList.toggle('is-expanded', editorExpanded);
+    updateEditorExpandButton();
+  }
+
+  function resetEditorDialogSize() {
+    editorExpanded = false;
+    const dialog = elements.editorModal?.querySelector('.modal');
+    dialog?.classList.remove('is-expanded');
+    updateEditorExpandButton();
+  }
+
   function updateDetailExpandButton() {
     const btn = elements.detailExpandBtn;
     if (!btn) return;
@@ -1381,6 +1413,7 @@ const NotesPanel = (() => {
     });
 
     elements.editorModal.classList.add('active');
+    resetEditorDialogSize();
     Utils.initFocusTrap(elements.editorModal);
     elements.editTitle.focus();
     updateCategoryPreview();
@@ -1408,6 +1441,7 @@ const NotesPanel = (() => {
   }
 
   function closeEditorModal() {
+    resetEditorDialogSize();
     elements.editorModal.classList.remove('active');
     Utils.destroyFocusTrap(elements.editorModal);
     elements.editorForm.reset();

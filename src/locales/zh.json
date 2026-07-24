@@ -35,7 +35,11 @@
     "change": "更改",
     "confirm": "确认",
     "back": "返回",
-    "next": "下一步"
+    "next": "下一步",
+    "selectMode": "选择",
+    "deleteSelected": "删除所选",
+    "selectAll": "全选",
+    "deselectAll": "取消全选"
   },
   "search": {
     "clipboard": "搜索剪贴板... (Ctrl+F)",
@@ -86,7 +90,8 @@
     "itemPinRemoved": "固定已取消",
     "itemFavAdded": "已添加到收藏夹",
     "itemFavRemoved": "已从收藏夹移除",
-    "itemDeleted": "条目已删除",
+    "itemDeleted": "项目已删除",
+    "itemsDeleted": "已删除 {{count}} 个项目",
     "historyCleared": "已清除 {{count}} 条记录。",
     "historyClearFailed": "清除失败",
     "historyLoadFailed": "加载剪贴板历史失败",
@@ -122,12 +127,16 @@
     "changeLocationTitle": "迁移数据位置",
     "changeLocationMsg": "确定要更改数据库位置并将当前数据复制到新位置吗？",
     "importDataTitle": "导入数据",
-    "importDataMsg": "所选备份文件中的数据将被添加到您当前的数据库中。是否继续？"
+    "importDataMsg": "所选备份文件中的数据将被添加到您当前的数据库中。是否继续？",
+    "deleteSelectedTitle": "删除所选项目",
+    "deleteSelectedMsg": "您确定要删除剪贴板历史记录中选定的 {{count}} 个项目吗？"
   },
   "date": {
     "today": "今天",
     "yesterday": "昨天",
     "thisWeek": "本周",
+    "lastWeek": "上周",
+    "thisMonth": "本月",
     "older": "更早",
     "other": "其他",
     "justNow": "刚刚",
@@ -428,7 +437,9 @@
     "openClipboard": "打开紧凑剪贴板",
     "openNotes": "打开紧凑笔记",
     "settings": "设置",
-    "exit": "退出"
+    "exit": "退出",
+    "balloonTitle": "ClipBoardPrime",
+    "balloonContent": "应用程序将在系统托盘后台继续运行。点击托盘图标或使用 Ctrl+Shift+V 快捷键即可打开。"
   },
   "preview": {
     "title": "快速预览",

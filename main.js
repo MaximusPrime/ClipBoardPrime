@@ -710,8 +710,8 @@ function createWindow() {
       if (!trayBalloonShown && tray) {
         try {
           tray.displayBalloon({
-            title: 'ClipBoardPrime',
-            content: 'Uygulama sistem tepsisinde çalışmaya devam ediyor. Açmak için sistem tepsisi simgesine tıklayabilir veya Ctrl+Shift+V kısayolunu kullanabilirsiniz.',
+            title: getTranslation('tray.balloonTitle'),
+            content: getTranslation('tray.balloonContent'),
           });
           trayBalloonShown = true;
           // DB'ye kalıcı olarak kaydet ki sonraki açılışlarda gösterilmesin
@@ -833,9 +833,27 @@ function getTranslation(key) {
   
   // Fallbacks
   const fallbacks = {
-    'tr': { 'tray.show': 'Göster', 'tray.settings': 'Ayarlar', 'tray.exit': 'Çıkış' },
-    'en': { 'tray.show': 'Show', 'tray.settings': 'Settings', 'tray.exit': 'Exit' },
-    'zh': { 'tray.show': '显示', 'tray.settings': '设置', 'tray.exit': '退出' }
+    'tr': {
+      'tray.show': 'Göster',
+      'tray.settings': 'Ayarlar',
+      'tray.exit': 'Çıkış',
+      'tray.balloonTitle': 'ClipBoardPrime',
+      'tray.balloonContent': 'Uygulama sistem tepsisinde çalışmaya devam ediyor. Açmak için sistem tepsisi simgesine tıklayabilir veya Ctrl+Shift+V kısayolunu kullanabilirsiniz.',
+    },
+    'en': {
+      'tray.show': 'Show',
+      'tray.settings': 'Settings',
+      'tray.exit': 'Exit',
+      'tray.balloonTitle': 'ClipBoardPrime',
+      'tray.balloonContent': 'Application continues running in the system tray. Click the tray icon or use the Ctrl+Shift+V shortcut to open.',
+    },
+    'zh': {
+      'tray.show': '显示',
+      'tray.settings': '设置',
+      'tray.exit': '退出',
+      'tray.balloonTitle': 'ClipBoardPrime',
+      'tray.balloonContent': '应用程序将在系统托盘后台继续运行。点击托盘图标或使用 Ctrl+Shift+V 快捷键即可打开。',
+    },
   };
   let lang = 'en';
   if (db) {
@@ -1939,6 +1957,21 @@ function registerIPCHandlers() {
       return { success: true, data: result };
     } catch (err) {
       console.error('delete-clipboard-item hatası:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-clipboard-items-batch', async (_event, ids) => {
+    try {
+      if (!Array.isArray(ids)) {
+        return { success: false, error: 'Geçersiz id listesi' };
+      }
+      const validIds = ids.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
+      const deletedCount = db.deleteClipboardItemsBatch(validIds);
+      markOsClipboardAsKnown();
+      return { success: true, data: { deleted: deletedCount } };
+    } catch (err) {
+      console.error('delete-clipboard-items-batch hatası:', err);
       return { success: false, error: err.message };
     }
   });

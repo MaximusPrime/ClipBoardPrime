@@ -10,6 +10,12 @@ const ClipboardPanel = (() => {
     count: document.getElementById('clipboard-count'),
     filters: document.getElementById('clipboard-filters'),
     clearBtn: document.getElementById('clear-history-btn'),
+    selectBtn: document.getElementById('clipboard-select-btn'),
+    selectionBar: document.getElementById('clipboard-selection-bar'),
+    selectAllCheckbox: document.getElementById('clipboard-select-all-checkbox'),
+    selectedCount: document.getElementById('clipboard-selected-count'),
+    deleteSelectedBtn: document.getElementById('clipboard-delete-selected-btn'),
+    cancelSelectionBtn: document.getElementById('clipboard-cancel-selection-btn'),
     search: document.getElementById('clipboard-search'),
     searchClear: document.getElementById('clipboard-search-clear'),
     advancedFilterBtn: document.getElementById('clipboard-advanced-filter-btn'),
@@ -23,6 +29,9 @@ const ClipboardPanel = (() => {
   };
 
   let historyItems = [];
+  let isSelectionMode = false;
+  let selectedItemIds = new Set();
+  let lastSelectedIndex = -1;
   let activeFilter = 'all';
   let searchQuery = '';
   let currentPage = 1;
@@ -164,6 +173,33 @@ const ClipboardPanel = (() => {
     // Temizle Butonu
     elements.clearBtn.addEventListener('click', () => {
       handleClearHistory();
+    });
+
+    // Seçim Modu Butonları
+    elements.selectBtn?.addEventListener('click', () => {
+      toggleSelectionMode(!isSelectionMode);
+    });
+    elements.cancelSelectionBtn?.addEventListener('click', () => {
+      toggleSelectionMode(false);
+    });
+    elements.selectAllCheckbox?.addEventListener('change', (e) => {
+      toggleSelectAll(e.target.checked);
+    });
+    elements.deleteSelectedBtn?.addEventListener('click', () => {
+      deleteSelectedItems();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (!isSelectionMode) return;
+      if (e.key === 'Escape') {
+        toggleSelectionMode(false);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        const allSelected = selectedItemIds.size === historyItems.length && historyItems.length > 0;
+        toggleSelectAll(!allSelected);
+      }
     });
 
     // Arama Girişi
@@ -413,6 +449,163 @@ const ClipboardPanel = (() => {
   }
 
   /**
+   * Çoklu seçim modunu açar veya kapatır
+   */
+  function toggleSelectionMode(enable) {
+    isSelectionMode = enable;
+    selectedItemIds.clear();
+    lastSelectedIndex = -1;
+    elements.selectBtn?.classList.toggle('active', isSelectionMode);
+    elements.selectionBar?.classList.toggle('hidden', !isSelectionMode);
+    updateSelectionBarUI();
+    renderHistory(false, true, elements.list ? elements.list.scrollTop : 0);
+  }
+
+  /**
+   * Seçim çubuğu arayüzünü günceller
+   */
+  function updateSelectionBarUI() {
+    const count = selectedItemIds.size;
+    const text = window.i18n
+      ? window.i18n.t('selection.selectedCount', { count })
+      : `${count} öğe seçildi`;
+    if (elements.selectedCount) elements.selectedCount.textContent = text;
+    if (elements.deleteSelectedBtn) {
+      elements.deleteSelectedBtn.disabled = count === 0;
+    }
+    if (elements.selectAllCheckbox) {
+      const totalVisible = historyItems.length;
+      elements.selectAllCheckbox.checked = totalVisible > 0 && count === totalVisible;
+      elements.selectAllCheckbox.indeterminate = count > 0 && count < totalVisible;
+    }
+  }
+
+  /**
+   * Tüm görünür öğeleri seçer veya seçimi kaldırır
+   */
+  function toggleSelectAll(checked) {
+    if (checked) {
+      historyItems.forEach((item) => selectedItemIds.add(Number(item.id)));
+    } else {
+      selectedItemIds.clear();
+    }
+    updateSelectionBarUI();
+    if (elements.list) {
+      elements.list.querySelectorAll('.clip-item').forEach((el) => {
+        const id = Number(el.dataset.id);
+        const isSel = selectedItemIds.has(id);
+        el.classList.toggle('is-selected', isSel);
+        const chk = el.querySelector('.clip-item-checkbox');
+        if (chk) chk.checked = isSel;
+      });
+    }
+  }
+
+  /**
+   * Tekil pano öğesi seçimini değiştirir (Shift+Tık ile aralık seçimi destekler)
+   */
+  function toggleItemSelection(id, shiftKey = false, clickedIndex = -1) {
+    const numId = Number(id);
+    if (shiftKey && lastSelectedIndex !== -1 && clickedIndex !== -1) {
+      const start = Math.min(lastSelectedIndex, clickedIndex);
+      const end = Math.max(lastSelectedIndex, clickedIndex);
+      for (let i = start; i <= end; i++) {
+        if (historyItems[i]) selectedItemIds.add(Number(historyItems[i].id));
+      }
+    } else {
+      if (selectedItemIds.has(numId)) {
+        selectedItemIds.delete(numId);
+      } else {
+        selectedItemIds.add(numId);
+      }
+    }
+    if (clickedIndex !== -1) {
+      lastSelectedIndex = clickedIndex;
+    }
+    updateSelectionBarUI();
+
+    if (elements.list) {
+      elements.list.querySelectorAll('.clip-item').forEach((el) => {
+        const itemId = Number(el.dataset.id);
+        const isSel = selectedItemIds.has(itemId);
+        el.classList.toggle('is-selected', isSel);
+        const chk = el.querySelector('.clip-item-checkbox');
+        if (chk) chk.checked = isSel;
+      });
+    }
+  }
+
+  /**
+   * Seçili tüm pano öğelerini veritabanından ve diskten topluca siler
+   */
+  async function deleteSelectedItems() {
+    const ids = Array.from(selectedItemIds);
+    if (ids.length === 0) return;
+
+    const title = window.i18n ? window.i18n.t('confirm.deleteSelectedTitle') : 'Seçilen Öğeleri Sil';
+    const msg = window.i18n
+      ? window.i18n.t('confirm.deleteSelectedMsg', { count: ids.length })
+      : `Seçilen ${ids.length} pano geçmişi öğesini silmek istediğinize emin misiniz?`;
+
+    const confirmed = await window.App.confirm(title, msg, Utils.Icons.trash);
+    if (!confirmed) return;
+
+    try {
+      let res;
+      if (window.api && typeof window.api.deleteClipboardItemsBatch === 'function') {
+        res = await window.api.deleteClipboardItemsBatch(ids);
+      }
+
+      // Fallback: Ana süreç henüz yeniden başlatılmadıysa veya 'No handler registered' hatası dönerse tekil silme kanalını kullan
+      if (!res || (!res.success && res.error && String(res.error).includes('No handler registered'))) {
+        let deletedCount = 0;
+        for (const id of ids) {
+          const singleRes = await window.api.deleteClipboardItem(id);
+          if (singleRes && singleRes.success) deletedCount++;
+        }
+        res = { success: true, data: { deleted: deletedCount } };
+      }
+
+      if (res && res.success) {
+        const count = res.data?.deleted != null ? res.data.deleted : ids.length;
+        const toastMsg = window.i18n
+          ? window.i18n.t('toast.itemsDeleted', { count })
+          : `${count} öğe silindi`;
+        Utils.showToast(toastMsg, 'info');
+        selectedItemIds.clear();
+        toggleSelectionMode(false);
+        loadHistory(false);
+      } else {
+        Utils.showToast(res?.error || 'Silme işlemi başarısız', 'error');
+      }
+    } catch (err) {
+      // IPC henüz kaydedilmediyse (Hot reload / henüz restart edilmemiş uygulama) sessizce tekil kanala geç
+      if (err && err.message && String(err.message).includes('No handler registered')) {
+        try {
+          let deletedCount = 0;
+          for (const id of ids) {
+            const singleRes = await window.api.deleteClipboardItem(id);
+            if (singleRes && singleRes.success) deletedCount++;
+          }
+          const toastMsg = window.i18n
+            ? window.i18n.t('toast.itemsDeleted', { count: deletedCount })
+            : `${deletedCount} öğe silindi`;
+          Utils.showToast(toastMsg, 'info');
+          selectedItemIds.clear();
+          toggleSelectionMode(false);
+          loadHistory(false);
+          return;
+        } catch (fallbackErr) {
+          console.error('Tekil silme fallback hatası:', fallbackErr);
+        }
+      } else {
+        console.error('Toplu silme hatası:', err);
+      }
+      Utils.showToast('Silme işlemi sırasında hata oluştu', 'error');
+    }
+  }
+
+  /**
    * Skeleton yükleme efekti gösterir
    */
   function showSkeleton() {
@@ -454,6 +647,12 @@ const ClipboardPanel = (() => {
     }
 
     let lastGroup = null;
+    if (append && elements.list) {
+      const existingHeaders = elements.list.querySelectorAll('.date-group-header');
+      if (existingHeaders.length > 0) {
+        lastGroup = existingHeaders[existingHeaders.length - 1].textContent.trim();
+      }
+    }
     const fragment = document.createDocumentFragment();
 
     historyItems.forEach((item) => {
@@ -499,10 +698,20 @@ const ClipboardPanel = (() => {
   function createItemElement(item) {
     const el = document.createElement('div');
     const isLongText = item.content_type !== 'image' && item.content && (item.content.length > 120 || item.content.includes('\n'));
-    el.className = `clip-item ${item.is_pinned ? 'pinned' : ''} ${isLongText ? 'has-expand' : ''}`;
+    const isSelected = selectedItemIds.has(Number(item.id));
+    el.className = `clip-item ${item.is_pinned ? 'pinned' : ''} ${isLongText ? 'has-expand' : ''} ${isSelected ? 'is-selected' : ''}`;
     el.dataset.id = item.id;
     el.dataset.type = item.content_type;
     el.setAttribute('tabindex', '0');
+
+    let checkboxHTML = '';
+    if (isSelectionMode) {
+      checkboxHTML = `
+        <div class="clip-item-checkbox-container">
+          <input type="checkbox" class="clip-item-checkbox" ${isSelected ? 'checked' : ''} tabindex="-1">
+        </div>
+      `;
+    }
 
     // İçerik önizleme veya görsel önizleme
     let contentHTML = '';
@@ -570,6 +779,7 @@ const ClipboardPanel = (() => {
     }
 
     el.innerHTML = `
+      ${checkboxHTML}
       <div class="clip-item-left">
         <div class="clip-item-icon">
           ${Utils.getContentTypeIcon(item.content_type)}
@@ -711,8 +921,28 @@ const ClipboardPanel = (() => {
     // - Tek tık (ayar): hızlı önizleme
     // - Çift tık (ayar): yapıştır — açıkken tek tık gecikmeli
     // - Görsel: tek tık görüntüleyici
+    // Checkbox doğrudan tıklandığında olay kabarmasını durdur ve seçimi kararlı şekilde değiştir
+    const chkInput = el.querySelector('.clip-item-checkbox');
+    if (chkInput) {
+      chkInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const itemIndex = historyItems.findIndex(i => String(i.id) === String(item.id));
+        toggleItemSelection(item.id, e.shiftKey, itemIndex);
+      });
+    }
+
     let singleClickTimer = null;
     el.addEventListener('click', (e) => {
+      if (e.target.closest('.clip-item-checkbox-container')) return;
+
+      if (isSelectionMode) {
+        e.preventDefault();
+        e.stopPropagation();
+        const itemIndex = historyItems.findIndex(i => String(i.id) === String(item.id));
+        toggleItemSelection(item.id, e.shiftKey, itemIndex);
+        return;
+      }
+
       if (e.target.closest('.clip-action-btn') ||
           e.target.closest('.accordion-view-more')) return;
 

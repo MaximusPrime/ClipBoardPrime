@@ -662,6 +662,37 @@ function deleteClipboardItem(id) {
 }
 
 /**
+ * Birden fazla clipboard öğesini toplu olarak siler.
+ */
+function deleteClipboardItemsBatch(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return 0;
+  const deleteStmt = db.prepare('DELETE FROM clipboard_history WHERE id = ?');
+  const getStmt = db.prepare('SELECT id, image_path FROM clipboard_history WHERE id = ?');
+  let deletedCount = 0;
+
+  db.transaction(() => {
+    for (const id of ids) {
+      const item = getStmt.get(id);
+      const res = deleteStmt.run(id);
+      if (res.changes > 0) {
+        deletedCount++;
+        if (item && item.image_path) {
+          try {
+            if (fs.existsSync(item.image_path)) {
+              fs.unlinkSync(item.image_path);
+            }
+          } catch (err) {
+            console.error('Görsel dosya silme hatası:', err);
+          }
+        }
+      }
+    }
+  })();
+
+  return deletedCount;
+}
+
+/**
  * Creates and rebuilds the FTS5 index. Sensitive content is never indexed.
  */
 function initializeClipboardFts() {
@@ -1952,6 +1983,7 @@ module.exports = {
   updateClipboardItem,
   getClipboardHistory,
   deleteClipboardItem,
+  deleteClipboardItemsBatch,
   clearHistory,
   togglePin,
   toggleFavorite,

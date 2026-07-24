@@ -48,11 +48,26 @@ const Utils = (() => {
   };
 
   /**
+   * SQLite datetime ("YYYY-MM-DD HH:MM:SS") veya ISO metinlerini güvenle JS Date nesnesine çevirir.
+   */
+  function parseDate(dateStr) {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+    let str = String(dateStr).trim();
+    if (str.includes(' ') && !str.includes('T')) {
+      str = str.replace(' ', 'T');
+    }
+    const date = new Date(str);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  /**
    * Tarihi locale'e göre formatlar: "Today 03:45 PM", "Yesterday", "12 Jun 2026"
    */
   function formatDate(dateStr) {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
+    const date = parseDate(dateStr);
+    if (!date) return '';
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(today);
@@ -81,10 +96,11 @@ const Utils = (() => {
    */
   function timeAgo(dateStr) {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
+    const date = parseDate(dateStr);
+    if (!date) return '';
     const now = new Date();
     const diffMs = now - date;
-    const diffSec = Math.floor(diffMs / 1000);
+    const diffSec = Math.max(0, Math.floor(diffMs / 1000));
     const diffMin = Math.floor(diffSec / 60);
     const diffHour = Math.floor(diffMin / 60);
     const diffDay = Math.floor(diffHour / 24);
@@ -102,23 +118,27 @@ const Utils = (() => {
   }
 
   /**
-   * Bir tarihin hangi gruba ait olduğunu locale'e göre döndürür
+   * Bir tarihin hangi gruba ait olduğunu tam gün sınırlarına göre döndürür
    */
   function getDateGroup(dateStr) {
     const _ = (key) => window.i18n ? window.i18n.t(key) : key;
-    if (!dateStr) return _('date.other');
-    const date = new Date(dateStr);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const date = parseDate(dateStr);
+    if (!date) return _('date.other');
 
-    if (dateDay.getTime() >= today.getTime()) return _('date.today');
-    if (dateDay.getTime() >= yesterday.getTime()) return _('date.yesterday');
-    if (dateDay.getTime() >= weekAgo.getTime()) return _('date.thisWeek');
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterdayStart = todayStart - 86400000;
+    const sevenDaysAgoStart = todayStart - 6 * 86400000;
+    const fourteenDaysAgoStart = todayStart - 13 * 86400000;
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+    const itemDayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+
+    if (itemDayStart >= todayStart) return _('date.today');
+    if (itemDayStart >= yesterdayStart) return _('date.yesterday');
+    if (itemDayStart >= sevenDaysAgoStart) return _('date.thisWeek');
+    if (itemDayStart >= fourteenDaysAgoStart) return _('date.lastWeek');
+    if (itemDayStart >= thisMonthStart) return _('date.thisMonth');
     return _('date.older');
   }
 
@@ -437,6 +457,7 @@ const Utils = (() => {
 
   return {
     Icons,
+    parseDate,
     formatDate,
     timeAgo,
     getDateGroup,

@@ -35,7 +35,11 @@
     "change": "Değiştir",
     "confirm": "Onayla",
     "back": "Geri",
-    "next": "İleri"
+    "next": "İleri",
+    "selectMode": "Seç",
+    "deleteSelected": "Seçilenleri Sil",
+    "selectAll": "Tümünü Seç",
+    "deselectAll": "Seçimi Kaldır"
   },
   "search": {
     "clipboard": "Panoda ara... (Ctrl+F)",
@@ -87,6 +91,7 @@
     "itemFavAdded": "Favorilere eklendi",
     "itemFavRemoved": "Favorilerden çıkarıldı",
     "itemDeleted": "Öğe silindi",
+    "itemsDeleted": "{{count}} öğe silindi",
     "historyCleared": "{{count}} öğe temizlendi.",
     "historyClearFailed": "Temizlenemedi",
     "historyLoadFailed": "Pano geçmişi yüklenemedi",
@@ -122,12 +127,16 @@
     "changeLocationTitle": "Veri Konumunu Taşı",
     "changeLocationMsg": "Veritabanı konumunu değiştirmek ve mevcut verilerinizi yeni konuma kopyalamak istediğinize emin misiniz?",
     "importDataTitle": "Veriyi İçe Aktar",
-    "importDataMsg": "Seçilen yedek dosyasındaki veriler mevcut veritabanınıza eklenecektir. Devam etmek istiyor musunuz?"
+    "importDataMsg": "Seçilen yedek dosyasındaki veriler mevcut veritabanınıza eklenecektir. Devam etmek istiyor musunuz?",
+    "deleteSelectedTitle": "Seçilen Öğeleri Sil",
+    "deleteSelectedMsg": "Seçilen {{count}} pano geçmişi öğesini silmek istediğinize emin misiniz?"
   },
   "date": {
     "today": "Bugün",
     "yesterday": "Dün",
     "thisWeek": "Bu Hafta",
+    "lastWeek": "Geçen Hafta",
+    "thisMonth": "Bu Ay",
     "older": "Daha Eski",
     "other": "Diğer",
     "justNow": "Az önce",
@@ -428,7 +437,9 @@
     "openClipboard": "Kompakt Panoyu Aç",
     "openNotes": "Kompakt Notları Aç",
     "settings": "Ayarlar",
-    "exit": "Çıkış"
+    "exit": "Çıkış",
+    "balloonTitle": "ClipBoardPrime",
+    "balloonContent": "Uygulama sistem tepsisinde çalışmaya devam ediyor. Açmak için sistem tepsisi simgesine tıklayabilir veya Ctrl+Shift+V kısayolunu kullanabilirsiniz."
   },
   "preview": {
     "title": "Hızlı Önizleme",

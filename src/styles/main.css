@@ -921,6 +921,81 @@ img { max-width: 100%; display: block; }
   background: var(--border-primary);
 }
 
+/* ── Selection Bar ────────────────────────────────────────── */
+.selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-secondary));
+  border-bottom: 1px solid var(--accent-primary);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.selection-bar.hidden {
+  display: none !important;
+}
+
+.selection-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selection-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.selection-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compact-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  gap: 4px;
+}
+
+/* Card Selection Mode Styles */
+.clip-item.is-selected {
+  border-color: var(--accent-primary) !important;
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-card)) !important;
+  box-shadow: 0 0 0 1px var(--accent-primary), var(--shadow-sm) !important;
+}
+
+.clip-item-checkbox-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding-right: 4px;
+}
+
+.clip-item-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+  margin: 0;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    CLIPBOARD ITEM CARD
    ═══════════════════════════════════════════════════════════════ */
@@ -2623,9 +2698,47 @@ body.is-resizing-preview * {
 
 .data-location-row .btn { flex-shrink: 0; }
 
-/* ── Note Editor Modal ────────────────────────────────────── */
 #note-editor-modal .modal {
   width: 560px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  transition: width var(--transition-normal), height var(--transition-normal);
+}
+
+#note-editor-modal .modal.is-expanded {
+  width: calc(100vw - 16px) !important;
+  max-width: calc(100vw - 16px) !important;
+  height: calc(100vh - 16px) !important;
+  max-height: calc(100vh - 16px) !important;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-xl), 0 0 0 1px color-mix(in srgb, var(--accent-primary) 18%, transparent);
+}
+
+#note-editor-modal .modal.is-expanded .modal-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+#note-editor-modal .modal.is-expanded .note-editor-form {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+#note-editor-modal .modal.is-expanded .form-group:nth-child(3) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+#note-editor-modal .modal.is-expanded #note-edit-content {
+  flex: 1 1 auto;
+  min-height: 240px;
+  height: 100%;
+  resize: vertical;
 }
 
 .note-editor-form {

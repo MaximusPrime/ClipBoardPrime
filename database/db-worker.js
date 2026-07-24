@@ -39,6 +39,9 @@ parentPort.on('message', (message) => {
       case 'deleteClipboardItem':
         result = db.deleteClipboardItem(params);
         break;
+      case 'deleteClipboardItemsBatch':
+        result = db.deleteClipboardItemsBatch(params);
+        break;
       case 'clearHistory':
         result = db.clearHistory();
         break;
