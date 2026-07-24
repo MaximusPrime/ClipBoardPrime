@@ -8,10 +8,10 @@
 
   Store clipboard history locally, find past content instantly, paste it into the active window, and turn frequently used items into organized notes.
 
-  [![Version](https://img.shields.io/badge/version-1.0.1-6366f1?style=flat-square)](package.json)
+  [![Version](https://img.shields.io/badge/version-1.0.2-6366f1?style=flat-square)](package.json)
   [![Electron](https://img.shields.io/badge/Electron-43-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](#system-requirements)
-  [![Tests](https://img.shields.io/badge/tests-54%20passing-22c55e?style=flat-square)](#quality-assurance)
+  [![Tests](https://img.shields.io/badge/tests-58%20passing-22c55e?style=flat-square)](#quality-assurance)
   [![Security](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-22c55e?style=flat-square)](#security-and-privacy)
   [![License](https://img.shields.io/badge/license-GPL--3.0-22c55e?style=flat-square)](LICENSE)
 
