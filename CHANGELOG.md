@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-07-24
+
+### Highlights
+
+- **Tray Balloon Notification Localization (Issue #1)**: Fixed hardcoded notification text when minimizing to tray for the first time. Added dynamic i18n support across Turkish, English, and Chinese locale files.
+- **Note Editor Maximize Mode**: Added full-screen expand button to the note editor modal for large text editing with flexible vertical layout.
+- **Batch Item Selection & Deletion**: Added multi-select mode with checkboxes, range selection (Shift+Click), select all (Ctrl+A), and atomic batch deletion from SQLite database and disk storage.
+- **Date Grouping Fixes**: Resolved SQLite local datetime string parsing and prevented duplicate group headers during infinite scroll loading.
+
 ---
 
 ## [1.0.1] - 2026-07-17
