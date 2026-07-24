@@ -131,6 +131,9 @@
     "deleteSelectedTitle": "删除所选项目",
     "deleteSelectedMsg": "您确定要删除剪贴板历史记录中选定的 {{count}} 个项目吗？"
   },
+  "selection": {
+    "selectedCount": "已选择 {{count}} 项"
+  },
   "date": {
     "today": "今天",
     "yesterday": "昨天",

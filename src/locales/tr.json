@@ -131,6 +131,9 @@
     "deleteSelectedTitle": "Seçilen Öğeleri Sil",
     "deleteSelectedMsg": "Seçilen {{count}} pano geçmişi öğesini silmek istediğinize emin misiniz?"
   },
+  "selection": {
+    "selectedCount": "{{count}} öğe seçildi"
+  },
   "date": {
     "today": "Bugün",
     "yesterday": "Dün",

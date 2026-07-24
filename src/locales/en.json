@@ -131,6 +131,10 @@
     "deleteSelectedTitle": "Delete Selected Items",
     "deleteSelectedMsg": "Are you sure you want to delete {{count}} selected items from clipboard history?"
   },
+  "selection": {
+    "selectedCount": "{{count}} item selected",
+    "selectedCount_plural": "{{count}} items selected"
+  },
   "date": {
     "today": "Today",
     "yesterday": "Yesterday",

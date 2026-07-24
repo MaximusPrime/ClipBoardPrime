@@ -466,9 +466,13 @@ const ClipboardPanel = (() => {
    */
   function updateSelectionBarUI() {
     const count = selectedItemIds.size;
-    const text = window.i18n
-      ? window.i18n.t('selection.selectedCount', { count })
-      : `${count} öğe seçildi`;
+    let text = `${count} öğe seçildi`;
+    if (window.i18n) {
+      const key = (count > 1 && window.i18n.getLanguage() === 'en')
+        ? 'selection.selectedCount_plural'
+        : 'selection.selectedCount';
+      text = window.i18n.t(key, { count });
+    }
     if (elements.selectedCount) elements.selectedCount.textContent = text;
     if (elements.deleteSelectedBtn) {
       elements.deleteSelectedBtn.disabled = count === 0;
