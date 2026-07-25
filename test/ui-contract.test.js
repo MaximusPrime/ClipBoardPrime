@@ -484,7 +484,7 @@ test('HTML çeviri anahtarları bütün dil dosyalarında tanımlıdır', () => 
     });
   }
 
-  for (const language of ['tr', 'en', 'zh']) {
+  for (const language of ['tr', 'en', 'zh', 'pt-BR']) {
     const locale = JSON.parse(read(`src/locales/${language}.json`));
     const missing = [...keys].filter((key) => !hasPath(locale, key));
     assert.deepEqual(missing, [], `${language} dilinde eksik anahtarlar var`);

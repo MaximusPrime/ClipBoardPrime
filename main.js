@@ -375,6 +375,19 @@ function getClipboardMenuLabels() {
       details: '显示详情',
       delete: '删除',
     },
+    'pt-BR': {
+      paste: 'Colar',
+      pastePlain: 'Colar como Texto Simples',
+      copy: 'Copiar',
+      copyPlain: 'Copiar como Texto Simples',
+      pin: 'Fixar',
+      unpin: 'Desafixar',
+      favorite: 'Adicionar aos Favoritos',
+      unfavorite: 'Remover dos Favoritos',
+      note: 'Salvar como Nota',
+      details: 'Mostrar Detalhes',
+      delete: 'Excluir',
+    }
   };
   return labels[language] || labels.en;
 }
@@ -854,6 +867,13 @@ function getTranslation(key) {
       'tray.balloonTitle': 'ClipBoardPrime',
       'tray.balloonContent': '应用程序将在系统托盘后台继续运行。点击托盘图标或使用 Ctrl+Shift+V 快捷键即可打开。',
     },
+    'pt-BR': {
+      'tray.show': 'Mostrar',
+      'tray.settings': 'Configurações',
+      'tray.exit': 'Sair',
+      'tray.balloonTitle': 'ClipBoardPrime',
+      'tray.balloonContent': 'O aplicativo continua em execução na bandeja do sistema. Clique no ícone da bandeja ou use o atalho Ctrl+Shift+V para abrir.',
+    }
   };
   let lang = 'en';
   if (db) {
