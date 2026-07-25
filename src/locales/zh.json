@@ -209,6 +209,7 @@
     "langTr": "Türkçe",
     "langEn": "English",
     "langZh": "中文 (简体)",
+    "langPtBr": "Português (Brasil)",
     "autostartLabel": "开机自启",
     "autostartDesc": "计算机启动时自动运行",
     "adminModeLabel": "管理员模式",

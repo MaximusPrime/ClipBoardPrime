@@ -63,7 +63,7 @@ The application is designed around three principles:
 ### Personalization and system integration
 
 - Dark, light, and system themes.
-- Turkish, English, and Simplified Chinese interfaces.
+- Turkish, English, Simplified Chinese, and Brazilian Portuguese interfaces.
 - Customizable global shortcut.
 - Optional launch at Windows startup.
 - Adjustable clipboard polling interval and history limit.
@@ -207,7 +207,7 @@ lib/backup-crypto.js    Password-protected backup encryption
 src/
   index.html            Application shell and accessible dialogs
   js/                   Clipboard, notes, settings, i18n, and UI modules
-  locales/              Turkish, English, and Simplified Chinese resources
+  locales/              Turkish, English, Simplified Chinese, and Brazilian Portuguese resources
   styles/               Themes and application styling
 test/                   Database and backup-encryption regression tests
 ```
