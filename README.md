@@ -8,10 +8,10 @@
 
   Store clipboard history locally, find past content instantly, paste it into the active window, and turn frequently used items into organized notes.
 
-  [![Version](https://img.shields.io/badge/version-1.0.2-6366f1?style=flat-square)](package.json)
+  [![Version](https://img.shields.io/badge/version-1.0.3-6366f1?style=flat-square)](package.json)
   [![Electron](https://img.shields.io/badge/Electron-43-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](#system-requirements)
-  [![Tests](https://img.shields.io/badge/tests-58%20passing-22c55e?style=flat-square)](#quality-assurance)
+  [![Tests](https://img.shields.io/badge/tests-60%20passing-22c55e?style=flat-square)](#quality-assurance)
   [![Security](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-22c55e?style=flat-square)](#security-and-privacy)
   [![License](https://img.shields.io/badge/license-GPL--3.0-22c55e?style=flat-square)](LICENSE)
 
@@ -153,8 +153,8 @@ Download the installer or portable executable from the project’s [GitHub Relea
 
 | Distribution | Behavior |
 |---|---|
-| `ClipBoardPrime Setup <version>.exe` | Standard Windows installation with an optional install directory |
-| `ClipBoardPrime Portable <version>.exe` | Keeps application data in the adjacent `data` directory |
+| `ClipBoardPrime.Setup.Recommended.<version>.exe` | Recommended Windows installation with an optional install directory |
+| `ClipBoardPrime.Portable.<version>.exe` | Keeps application data in the adjacent `data` directory |
 
 ### System requirements
 
@@ -226,7 +226,7 @@ npm audit
 npm run build
 ```
 
-The 54-test suite covers encrypted-backup round trips, password-policy enforcement, worker-based database tasks, randomized sensitive-data encryption, search and retention rules, import fidelity, safe data-location migration, IPC boundaries, localization completeness, keyboard behavior, responsive UI contracts, and compact-workspace regressions. The Electron E2E runner additionally verifies onboarding, live theme previews, modal focus protection, shared window bounds, off-screen recovery, and renderer reload behavior.
+The 60-test suite covers encrypted-backup round trips, password-policy enforcement, worker-based database tasks, randomized sensitive-data encryption, search and retention rules, import fidelity, safe data-location migration, IPC boundaries, localization completeness, language fallback and persistence, keyboard behavior, responsive UI contracts, and compact-workspace regressions. The Electron E2E runner additionally verifies onboarding, live theme previews, modal focus protection, shared window bounds, off-screen recovery, and renderer reload behavior.
 
 The complete dependency tree can be checked with:
 

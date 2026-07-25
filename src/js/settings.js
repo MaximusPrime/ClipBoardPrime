@@ -170,7 +170,15 @@ const SettingsPanel = (() => {
     if (elements.language) {
       elements.language.addEventListener('change', async (e) => {
         const lang = e.target.value;
-        await saveSetting('language', lang, false); // false = don't show "setting saved" toast for language
+        const saved = await saveSetting('language', lang, false);
+        if (!saved) {
+          e.target.value = window.i18n?.getLanguage() || 'en';
+          Utils.showToast(
+            window.i18n ? window.i18n.t('toast.settingFailed') : 'Ayar kaydedilemedi',
+            'error'
+          );
+          return;
+        }
         if (window.i18n) {
           await window.i18n.setLanguage(lang);
           updateFontSizeLabels();
@@ -496,6 +504,7 @@ const SettingsPanel = (() => {
         if (key === 'showKeyboardHelp') {
           window.App?.applyKeyboardHelpVisibility?.();
         }
+        return true;
       } else {
         // Sessiz kayıtlar (migrasyon vb.) kullanıcıya kırmızı toast basmasın
         const msg = (window.i18n ? window.i18n.t('toast.settingFailed') : 'Ayar kaydedilemedi') + ': ' + (response?.error || '');
@@ -504,12 +513,14 @@ const SettingsPanel = (() => {
         } else {
           console.warn('[settings]', key, response?.error || msg);
         }
+        return false;
       }
     } catch (err) {
       console.error(err);
       if (showToast) {
         Utils.showToast(window.i18n ? window.i18n.t('toast.settingFailed') : 'Ayar kaydedilemedi', 'error');
       }
+      return false;
     }
   }
 

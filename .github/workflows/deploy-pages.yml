@@ -36,7 +36,7 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Install dependencies
-        run: npm i
+        run: npm ci
         working-directory: website
 
       - name: Build site

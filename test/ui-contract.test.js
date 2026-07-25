@@ -490,3 +490,18 @@ test('HTML çeviri anahtarları bütün dil dosyalarında tanımlıdır', () => 
     assert.deepEqual(missing, [], `${language} dilinde eksik anahtarlar var`);
   }
 });
+
+test('i18n yalnızca varsayılan İngilizce dile fallback yapar', () => {
+  const source = read('src/js/i18n.js');
+  assert.match(source, /resolve\(translations\[DEFAULT_LANG\], key\)/);
+  assert.doesNotMatch(source, /resolve\(translations\['tr'\], key\)/);
+  assert.doesNotMatch(source, /resolve\(translations\['zh'\], key\)/);
+  assert.doesNotMatch(source, /resolve\(translations\['pt-BR'\], key\)/);
+});
+
+test('dil yalnızca ayar kalıcı olarak kaydedilirse arayüze uygulanır', () => {
+  const source = read('src/js/settings.js');
+  assert.match(source, /const saved = await saveSetting\('language', lang, false\)/);
+  assert.match(source, /if \(!saved\)[\s\S]*?e\.target\.value = window\.i18n\?\.getLanguage\(\) \|\| 'en'/);
+  assert.match(source, /if \(!saved\)[\s\S]*?return;[\s\S]*?window\.i18n\.setLanguage\(lang\)/);
+});

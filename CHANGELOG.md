@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-07-26
+
+### Highlights
+
+- **Brazilian Portuguese completed:** Integrated the community `pt-BR` translation across settings, onboarding, clipboard actions, system tray menus, documentation, and localization contract tests.
+- **Reliable language persistence:** The interface now changes language only after the preference is saved successfully; failed saves restore the previous selection instead of creating a temporary inconsistent state.
+- **Predictable localization fallback:** Missing translations now fall back exclusively to English, preventing mixed-language interfaces.
+- **Security maintenance:** Updated Electron to 43.2.0 and Koffi to 3.1.2, patched the complete desktop and website dependency trees, and verified both with zero known npm vulnerabilities.
+- **Website platform upgrade:** Migrated the project website from Astro 5/Tailwind 3 to Astro 7/Tailwind 4, replaced inline lightbox handlers with safe event listeners, and made CI installs reproducible with `npm ci`.
+
+### Quality and release engineering
+
+- Expanded the automated suite from 58 to 60 tests with regressions for localization fallback and failed language persistence.
+- Verified JavaScript syntax, all 60 automated tests, the isolated Electron E2E workflow, Astro diagnostics, desktop packaging, and website production builds.
+- Standardized Windows artifacts as `ClipBoardPrime.Setup.Recommended.1.0.3.exe` and `ClipBoardPrime.Portable.1.0.3.exe`.
+- Removed obsolete development patch files and generated Astro cache files from source control.
+
 ## [1.0.2] - 2026-07-24
 
 ### Highlights

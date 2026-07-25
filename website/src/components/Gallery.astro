@@ -3,7 +3,7 @@ const shots = [
   { src: '/ClipBoardPrime/images/screenshots/history-compact.png', title: 'Compact Clipboard History', desc: 'Instant search, filters, space-bar preview, and active window paste' },
   { src: '/ClipBoardPrime/images/screenshots/notes-workspace.png', title: 'Organized Notes Workspace', desc: 'Color-coded categories, pin & favorite notes, rich content editing' },
   { src: '/ClipBoardPrime/images/screenshots/welcome-guided.png', title: 'Guided First-Run Onboarding', desc: 'Quick introduction to shortcuts, features, and local privacy' },
-  { src: '/ClipBoardPrime/images/screenshots/live-preferences.png', title: 'Live Theme & Language Personalization', desc: 'Dark, Light, System themes + TR, EN, ZH interface languages' },
+  { src: '/ClipBoardPrime/images/screenshots/live-preferences.png', title: 'Live Theme & Language Personalization', desc: 'Dark, Light, System themes + TR, EN, ZH, PT-BR interface languages' },
   { src: '/ClipBoardPrime/images/screenshots/settings-general.png', title: 'Application & Storage Settings', desc: 'Custom global hotkey, database polling interval, and local history limits' },
 ];
 ---
@@ -17,11 +17,14 @@ const shots = [
     </div>
 
     <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {shots.map((shot, index) => (
+      {shots.map((shot) => (
         <button
           type="button"
           class="glass group relative overflow-hidden rounded-2xl p-2.5 text-left transition duration-300 hover:border-sky-500/60 hover:shadow-[0_0_30px_rgba(14,165,233,0.2)] focus:outline-none flex flex-col justify-between"
-          onclick={`openLightbox('${shot.src}', '${shot.title.replace(/'/g, "\\'")}', '${shot.desc.replace(/'/g, "\\'")}')`}
+          data-lightbox-trigger
+          data-lightbox-src={shot.src}
+          data-lightbox-title={shot.title}
+          data-lightbox-desc={shot.desc}
         >
           <div class="overflow-hidden rounded-xl bg-slate-950/80 min-h-[260px] h-64 w-full flex items-center justify-center p-2 relative border border-white/5">
             <img src={shot.src} alt={shot.title} class="max-h-full max-w-full object-contain transition duration-500 group-hover:scale-[1.03]" loading="lazy" />
@@ -45,7 +48,7 @@ const shots = [
     <div class="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center">
       <button
         type="button"
-        onclick="closeLightbox()"
+        data-lightbox-close
         class="absolute -top-12 right-0 text-slate-400 hover:text-white transition p-2 text-sm font-semibold flex items-center gap-1 bg-white/10 rounded-lg px-3"
       >
         ✕ Close (Esc)
@@ -88,6 +91,18 @@ const shots = [
       document.body.style.overflow = '';
     }
   }
+
+  document.querySelectorAll('[data-lightbox-trigger]').forEach((trigger) => {
+    trigger.addEventListener('click', () => {
+      openLightbox(
+        trigger.dataset.lightboxSrc || '',
+        trigger.dataset.lightboxTitle || '',
+        trigger.dataset.lightboxDesc || ''
+      );
+    });
+  });
+
+  document.querySelector('[data-lightbox-close]')?.addEventListener('click', closeLightbox);
 
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {

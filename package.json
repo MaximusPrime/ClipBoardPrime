@@ -1,6 +1,6 @@
 {
   "name": "clipboard-prime-app",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Profesyonel Clipboard Manager + Not Paneli",
   "main": "main.js",
   "scripts": {
@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
-    "koffi": "^3.1.0"
+    "koffi": "^3.1.2"
   },
   "devDependencies": {
-    "electron": "^43.1.1",
+    "electron": "^43.2.0",
     "electron-builder": "^26.15.3"
   },
   "author": {
@@ -55,12 +55,12 @@
       ]
     },
     "portable": {
-      "artifactName": "${productName} Portable ${version}.${ext}"
+      "artifactName": "${productName}.Portable.${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "${productName} Setup ${version}.${ext}"
+      "artifactName": "${productName}.Setup.Recommended.${version}.${ext}"
     },
     "files": [
       "src/**/*",
@@ -87,5 +87,8 @@
     "asarUnpack": [
       "**/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
     ]
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8"
   }
 }

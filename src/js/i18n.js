@@ -48,11 +48,8 @@ const i18n = (() => {
   function t(key, vars = {}) {
     let value =
       resolve(translations[currentLang], key) ||
-      resolve(translations['tr'], key) ||   // Fallback to Turkish
-      resolve(translations['en'], key) ||   // Fallback to English
-      resolve(translations['zh'], key) ||    // Fallback to Chinese (Simplified)
-      resolve(translations['pt-BR'], key) || // Fallback to Portuguese (Brazil)
-      key;                                  // Last resort: key itself
+      resolve(translations[DEFAULT_LANG], key) ||
+      key;
 
     if (typeof value !== 'string') {
       return key;
@@ -72,10 +69,7 @@ const i18n = (() => {
   function tArray(key) {
     const value =
       resolve(translations[currentLang], key) ||
-      resolve(translations['tr'], key) ||
-      resolve(translations['en'], key) ||
-      resolve(translations['zh'], key) ||
-      resolve(translations['pt-BR'], key);
+      resolve(translations[DEFAULT_LANG], key);
     return Array.isArray(value) ? value : [];
   }
 
@@ -87,10 +81,7 @@ const i18n = (() => {
   function tObj(key) {
     const value =
       resolve(translations[currentLang], key) ||
-      resolve(translations['tr'], key) ||
-      resolve(translations['en'], key) ||
-      resolve(translations['zh'], key) ||
-      resolve(translations['pt-BR'], key);
+      resolve(translations[DEFAULT_LANG], key);
     return (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
   }
 
