@@ -1,12 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════
    ClipBoard Prime — i18n Internationalization Engine
-   Supports: tr (Turkish), en (English), zh (Chinese Simplified)
+   Supports: tr (Turkish), en (English), zh (Chinese Simplified), pt-BR (Portuguese - Brazil)
    ═══════════════════════════════════════════════════════════════ */
 
 'use strict';
 
 const i18n = (() => {
-  const SUPPORTED = ['tr', 'en', 'zh'];
+  const SUPPORTED = ['tr', 'en', 'zh', 'pt-BR'];
   const DEFAULT_LANG = 'en';
   const LOCALE_DIR = './locales/';
 
@@ -50,6 +50,8 @@ const i18n = (() => {
       resolve(translations[currentLang], key) ||
       resolve(translations['tr'], key) ||   // Fallback to Turkish
       resolve(translations['en'], key) ||   // Fallback to English
+      resolve(translations['zh'], key) ||    // Fallback to Chinese (Simplified)
+      resolve(translations['pt-BR'], key) || // Fallback to Portuguese (Brazil)
       key;                                  // Last resort: key itself
 
     if (typeof value !== 'string') {
@@ -71,7 +73,9 @@ const i18n = (() => {
     const value =
       resolve(translations[currentLang], key) ||
       resolve(translations['tr'], key) ||
-      resolve(translations['en'], key);
+      resolve(translations['en'], key) ||
+      resolve(translations['zh'], key) ||
+      resolve(translations['pt-BR'], key);
     return Array.isArray(value) ? value : [];
   }
 
@@ -84,7 +88,9 @@ const i18n = (() => {
     const value =
       resolve(translations[currentLang], key) ||
       resolve(translations['tr'], key) ||
-      resolve(translations['en'], key);
+      resolve(translations['en'], key) ||
+      resolve(translations['zh'], key) ||
+      resolve(translations['pt-BR'], key);
     return (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
   }
 
@@ -126,6 +132,8 @@ const i18n = (() => {
     const htmlEl = document.documentElement;
     if (currentLang === 'zh') {
       htmlEl.setAttribute('lang', 'zh-CN');
+    } else if (currentLang === 'pt-BR') {
+      htmlEl.setAttribute('lang', 'pt-BR');
     } else {
       htmlEl.setAttribute('lang', currentLang);
     }
@@ -133,7 +141,7 @@ const i18n = (() => {
 
   /**
    * Sets the active language and updates the DOM.
-   * @param {string} lang - Language code ('tr', 'en', 'zh')
+   * @param {string} lang - Language code ('tr', 'en', 'zh', 'pt-BR')
    */
   async function setLanguage(lang) {
     if (!SUPPORTED.includes(lang)) {
