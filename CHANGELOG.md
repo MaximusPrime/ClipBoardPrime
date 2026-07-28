@@ -13,11 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fail-safe paste behavior:** Removed the shell-based `mshta/SendKeys` fallback. If native input or target focus cannot be verified, paste is safely cancelled, the application is restored when needed, and the user receives a visible error.
 - **Always on Top:** Added a persistent toggle under General settings to keep ClipBoardPrime above other windows when desired.
 - **Complete window memory:** Normal bounds, monitor-safe position, and maximized state are now restored reliably. Final bounds are flushed on exit, while cursor-adjacent opening no longer overwrites the user's remembered position.
+- **Native Windows Snap:** The title bar now exposes a reliable drag surface while the native resize frame explicitly preserves edge, corner, maximize, and Snap Layout docking.
 - **Clearer settings organization:** Everyday interaction preferences now live under General > Interaction, while advanced controls are grouped into Security and Privileges, History and Retention, and Clipboard Engine.
 
 ### Quality assurance
 
-- Expanded the automated regression suite from 60 to **64 passing tests**.
+- Expanded the automated regression suite from 60 to **65 passing tests**.
 - Extended the real Electron E2E workflow to verify bounds persistence, cursor-position isolation, maximized-state persistence, off-screen recovery, workspace switching, and renderer reload.
 - Verified JavaScript syntax, all localization contracts, Win32/Koffi window-handle behavior, and clean patch integrity.
 - Updated application, documentation, website copy, download links, and release metadata for `v1.0.4`.

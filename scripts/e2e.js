@@ -52,6 +52,9 @@ child.on('exit', (code) => {
     if (!result.compact.rendererMode || !result.compact.resizable) {
       throw new Error('Kompakt pano modu renderer/pencere durumuna uygulanmadı.');
     }
+    if (!result.snapEligible) {
+      throw new Error('Pencere Windows Snap için taşınabilir, boyutlandırılabilir ve maksimize edilebilir değil.');
+    }
     if (!result.notes.rendererMode || !result.notes.resizable) {
       throw new Error('Notlar görünümü doğru uygulanmadı.');
     }

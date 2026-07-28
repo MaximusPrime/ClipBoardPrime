@@ -671,6 +671,14 @@ function createWindow() {
     minWidth: 420,
     minHeight: 520,
     frame: true,
+    movable: true,
+    resizable: true,
+    minimizable: true,
+    maximizable: true,
+    fullscreenable: true,
+    // Preserve the native Windows resize frame so Aero Snap can dock the
+    // window to screen edges, corners, and Snap Layout targets.
+    thickFrame: true,
     show: false, // ready-to-show ile göster (flicker engelleme)
     icon: getAppIconPath(),
     alwaysOnTop: db.getSetting('alwaysOnTop') === 'true',
@@ -1067,6 +1075,8 @@ async function runE2EScenarios() {
   const compact = {
     bounds: mainWindow.getBounds(),
     resizable: mainWindow.isResizable(),
+    movable: mainWindow.isMovable(),
+    maximizable: mainWindow.isMaximizable(),
     rendererMode: await mainWindow.webContents.executeJavaScript(
       `document.getElementById('app').classList.contains('workspace-clipboard')`
     ),
@@ -1153,6 +1163,7 @@ async function runE2EScenarios() {
     liveTheme,
     modalBlurProtected,
     compact,
+    snapEligible: compact.resizable && compact.movable && compact.maximizable,
     notes,
     workspaceSwitchKeepsBounds,
     boundsPersisted,

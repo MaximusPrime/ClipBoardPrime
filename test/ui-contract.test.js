@@ -287,6 +287,20 @@ test('Pano ve Notlar geçiş kontrolü başlık çubuğunda geometrik olarak ort
   assert.match(css, /\.titlebar-actions\s*\{[^}]*justify-self:\s*end/s);
 });
 
+test('başlık çubuğu ve native pencere çerçevesi Windows Snap kullanımına uygundur', () => {
+  const main = read('main.js');
+  const css = read('src/styles/main.css');
+  const runner = read('scripts/e2e.js');
+  assert.match(main, /frame:\s*true/);
+  assert.match(main, /movable:\s*true/);
+  assert.match(main, /resizable:\s*true/);
+  assert.match(main, /maximizable:\s*true/);
+  assert.match(main, /thickFrame:\s*true/);
+  assert.match(css, /#titlebar\s*\{[^}]*-webkit-app-region:\s*drag/s);
+  assert.match(css, /\.titlebar-logo\s*\{[^}]*-webkit-app-region:\s*drag/s);
+  assert.match(runner, /snapEligible/);
+});
+
 test('klavye kısayolları güvenli kayıt ve düzenleme alanı koruması kullanır', () => {
   const main = read('main.js');
   const app = read('src/js/app.js');

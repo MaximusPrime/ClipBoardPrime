@@ -11,7 +11,7 @@
   [![Version](https://img.shields.io/badge/version-1.0.4-6366f1?style=flat-square)](package.json)
   [![Electron](https://img.shields.io/badge/Electron-43-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](#system-requirements)
-  [![Tests](https://img.shields.io/badge/tests-64%20passing-22c55e?style=flat-square)](#quality-assurance)
+  [![Tests](https://img.shields.io/badge/tests-65%20passing-22c55e?style=flat-square)](#quality-assurance)
   [![Security](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-22c55e?style=flat-square)](#security-and-privacy)
   [![License](https://img.shields.io/badge/license-GPL--3.0-22c55e?style=flat-square)](LICENSE)
 
@@ -72,6 +72,7 @@ The application is designed around three principles:
 - Configurable data location with integrity checks and rollback protection.
 - Shared, resizable Clipboard/Notes window bounds that are remembered and recovered safely inside the active monitor.
 - Optional **Always on Top** mode plus persistent normal bounds and maximized window state.
+- Native Windows edge, corner, maximize, and Snap Layout docking from the application title bar.
 
 ## Security and privacy
 

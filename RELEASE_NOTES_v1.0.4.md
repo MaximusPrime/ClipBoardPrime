@@ -24,6 +24,7 @@ ClipBoardPrime remains a fast, private, local-first clipboard manager for Window
 - **Reliable shutdown save:** The latest window bounds are written immediately when the application exits, closing the final debounce timing gap.
 - **Cursor mode isolation:** Opening beside the mouse cursor is treated as a temporary placement and no longer overwrites the user's remembered normal position.
 - **Monitor-aware first launch and recovery:** Initial placement and off-screen recovery respect the real Windows work area, including multi-monitor offsets and taskbar space.
+- **Natural Windows Snap:** Drag the logo/title area to screen edges or corners for native half-screen, quarter-screen, maximize, and Windows 11 Snap Layout behavior.
 
 ### Settings that are easier to understand
 
@@ -33,7 +34,7 @@ ClipBoardPrime remains a fast, private, local-first clipboard manager for Window
 
 ### Quality and confidence
 
-- Automated coverage increased from 60 to **64 passing tests**.
+- Automated coverage increased from 60 to **65 passing tests**.
 - The real Electron E2E suite now validates actual window-bound persistence, temporary cursor positioning, maximized-state persistence, off-screen recovery, workspace transitions, onboarding, and renderer reload.
 - Win32/Koffi native window-handle addressing was verified on Windows.
 - JavaScript syntax checks, localization completeness, IPC contracts, database behavior, encryption tests, and patch-integrity checks all pass.
