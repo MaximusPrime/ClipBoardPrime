@@ -291,6 +291,18 @@
               </div>
               <div class="setting-row">
                 <div class="setting-label">
+                  <span data-i18n="settings.alwaysOnTopLabel">Her Zaman Üstte</span>
+                  <small data-i18n="settings.alwaysOnTopDesc">Uygulama penceresini diğer pencerelerin üzerinde tut</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-always-on-top" aria-label="Uygulamayı her zaman üstte göster">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
                   <span data-i18n="settings.hideAfterPasteLabel">Yapıştırdıktan Sonra Gizle</span>
                   <small data-i18n="settings.hideAfterPasteDesc">Aktif pencereye yapıştırma tamamlanınca ClipBoardPrime'ı gizle</small>
                 </div>
@@ -366,35 +378,8 @@
                 </div>
               </div>
             </div>
-          </div>
-
-
-          <!-- Advanced Tab -->
-          <div class="settings-section" id="settings-advanced" role="tabpanel" aria-label="Gelişmiş Ayarlar">
             <div class="setting-group">
-              <div class="setting-group-title" data-i18n="settings.groupAdvanced">Gelişmiş</div>
-<div class="setting-row">
-                <div class="setting-label">
-                  <span data-i18n="settings.sensitiveLabel">Hassas Veri Algılama</span>
-                  <small data-i18n="settings.sensitiveDesc">Algılanan hassas içerikleri önizlemede maskele ve şifreli sakla</small>
-                </div>
-                <div class="setting-value">
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="setting-sensitive" aria-label="Panodan kopyalanan hassas verileri otomatik maskele">
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-              <div class="setting-row">
-                <div class="setting-label">
-                  <span data-i18n="settings.adminModeLabel">Yönetici Modu</span>
-                  <small data-i18n="settings.adminModeDesc">Zorunlu değildir. Yalnızca yönetici olarak çalışan programlara yapıştırmanız gerekiyorsa kullanın; UAC onayı ister.</small>
-                </div>
-                <div class="setting-value setting-admin-actions">
-                  <span class="setting-status" id="setting-admin-status"></span>
-                  <button class="btn btn-default" id="restart-as-admin-btn" type="button" data-i18n="settings.restartAsAdmin">Yönetici Olarak Yeniden Başlat</button>
-                </div>
-              </div>
+              <div class="setting-group-title" data-i18n="settings.groupInteraction">Etkileşim</div>
               <div class="setting-row">
                 <div class="setting-label">
                   <span data-i18n="settings.clearSearchOnHideLabel">Gizlenince Aramayı Temizle</span>
@@ -527,6 +512,39 @@
                   </label>
                 </div>
               </div>
+            </div>
+          </div>
+
+
+          <!-- Advanced Tab -->
+          <div class="settings-section" id="settings-advanced" role="tabpanel" aria-label="Gelişmiş Ayarlar">
+            <div class="setting-group">
+              <div class="setting-group-title" data-i18n="settings.groupSecurity">Güvenlik ve Yetki</div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.sensitiveLabel">Hassas Veri Algılama</span>
+                  <small data-i18n="settings.sensitiveDesc">Algılanan hassas içerikleri önizlemede maskele ve şifreli sakla</small>
+                </div>
+                <div class="setting-value">
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="setting-sensitive" aria-label="Panodan kopyalanan hassas verileri otomatik maskele">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span data-i18n="settings.adminModeLabel">Yönetici Modu</span>
+                  <small data-i18n="settings.adminModeDesc">Zorunlu değildir. Yalnızca yönetici olarak çalışan programlara yapıştırmanız gerekiyorsa kullanın; UAC onayı ister.</small>
+                </div>
+                <div class="setting-value setting-admin-actions">
+                  <span class="setting-status" id="setting-admin-status"></span>
+                  <button class="btn btn-default" id="restart-as-admin-btn" type="button" data-i18n="settings.restartAsAdmin">Yönetici Olarak Yeniden Başlat</button>
+                </div>
+              </div>
+            </div>
+            <div class="setting-group">
+              <div class="setting-group-title" data-i18n="settings.groupStorage">Geçmiş ve Saklama</div>
                 <div class="setting-row">
                   <div class="setting-label">
                     <span data-i18n="settings.historyLimitLabel">Geçmiş Limiti</span>
@@ -584,6 +602,9 @@
                     <label><span data-i18n="filter.image">Görsel</span><select class="setting-select" data-retention-type="image"></select></label>
                   </div>
                 </div>
+            </div>
+            <div class="setting-group">
+              <div class="setting-group-title" data-i18n="settings.groupClipboardEngine">Pano Motoru</div>
                 <div class="setting-row">
                 <div class="setting-label">
                   <span data-i18n="settings.pollIntervalLabel">Pano İzleme Aralığı</span>
@@ -597,7 +618,7 @@
                   </select>
                 </div>
               </div>
-                          </div>
+            </div>
           </div>
 
           <!-- Data Tab -->
@@ -656,7 +677,7 @@
                 <img src="../assets/maximus-prime-software.png" alt="Maximus Prime Software Logo" class="about-logo-img">
               </div>
               <h3 class="about-app-title" id="about-app-title">ClipBoardPrime</h3>
-              <p class="about-app-version" id="about-app-version">Sürüm 1.0.3</p>
+              <p class="about-app-version" id="about-app-version">Sürüm 1.0.4</p>
               
               <!-- Uygulama Detay Kartı (App Info Card) -->
               <div class="developer-profile-card">

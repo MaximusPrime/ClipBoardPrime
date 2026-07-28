@@ -26,6 +26,7 @@ const SettingsPanel = (() => {
     shortcut: document.getElementById('setting-shortcut'),
     notesShortcut: document.getElementById('setting-notes-shortcut'),
     blurToTray: document.getElementById('setting-blur-to-tray'),
+    alwaysOnTop: document.getElementById('setting-always-on-top'),
     clearSearchOnHide: document.getElementById('setting-clear-search-on-hide'),
     clearNotesSearchOnHide: document.getElementById('setting-clear-notes-search-on-hide'),
     hideAfterPaste: document.getElementById('setting-hide-after-paste'),
@@ -103,6 +104,9 @@ const SettingsPanel = (() => {
     if (elements.blurToTray) {
       elements.blurToTray.addEventListener('change', (e) => saveSetting('blurToTray', String(e.target.checked)));
     }
+    elements.alwaysOnTop?.addEventListener('change', (e) => {
+      saveSetting('alwaysOnTop', String(e.target.checked));
+    });
     if (elements.clearSearchOnHide) {
       elements.clearSearchOnHide.addEventListener('change', (e) => saveSetting('clearSearchOnHide', String(e.target.checked)));
     }
@@ -348,6 +352,9 @@ const SettingsPanel = (() => {
         if (elements.blurToTray) {
           elements.blurToTray.checked = currentSettings.blurToTray === 'true';
         }
+        if (elements.alwaysOnTop) {
+          elements.alwaysOnTop.checked = currentSettings.alwaysOnTop === 'true';
+        }
         if (elements.clearSearchOnHide) {
           elements.clearSearchOnHide.checked = currentSettings.clearSearchOnHide === 'true';
         }
@@ -541,6 +548,7 @@ const SettingsPanel = (() => {
     else if (key === 'globalShortcut') elements.shortcut.value = value;
     else if (key === 'notesGlobalShortcut' && elements.notesShortcut) elements.notesShortcut.value = value;
     else if (key === 'blurToTray' && elements.blurToTray) elements.blurToTray.checked = value === 'true';
+    else if (key === 'alwaysOnTop' && elements.alwaysOnTop) elements.alwaysOnTop.checked = value === 'true';
     else if (key === 'clearSearchOnHide' && elements.clearSearchOnHide) elements.clearSearchOnHide.checked = value === 'true';
     else if (key === 'clearNotesSearchOnHide' && elements.clearNotesSearchOnHide) elements.clearNotesSearchOnHide.checked = value === 'true';
     else if (key === 'hideAfterPaste' && elements.hideAfterPaste) elements.hideAfterPaste.checked = value !== 'false';

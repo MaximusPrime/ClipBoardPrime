@@ -449,6 +449,9 @@ test('Electron E2E reload ve ekran dışı bounds toparlamasını doğrular', ()
   assert.match(main, /boundsRecovered/);
   assert.match(runner, /reloadState/);
   assert.match(runner, /Ekran dışı pencere bounds/);
+  assert.match(runner, /boundsPersisted/);
+  assert.match(runner, /cursorPositionKeepsRememberedBounds/);
+  assert.match(runner, /maximizedStatePersisted/);
 });
 
 test('kurulum ve veri ayarları gerçek release davranışını doğru açıklar', () => {
@@ -489,6 +492,61 @@ test('HTML çeviri anahtarları bütün dil dosyalarında tanımlıdır', () => 
     const missing = [...keys].filter((key) => !hasPath(locale, key));
     assert.deepEqual(missing, [], `${language} dilinde eksik anahtarlar var`);
   }
+});
+
+test('pencere konumu kapanışta güvenle saklanır ve geçici imleç konumu son konumu ezmez', () => {
+  const source = read('main.js');
+  assert.match(source, /getNormalBounds\(\)/);
+  assert.match(source, /windowMaximized/);
+  assert.match(source, /saveWindowBoundsNow\(\)/);
+  assert.match(source, /if \(transientWindowPosition\) return/);
+  assert.match(source, /isExpectedTransientMove/);
+  assert.match(source, /if \(isExpectedTransientMove\) return/);
+  assert.match(source, /if \(mainWindow\.isMaximized\(\) \|\| mainWindow\.isFullScreen\(\)\) return/);
+});
+
+test('her zaman üstte ayarı izinli, kalıcı ve anında uygulanır', () => {
+  const main = read('main.js');
+  const settings = read('src/js/settings.js');
+  assert.match(main, /'alwaysOnTop', 'windowMaximized'/);
+  assert.match(main, /alwaysOnTop: db\.getSetting\('alwaysOnTop'\) === 'true'/);
+  assert.match(main, /mainWindow\.setAlwaysOnTop\(value === 'true'\)/);
+  assert.match(settings, /saveSetting\('alwaysOnTop', String\(e\.target\.checked\)\)/);
+});
+
+test('aktif pencereye yapıştırma sıralı ve doğrulanmış hedefe güvenli biçimde gönderilir', () => {
+  const source = read('main.js');
+  assert.match(source, /enqueuePasteOperation\(async \(\) =>/);
+  assert.match(source, /isValidTargetWindow\(pasteTargetHwnd\)/);
+  assert.match(source, /await focusPasteTarget\(pasteTargetHwnd/);
+  assert.match(source, /sameNativeWindow\(GetForegroundWindow\(\), hwnd\)/);
+  assert.match(source, /touchPastedClipboardItem\(id\);\s*resolve\(\{ success: true \}\)/);
+  assert.doesNotMatch(source, /mshta|WScript\.Shell|SendKeys/);
+});
+
+test('günlük etkileşim tercihleri Genel, riskli ve teknik tercihler Gelişmiş sekmesindedir', () => {
+  const html = read('src/index.html');
+  const generalStart = html.indexOf('id="settings-general"');
+  const advancedStart = html.indexOf('id="settings-advanced"');
+  const dataStart = html.indexOf('id="settings-data"');
+  const general = html.slice(generalStart, advancedStart);
+  const advanced = html.slice(advancedStart, dataStart);
+
+  for (const id of [
+    'setting-clear-search-on-hide',
+    'setting-clipboard-open-filter',
+    'quick-action-settings-list',
+    'setting-space-key-action',
+    'setting-clipboard-double-click-paste',
+  ]) assert.match(general, new RegExp(`id="${id}"`));
+
+  for (const id of [
+    'setting-sensitive',
+    'restart-as-admin-btn',
+    'setting-history-limit',
+    'setting-retention-days',
+    'setting-poll-interval',
+  ]) assert.match(advanced, new RegExp(`id="${id}"`));
 });
 
 test('i18n yalnızca varsayılan İngilizce dile fallback yapar', () => {

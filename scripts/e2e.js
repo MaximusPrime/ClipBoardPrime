@@ -58,6 +58,15 @@ child.on('exit', (code) => {
     if (!result.workspaceSwitchKeepsBounds) {
       throw new Error('Pano/Notlar geçişi pencere boyutunu veya konumunu değiştirdi.');
     }
+    if (!result.boundsPersisted) {
+      throw new Error('Pencere boyutu veya konumu kalıcı ayara kaydedilmedi.');
+    }
+    if (!result.cursorPositionKeepsRememberedBounds) {
+      throw new Error('İmleç yanında açılış kalıcı son pencere konumunu ezdi.');
+    }
+    if (!result.maximizedStatePersisted) {
+      throw new Error('Pencerenin maksimize durumu kalıcı ayara kaydedilmedi.');
+    }
     if (!result.boundsRecovered) throw new Error('Ekran dışı pencere bounds değeri toparlanmadı.');
     if (!result.reloadState.appReady || !result.reloadState.mainVisible || !result.reloadState.onboardingPresent) {
       throw new Error('Renderer reload sonrasında uygulama durumu yeniden kurulamadı.');

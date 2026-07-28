@@ -8,10 +8,10 @@
 
   Store clipboard history locally, find past content instantly, paste it into the active window, and turn frequently used items into organized notes.
 
-  [![Version](https://img.shields.io/badge/version-1.0.3-6366f1?style=flat-square)](package.json)
+  [![Version](https://img.shields.io/badge/version-1.0.4-6366f1?style=flat-square)](package.json)
   [![Electron](https://img.shields.io/badge/Electron-43-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
   [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=flat-square&logo=windows&logoColor=white)](#system-requirements)
-  [![Tests](https://img.shields.io/badge/tests-60%20passing-22c55e?style=flat-square)](#quality-assurance)
+  [![Tests](https://img.shields.io/badge/tests-64%20passing-22c55e?style=flat-square)](#quality-assurance)
   [![Security](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-22c55e?style=flat-square)](#security-and-privacy)
   [![License](https://img.shields.io/badge/license-GPL--3.0-22c55e?style=flat-square)](LICENSE)
 
@@ -50,7 +50,8 @@ The application is designed around three principles:
 - Paste text into the previously active Windows application using the native `SendInput` API.
 - Use the primary **Paste** button, press `Enter`, or double-click a compatible clipboard item.
 - Copy images back to the system clipboard with one click.
-- Tracks the active target window and releases stuck modifier keys before sending `Ctrl + V`.
+- Verifies that the remembered target still exists and is truly focused before sending `Ctrl + V`.
+- Serializes rapid paste requests to prevent clipboard content from crossing between operations.
 
 ### Notes and categories
 
@@ -70,6 +71,7 @@ The application is designed around three principles:
 - Installer and portable distribution modes.
 - Configurable data location with integrity checks and rollback protection.
 - Shared, resizable Clipboard/Notes window bounds that are remembered and recovered safely inside the active monitor.
+- Optional **Always on Top** mode plus persistent normal bounds and maximized window state.
 
 ## Security and privacy
 

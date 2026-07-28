@@ -24,7 +24,7 @@ const {
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { exec, execFile } = require('child_process');
+const { execFile } = require('child_process');
 const { Worker } = require('worker_threads');
 const {
   WORKSPACE_MODES,
@@ -44,6 +44,7 @@ let koffi = null;
 let GetForegroundWindow = null;
 let SetForegroundWindow = null;
 let GetClassNameA = null;
+let IsWindow = null;
 let SendInput = null;
 let INPUT = null;
 let lastActiveWindowHwnd = null;
@@ -92,6 +93,7 @@ if (process.platform === 'win32') {
     GetForegroundWindow = user32.func('void *GetForegroundWindow()');
     SetForegroundWindow = user32.func('bool SetForegroundWindow(void *hWnd)');
     GetClassNameA = user32.func('int GetClassNameA(void *hWnd, char *lpClassName, int nMaxCount)');
+    IsWindow = user32.func('bool IsWindow(void *hWnd)');
     SendInput = user32.func('uint32_t SendInput(uint32_t cInputs, INPUT *pInputs, int cbSize)');
 
     const kernel32 = koffi.load('kernel32.dll');
@@ -119,6 +121,7 @@ function getActiveWindowClassName() {
 
 function isValidTargetWindow(hwnd) {
   if (!hwnd) return false;
+  if (IsWindow && !IsWindow(hwnd)) return false;
   if (!GetClassNameA) return true;
   try {
     const buf = Buffer.alloc(256);
@@ -131,11 +134,12 @@ function isValidTargetWindow(hwnd) {
     }
     
     // ClipBoardPrime'ın kendi penceresini de hedef yapıştırma penceresi olarak kaydetmiyoruz
-    if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow && !mainWindow.isDestroyed() && koffi) {
       const mainHandle = mainWindow.getNativeWindowHandle();
-      if (mainHandle && Buffer.isBuffer(hwnd) && Buffer.compare(mainHandle, hwnd) === 0) {
-        return false;
-      }
+      const mainAddress = mainHandle.length >= 8
+        ? mainHandle.readBigUInt64LE(0)
+        : BigInt(mainHandle.readUInt32LE(0));
+      if (koffi.address(hwnd) === mainAddress) return false;
     }
     return true;
   } catch (err) {
@@ -299,6 +303,7 @@ function requireIdOrderList(value) {
 
 const ALLOWED_SETTING_KEYS = new Set([
   'theme', 'appFontSize', 'maxHistory', 'pollingInterval', 'startWithWindows',
+  'alwaysOnTop', 'windowMaximized',
   'dataLocation', 'globalShortcut', 'showPreview', 'detectSensitive',
   'blurToTray', 'language', 'leftPanelWidth', 'leftPanelWidthRatio',
   'windowBounds', 'trayBalloonShown', 'clearSearchOnHide',
@@ -556,6 +561,9 @@ let lastBlurTime = 0;
 let isApplyingWorkspaceBounds = false;
 let workspaceBoundsTransitionId = 0;
 let workspaceBoundsReleaseTimer = null;
+let transientWindowPosition = null;
+let saveWindowBoundsNow = () => {};
+let pasteOperationQueue = Promise.resolve();
 let fatalErrorInProgress = false;
 let modalProtectionUntil = 0;
 const startHidden = process.argv.includes('--hidden') || process.argv.includes('--startup');
@@ -615,9 +623,11 @@ function createWindow() {
   let windowBounds = { width: 540, height: 640 };
   let isFirstRun = false;
   let initialMode = 'clipboard';
+  let shouldRestoreMaximized = false;
   try {
     if (db.isReady()) {
       initialMode = resolveWorkspaceOpenMode();
+      shouldRestoreMaximized = db.getSetting('windowMaximized') === 'true';
       db.saveSetting('workspaceMode', initialMode);
       const savedBounds = db.getSetting(workspaceBoundsKey(initialMode));
       if (savedBounds) {
@@ -637,10 +647,9 @@ function createWindow() {
   // İlk çalıştırmada pencereyi ekranın sağ alt köşesine konumlandır
   if (isFirstRun) {
     try {
-      const primaryDisplay = screen.getPrimaryDisplay();
-      const { width: sw, height: sh } = primaryDisplay.workAreaSize;
-      windowBounds.x = sw - windowBounds.width - 16;
-      windowBounds.y = sh - windowBounds.height - 16;
+      const { workArea } = screen.getPrimaryDisplay();
+      windowBounds.x = workArea.x + workArea.width - windowBounds.width - 16;
+      windowBounds.y = workArea.y + workArea.height - windowBounds.height - 16;
     } catch (e) { /* merkeze bırak */ }
   }
 
@@ -664,6 +673,7 @@ function createWindow() {
     frame: true,
     show: false, // ready-to-show ile göster (flicker engelleme)
     icon: getAppIconPath(),
+    alwaysOnTop: db.getSetting('alwaysOnTop') === 'true',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -673,6 +683,8 @@ function createWindow() {
       additionalArguments: [`--cbp-bootstrap=${bootstrapArgument}`],
     },
   });
+
+  if (shouldRestoreMaximized) mainWindow.maximize();
 
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -741,24 +753,46 @@ function createWindow() {
     _blurHandlerDebounced();
   });
 
-  // Pencere boyutu/konumu değişince kaydet
-  const saveBoundsDebounced = debounce(() => {
+  // Pencere boyutu/konumu ve büyütülmüş durumu değişince kaydet.
+  // İmleç yanında açma gibi geçici konumlandırmalar kullanıcının son konumunu ezmez.
+  const saveBounds = () => {
+    if (transientWindowPosition) return;
     if (mainWindow && !mainWindow.isDestroyed() && !isApplyingWorkspaceBounds) {
       try {
-        const bounds = mainWindow.getBounds();
+        const bounds = mainWindow.isMaximized()
+          ? mainWindow.getNormalBounds()
+          : mainWindow.getBounds();
         db.saveSetting(workspaceBoundsKey(db.getSetting('workspaceMode')), JSON.stringify(bounds));
+        db.saveSetting('windowMaximized', String(mainWindow.isMaximized()));
       } catch (err) {
-        // Kayıt hatası görmezden gel
+        console.error('Pencere boyutu/konumu kaydedilemedi:', err);
       }
     }
-  }, 500);
+  };
+  saveWindowBoundsNow = saveBounds;
+  const saveBoundsDebounced = debounce(saveBounds, 500);
 
   mainWindow.on('resize', saveBoundsDebounced);
-  mainWindow.on('move', saveBoundsDebounced);
+  mainWindow.on('move', () => {
+    if (transientWindowPosition) {
+      const [x, y] = mainWindow.getPosition();
+      const isExpectedTransientMove = (
+        Date.now() <= transientWindowPosition.expiresAt
+        && x === transientWindowPosition.x
+        && y === transientWindowPosition.y
+      );
+      if (isExpectedTransientMove) return;
+      transientWindowPosition = null;
+    }
+    saveBoundsDebounced();
+  });
+  mainWindow.on('maximize', saveBoundsDebounced);
+  mainWindow.on('unmaximize', saveBoundsDebounced);
 
   // Pencere kapandığında referansı temizle
   mainWindow.on('closed', () => {
     mainWindow = null;
+    saveWindowBoundsNow = () => {};
   });
 }
 
@@ -1057,6 +1091,34 @@ async function runE2EScenarios() {
   const workspaceSwitchKeepsBounds = ['x', 'y', 'width', 'height']
     .every((key) => switchBoundsBefore[key] === switchBoundsAfter[key]);
 
+  const persistedCandidate = constrainBoundsToDisplay({
+    x: switchBoundsAfter.x + 24,
+    y: switchBoundsAfter.y + 24,
+    width: 548,
+    height: 648,
+  });
+  mainWindow.setBounds(persistedCandidate, false);
+  const actualPersistedCandidate = mainWindow.getBounds();
+  await wait(700);
+  const persistedBounds = JSON.parse(db.getSetting(workspaceBoundsKey()) || '{}');
+  const boundsPersisted = ['x', 'y', 'width', 'height']
+    .every((key) => actualPersistedCandidate[key] === persistedBounds[key]);
+
+  const rememberedBeforeCursorOpen = db.getSetting(workspaceBoundsKey());
+  db.saveSetting('windowOpenPosition', 'cursor');
+  positionWindowForOpen();
+  await wait(700);
+  const cursorPositionKeepsRememberedBounds = (
+    db.getSetting(workspaceBoundsKey()) === rememberedBeforeCursorOpen
+  );
+  db.saveSetting('windowOpenPosition', 'remember');
+
+  mainWindow.maximize();
+  await wait(700);
+  const maximizedStatePersisted = db.getSetting('windowMaximized') === 'true';
+  mainWindow.unmaximize();
+  await wait(700);
+
   applyWorkspaceMode('clipboard', {
     persist: false,
     bounds: { x: -100000, y: -100000, width: 540, height: 640 },
@@ -1093,6 +1155,9 @@ async function runE2EScenarios() {
     compact,
     notes,
     workspaceSwitchKeepsBounds,
+    boundsPersisted,
+    cursorPositionKeepsRememberedBounds,
+    maximizedStatePersisted,
     boundsRecovered,
     reloadState,
   })}\n`);
@@ -1174,6 +1239,7 @@ function hideWindow() {
 function positionWindowForOpen() {
   if (!mainWindow || mainWindow.isDestroyed() || !db.isReady()) return;
   if (db.getSetting('windowOpenPosition') !== 'cursor') return;
+  if (mainWindow.isMaximized() || mainWindow.isFullScreen()) return;
 
   const cursor = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursor);
@@ -1185,23 +1251,70 @@ function positionWindowForOpen() {
   const x = Math.min(Math.max(cursor.x + gap, workArea.x), maxX);
   const y = Math.min(Math.max(cursor.y + gap, workArea.y), maxY);
 
-  mainWindow.setPosition(Math.round(x), Math.round(y), false);
+  const transientPosition = {
+    x: Math.round(x),
+    y: Math.round(y),
+    expiresAt: Date.now() + 1000,
+  };
+  transientWindowPosition = transientPosition;
+  mainWindow.setPosition(transientWindowPosition.x, transientWindowPosition.y, false);
+  setTimeout(() => {
+    if (transientWindowPosition === transientPosition) transientWindowPosition = null;
+  }, 1000);
 }
 
-function sendPasteWithMshta() {
-  return new Promise((resolve) => {
-    exec(
-      'mshta vbscript:Close(CreateObject("WScript.Shell").SendKeys("^v"))',
-      (error) => {
-        if (error) {
-          console.error('mshta fallback hatası:', error);
-          resolve({ success: false, error: error.message });
-        } else {
-          resolve({ success: true });
-        }
-      }
-    );
-  });
+function sameNativeWindow(first, second) {
+  if (!first || !second || !koffi) return false;
+  try {
+    return koffi.address(first) === koffi.address(second);
+  } catch {
+    return false;
+  }
+}
+
+function waitMilliseconds(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function focusPasteTarget(hwnd, timeoutMs = 500) {
+  if (!isValidTargetWindow(hwnd) || !GetForegroundWindow || !SetForegroundWindow) {
+    return false;
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const foreground = GetForegroundWindow();
+    if (sameNativeWindow(foreground, hwnd)) return true;
+    SetForegroundWindow(hwnd);
+    await waitMilliseconds(25);
+  } while (Date.now() < deadline && isValidTargetWindow(hwnd));
+
+  return isValidTargetWindow(hwnd)
+    && sameNativeWindow(GetForegroundWindow(), hwnd);
+}
+
+function enqueuePasteOperation(operation) {
+  const queued = pasteOperationQueue.then(operation, operation);
+  pasteOperationQueue = queued.catch(() => {});
+  return queued;
+}
+
+function touchPastedClipboardItem(id) {
+  if (!id || !db.isReady()) return;
+  try {
+    const touched = typeof db.touchClipboardItem === 'function'
+      ? db.touchClipboardItem(id)
+      : null;
+    if (touched && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('clipboard-changed', touched);
+    }
+  } catch (err) {
+    console.error('Yapıştırma sonrası öğe zamanı güncellenemedi:', err);
+  }
+}
+
+function restoreWindowAfterPasteFailure(wasHidden) {
+  if (wasHidden && mainWindow && !mainWindow.isDestroyed()) showWindow();
 }
 
 function toggleWindow() {
@@ -2172,8 +2285,9 @@ function registerIPCHandlers() {
     }
   });
 
-  ipcMain.handle('paste-to-active-window', async (_event, params) => {
+  ipcMain.handle('paste-to-active-window', (_event, params) => enqueuePasteOperation(async () => {
     let id, content, plainText = false, type = 'text';
+    let appWasHiddenForPaste = false;
     if (params && typeof params === 'object') {
       id = params.id;
       content = params.content;
@@ -2199,6 +2313,14 @@ function registerIPCHandlers() {
       const databaseContent = type === 'html' && plainText
         ? htmlToPlainText(actualContent)
         : actualContent;
+
+      // Panoyu değiştirmeden önce hedefin hâlâ geçerli olduğundan emin ol.
+      const pasteTargetHwnd = lastActiveWindowHwnd;
+      if (!isValidTargetWindow(pasteTargetHwnd)) {
+        isWritingToClipboard = false;
+        return { success: false, error: 'Yapıştırılacak aktif pencere bulunamadı.' };
+      }
+
       if (type === 'html' && !plainText) {
         clipboard.write({
           text: htmlToPlainText(actualContent),
@@ -2211,44 +2333,27 @@ function registerIPCHandlers() {
       // Clipboard değerlerini güncelle (paste geçmişe yeni kayıt yazmaz)
       updateLastClipboardState();
 
-      // Bilinen bir geçmiş öğesi yapıştırıldıysa yalnızca "son kullanım" zamanını güncelle
-      if (id && db.isReady()) {
-        try {
-          const touched = typeof db.touchClipboardItem === 'function'
-            ? db.touchClipboardItem(id)
-            : null;
-          if (touched && mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('clipboard-changed', touched);
-          }
-        } catch (dbErr) {
-          console.error('Yapıştırma sonrası öğe zamanı güncellenemedi:', dbErr);
+      if (!(await focusPasteTarget(pasteTargetHwnd))) {
+        isWritingToClipboard = false;
+        return { success: false, error: 'Hedef pencereye güvenli şekilde odaklanılamadı.' };
+      }
+
+      if (mainWindow && !mainWindow.isDestroyed() && db.getSetting('hideAfterPaste') !== 'false') {
+        mainWindow.hide();
+        appWasHiddenForPaste = true;
+        await waitMilliseconds(100);
+        if (!(await focusPasteTarget(pasteTargetHwnd))) {
+          isWritingToClipboard = false;
+          restoreWindowAfterPasteFailure(appWasHiddenForPaste);
+          return { success: false, error: 'Pencere gizlendikten sonra hedef odağı kayboldu; yapıştırma iptal edildi.' };
         }
       }
 
       if (SendInput && INPUT) {
-        // Yapıştırma boyunca hedefin blur/timer olayları tarafından değişmesini önle.
-        const pasteTargetHwnd = lastActiveWindowHwnd;
-
-        // 1. Önce hedef pencereyi öne getir (ClipBoardPrime hala odaktayken bu yetkiye sahiptir)
-        if (pasteTargetHwnd && SetForegroundWindow) {
-          SetForegroundWindow(pasteTargetHwnd);
-        }
-
-        // 2. Kısa bir süre bekleyip odağın geçişini sağla, ardından ClipBoardPrime'ı gizle
         return await new Promise((resolve) => setTimeout(async () => {
           try {
-            if (mainWindow && !mainWindow.isDestroyed() && db.getSetting('hideAfterPaste') !== 'false') {
-              mainWindow.hide();
-            }
-
-            // 3. Pencere gizlendikten sonra odağın tamamen oturması için asenkron gecikme
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // Electron gizlenirken Windows odağı başka bir pencereye verebilir.
-            // Sabitlenen hedefi gizleme sonrasında yeniden öne getir.
-            if (pasteTargetHwnd && SetForegroundWindow) {
-              SetForegroundWindow(pasteTargetHwnd);
-              await new Promise(resolve => setTimeout(resolve, 80));
+            if (!(await focusPasteTarget(pasteTargetHwnd, 250))) {
+              throw new Error('Yapıştırma öncesinde hedef pencere odağı doğrulanamadı.');
             }
 
             // Sanal klavye kodları ve modifikatörler
@@ -2286,38 +2391,36 @@ function registerIPCHandlers() {
               const errorCode = GetLastError ? GetLastError() : 0;
               throw new Error(`Windows yapıştırma komutu tamamlanamadı (kod: ${errorCode}).`);
             }
+            touchPastedClipboardItem(id);
             resolve({ success: true });
           } catch (sendErr) {
             console.error('SendInput yapıştırma hatası:', sendErr);
-            // Native giriş engellenirse çalışan eski yönteme otomatik geç.
-            const fallbackResult = await sendPasteWithMshta();
-            resolve(fallbackResult.success
-              ? fallbackResult
-              : { success: false, error: `${sendErr.message}; ${fallbackResult.error}` });
+            restoreWindowAfterPasteFailure(appWasHiddenForPaste);
+            resolve({ success: false, error: sendErr.message });
           } finally {
             // isWritingToClipboard bayrağını klavye simülasyonu sonrasında kaldır
             setTimeout(() => {
               isWritingToClipboard = false;
             }, 50);
           }
-        }, 150));
+        }, 20));
       } else {
-        // Fallback: mshta yöntemi (koffi yüklenemezse yedek olarak çalışır)
-        // Aktif pencereye yapıştırmak için ClipBoardPrime'ın odağı kaybetmesi (gizlenmesi) şarttır.
-        if (mainWindow && !mainWindow.isDestroyed() && db.getSetting('hideAfterPaste') !== 'false') {
-          mainWindow.hide();
-        }
-        await new Promise(resolve => setTimeout(resolve, 150));
-        const fallbackResult = await sendPasteWithMshta();
+        // Native giriş katmanı yoksa yanlış pencereye tuş gönderen shell fallback'i kullanma.
+        const fallbackResult = {
+          success: false,
+          error: 'Windows native yapıştırma bileşeni kullanılamıyor.',
+        };
+        restoreWindowAfterPasteFailure(appWasHiddenForPaste);
         isWritingToClipboard = false;
         return fallbackResult;
       }
     } catch (err) {
       console.error('paste-to-active-window hatası:', err);
       isWritingToClipboard = false;
+      restoreWindowAfterPasteFailure(appWasHiddenForPaste);
       return { success: false, error: err.message };
     }
-  });
+  }));
 
   // ── Notes ────────────────────────────────────────────────────
 
@@ -2725,6 +2828,7 @@ function registerIPCHandlers() {
       });
       mainWindow.setBounds(bounds, true);
       db.saveSetting(workspaceBoundsKey(), JSON.stringify(bounds));
+      db.saveSetting('windowMaximized', 'false');
       return { success: true, data: bounds };
     } catch (err) {
       console.error('reset-window-bounds hatası:', err);
@@ -2764,6 +2868,12 @@ function handleSettingChange(key, value) {
     case 'startWithWindows':
       // Başlangıçta aç ayarını güncelle
       setWindowsAutostart(value === 'true');
+      break;
+
+    case 'alwaysOnTop':
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setAlwaysOnTop(value === 'true');
+      }
       break;
 
     case 'language':
@@ -2992,6 +3102,7 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  saveWindowBoundsNow();
 });
 
 app.on('will-quit', () => {
